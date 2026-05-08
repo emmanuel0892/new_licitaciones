@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  lastname      String
+  rut           String    @unique
+  email         String    @unique
+  password      String
+  typeAccount   String    @map("type_account")
+  departamento  String
+  active        String    @default("active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  licitaciones         Licitacion[]
+  documentosLicitacion DocumentoLicitacion[]
+  historialLicitacion  HistorialLicitacion[]
+
+  @@map("users")
+}
+
+model FormatoLiquidacion {
+  id           Int          @id @default(autoincrement())
+  titulo       String
+  cantidadPasos Int         @map("cantidad_pasos")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  licitaciones Licitacion[]
+  procesos     ProcesoLicitacion[]
+
+  @@map("formato_liquidacion")
+}
+
+model ProcesoLicitacion {
+  id                    Int                @id @default(autoincrement())
+  formatoLiquidacionId  Int                @map("fk_formato_liquidacion_id")
+  tituloProceso         String             @map("titulo_proceso")
+  turno                 String
+  numeroPaso            Int                @map("numero_paso")
+  diasSugeridos         Int                @default(5) @map("dias_sugeridos")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  formatoLiquidacion    FormatoLiquidacion @relation(fields: [formatoLiquidacionId], references: [id])
+  licitaciones          Licitacion[]
+
+  @@map("proceso_licitacion")
+}
+
+model Licitacion {
+  id                    Int                @id @default(autoincrement())
+  formatoLiquidacionId  Int                @map("fk_formato_liquidacion_id")
+  usuarioId             String             @map("fk_usuario_id")
+  procesoActualId       Int                @map("fk_proceso_actual_id")
+  requirente            String
+  numeroLicitacion      String?            @map("numero_licitacion")
+  vigencia              DateTime?
+  nombreLicitacion      String             @map("nombre_licitacion")
+  montoPresupuestado    String?            @map("monto_presupuestado")
+  estado                String             @default("Pendiente")
+  contadorDevoluciones  Int                @default(0) @map("contador_devoluciones")
+  contadorEdiciones     Int                @default(0) @map("contador_ediciones")
+  fechaRecepcion        DateTime?          @map("fecha_recepcion")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  formatoLiquidacion    FormatoLiquidacion @relation(fields: [formatoLiquidacionId], references: [id])
+  usuario               User               @relation(fields: [usuarioId], references: [id])
+  procesoActual         ProcesoLicitacion  @relation(fields: [procesoActualId], references: [id])
+  documentos            DocumentoLicitacion[]
+  historial             HistorialLicitacion[]
+
+  @@map("licitaciones")
+}
+
+model DocumentoLicitacion {
+  id            Int        @id @default(autoincrement())
+  licitacionId  Int        @map("fk_licitacion_id")
+  usuarioId     String     @map("fk_usuario_id")
+  nombreArchivo String     @map("nombre_archivo")
+  rutaArchivo   String     @map("ruta_archivo")
+  createdAt     DateTime   @default(now()) @map("created_at")
+
+  licitacion    Licitacion @relation(fields: [licitacionId], references: [id])
+  usuario       User       @relation(fields: [usuarioId], references: [id])
+
+  @@map("documentos_licitacion")
+}
+
+model HistorialLicitacion {
+  id            Int        @id @default(autoincrement())
+  licitacionId  Int        @map("fk_licitacion_id")
+  usuarioId     String     @map("fk_usuario_id")
+  tipoAccion    String     @map("tipo_accion")
+  procesoOrigen String?    @map("proceso_origen")
+  procesoDestino String?   @map("proceso_destino")
+  observacion   String?
+  createdAt     DateTime   @default(now()) @map("created_at")
+
+  licitacion    Licitacion @relation(fields: [licitacionId], references: [id])
+  usuario       User       @relation(fields: [usuarioId], references: [id])
+
+  @@map("historial_licitacion")
+}
+
+model Requirente {
+  id        Int      @id @default(autoincrement())
+  nombre    String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("requirentes")
+}
+
+model PAC {
+  id             Int      @id @default(autoincrement())
+  servicio       String
+  supraServicio  String   @map("supra_servicio")
+  bodega         String
+  codigo         String
+  detalle        String
+  unidadMedida   String   @map("unidad_medida")
+  costoUnitario  Float    @map("costo_unitario")
+  cantidadAnual  Int      @map("cantidad_anual")
+  enero          Int      @default(0)
+  febrero        Int      @default(0)
+  marzo          Int      @default(0)
+  abril          Int      @default(0)
+  mayo           Int      @default(0)
+  junio          Int      @default(0)
+  julio          Int      @default(0)
+  agosto         Int      @default(0)
+  septiembre     Int      @default(0)
+  octubre        Int      @default(0)
+  noviembre      Int      @default(0)
+  diciembre      Int      @default(0)
+  mensual        Float    @default(0)
+  anoPac         String   @map("ano_pac")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("pac")
+}
+
+model RequerimientoAbastecimiento {
+  id              Int      @id @default(autoincrement())
+  titulo          String
+  descripcion     String?
+  estado          String   @default("Pendiente")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  productos       ProductoRequerimiento[]
+  historial       HistorialRequerimiento[]
+
+  @@map("requerimiento_abastecimiento")
+}
+
+model ProductoRequerimiento {
+  id                Int                        @id @default(autoincrement())
+  requerimientoId   Int                        @map("fk_requerimiento_id")
+  nombreProducto    String                     @map("nombre_producto")
+  cantidad          Int
+  stock             Int                        @default(0)
+  cantidadProgramada Int                       @default(0) @map("cantidad_programada")
+  createdAt         DateTime                   @default(now()) @map("created_at")
+
+  requerimiento     RequerimientoAbastecimiento @relation(fields: [requerimientoId], references: [id])
+
+  @@map("producto_requerimiento")
+}
+
+model HistorialRequerimiento {
+  id              Int                        @id @default(autoincrement())
+  requerimientoId Int                        @map("fk_requerimiento_id")
+  accion          String
+  descripcion     String?
+  createdAt       DateTime                   @default(now()) @map("created_at")
+
+  requerimiento   RequerimientoAbastecimiento @relation(fields: [requerimientoId], references: [id])
+
+  @@map("historial_requerimiento")
+}
+
+model Novedad {
+  id          Int      @id @default(autoincrement())
+  titular     String
+  descripcion String
+  imagen      String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("novedades")
+}
+
+model FormatoBase {
+  id         Int      @id @default(autoincrement())
+  titulo     String
+  tipoBase   String   @map("tipo_base")
+  documento  String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("formato_bases")
+}

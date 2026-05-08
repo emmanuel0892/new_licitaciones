@@ -1,0 +1,266 @@
+"use client"
+
+import { useState, useEffect, useRef } from "react"
+import { Table, Button, Space, Tag, Typography, Card, App, Input, Select, Tooltip } from "antd"
+import { SearchOutlined, ReloadOutlined, EyeOutlined, HistoryOutlined, FileTextOutlined, DownloadOutlined } from "@ant-design/icons"
+import { getLicitaciones } from "@/actions/licitaciones"
+import { getUsers } from "@/actions/users"
+import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION } from "@/lib/helpers"
+import ModalHistorial from "@/components/modals/ModalHistorial"
+import ModalWorkflow from "@/components/modals/ModalWorkflow"
+import * as XLSX from "xlsx"
+import styles from "./todas.module.css"
+
+const { Title, Text } = Typography
+
+const TodasLicitacionesPage = () => {
+  const { message } = App.useApp()
+  const [loading, setLoading] = useState(true)
+  const [licitaciones, setLicitaciones] = useState([])
+  const [users, setUsers] = useState([])
+  const [filters, setFilters] = useState({
+    numeroLicitacion: "",
+    usuarioId: undefined,
+    estado: undefined
+  })
+  const [generatingExcel, setGeneratingExcel] = useState(false)
+
+  const modalHistorialRef = useRef(null)
+  const modalWorkflowRef = useRef(null)
+
+  const loadData = async () => {
+    setLoading(true)
+    const [licResult, usersResult] = await Promise.all([
+      getLicitaciones(filters),
+      getUsers()
+    ])
+
+    if (licResult.data) {
+      setLicitaciones(licResult.data.map((l) => ({ ...l, key: l.id })))
+    }
+
+    if (usersResult.data) {
+      setUsers(usersResult.data)
+    }
+
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const handleSearch = () => {
+    loadData()
+  }
+
+  const handleClearFilters = () => {
+    setFilters({
+      numeroLicitacion: "",
+      usuarioId: undefined,
+      estado: undefined
+    })
+  }
+
+  const handleExportExcel = () => {
+    setGeneratingExcel(true)
+
+    const dataExcel = licitaciones.map((l) => ({
+      "Número de Licitación": l.numeroLicitacion || "Sin número",
+      "Nombre de Licitación": l.nombreLicitacion,
+      "Formato": l.formatoLiquidacion.titulo,
+      "Creador": `${l.usuario.name} ${l.usuario.lastname}`,
+      "Requirente": l.requirente,
+      "Monto Presupuestado": l.montoPresupuestado || "Sin Monto",
+      "Vigencia": l.vigencia ? formatDate(l.vigencia) : "-",
+      "Estado": l.estado,
+      "Proceso Actual": l.procesoActual.tituloProceso,
+      "Fecha de Creación": formatDate(l.createdAt)
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(dataExcel)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "Todas las Licitaciones")
+    XLSX.writeFile(wb, "Todas-Licitaciones.xlsx")
+
+    setGeneratingExcel(false)
+    message.success("Informe generado correctamente")
+  }
+
+  const columns = [
+    {
+      title: "N° Licitación",
+      dataIndex: "numeroLicitacion",
+      key: "numeroLicitacion",
+      width: 140,
+      render: (text) => text || <Text type="secondary">Sin número</Text>
+    },
+    {
+      title: "Formato",
+      dataIndex: ["formatoLiquidacion", "titulo"],
+      key: "formato",
+      width: 120
+    },
+    {
+      title: "Nombre",
+      dataIndex: "nombreLicitacion",
+      key: "nombre",
+      ellipsis: true
+    },
+    {
+      title: "Creador",
+      key: "creador",
+      width: 150,
+      render: (_, record) => `${record.usuario.name} ${record.usuario.lastname}`
+    },
+    {
+      title: "Requirente",
+      dataIndex: "requirente",
+      key: "requirente",
+      width: 150,
+      ellipsis: true
+    },
+    {
+      title: "Monto",
+      dataIndex: "montoPresupuestado",
+      key: "monto",
+      width: 130,
+      render: (text) => formatMoney(text)
+    },
+    {
+      title: "Estado",
+      dataIndex: "estado",
+      key: "estado",
+      width: 110,
+      render: (text) => (
+        <Tag color={getEstadoColor(text)}>{text}</Tag>
+      )
+    },
+    {
+      title: "Fecha Creación",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      width: 130,
+      render: (text) => formatDate(text)
+    },
+    {
+      title: "Proceso Actual",
+      dataIndex: ["procesoActual", "tituloProceso"],
+      key: "proceso",
+      width: 180,
+      ellipsis: true
+    },
+    {
+      title: "Acciones",
+      key: "actions",
+      fixed: "right",
+      width: 120,
+      render: (_, record) => (
+        <Space size="small">
+          {(record.contadorDevoluciones > 0 || record.contadorEdiciones > 0) && (
+            <Tooltip title="Ver historial">
+              <Button
+                type="text"
+                size="small"
+                icon={<HistoryOutlined style={{ color: "#6B7280" }} />}
+                onClick={() => modalHistorialRef.current?.open(record.id)}
+              />
+            </Tooltip>
+          )}
+
+          {record._count.documentos > 0 && (
+            <Tooltip title="Ver documentos">
+              <Button
+                type="text"
+                size="small"
+                icon={<FileTextOutlined style={{ color: "#FFD96D" }} />}
+              />
+            </Tooltip>
+          )}
+
+          <Tooltip title="Ver workflow">
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined style={{ color: "#23aeaa" }} />}
+              onClick={() => modalWorkflowRef.current?.open(record.id)}
+            />
+          </Tooltip>
+        </Space>
+      )
+    }
+  ]
+
+  return (
+    <div className={styles.container}>
+      <Card className={styles.card}>
+        <div className={styles.header}>
+          <Title level={3} style={{ margin: 0 }}>Todas las Licitaciones</Title>
+          <Button
+            icon={<DownloadOutlined />}
+            onClick={handleExportExcel}
+            loading={generatingExcel}
+          >
+            Exportar Excel
+          </Button>
+        </div>
+
+        <div className={styles.filters}>
+          <Input
+            placeholder="N° Licitación / MEMO"
+            value={filters.numeroLicitacion}
+            onChange={(e) => setFilters({ ...filters, numeroLicitacion: e.target.value })}
+            style={{ width: 180 }}
+            allowClear
+          />
+
+          <Select
+            placeholder="Creador"
+            value={filters.usuarioId}
+            onChange={(value) => setFilters({ ...filters, usuarioId: value })}
+            style={{ width: 180 }}
+            allowClear
+            options={users.map((u) => ({
+              value: u.id,
+              label: `${u.name} ${u.lastname}`
+            }))}
+          />
+
+          <Select
+            placeholder="Estado"
+            value={filters.estado}
+            onChange={(value) => setFilters({ ...filters, estado: value })}
+            style={{ width: 140 }}
+            allowClear
+            options={ESTADOS_LICITACION}
+          />
+
+          <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
+            Buscar
+          </Button>
+
+          <Button icon={<ReloadOutlined />} onClick={() => { handleClearFilters(); loadData(); }}>
+            Limpiar
+          </Button>
+        </div>
+
+        <Table
+          columns={columns}
+          dataSource={licitaciones}
+          loading={loading}
+          scroll={{ x: 1400 }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: false,
+            showTotal: (total) => `Total: ${total} licitaciones`
+          }}
+        />
+      </Card>
+
+      <ModalHistorial ref={modalHistorialRef} />
+      <ModalWorkflow ref={modalWorkflowRef} />
+    </div>
+  )
+}
+
+export default TodasLicitacionesPage
