@@ -17,7 +17,8 @@ import {
   MenuUnfoldOutlined,
   ShoppingCartOutlined,
   CalendarOutlined,
-  FileSearchOutlined
+  FileSearchOutlined,
+  PieChartOutlined
 } from "@ant-design/icons"
 import { useSession } from "next-auth/react"
 import { logoutAction } from "@/actions/auth"
@@ -97,6 +98,14 @@ const Sidebar = ({ children }) => {
         key: "/dashboard/licitaciones/todas",
         icon: <FileSearchOutlined />,
         label: "Todas las Licitaciones"
+      })
+    }
+
+    if (userType === ROLES.SUPER_ADMIN || userType === ROLES.LICITADOR) {
+      items.push({
+        key: "/dashboard/consumo",
+        icon: <PieChartOutlined />,
+        label: "Seguimiento Consumo"
       })
     }
 

@@ -211,3 +211,123 @@ model FormatoBase {
 
   @@map("formato_bases")
 }
+
+// ========================================
+// SEGUIMIENTO DE CONSUMO - MERCADO PÚBLICO
+// ========================================
+
+model LicitacionMP {
+  id                  Int      @id @default(autoincrement())
+  codigoExterno       String   @unique @map("codigo_externo")
+  nombre              String
+  descripcion         String?  @db.Text
+  estado              String
+  codigoEstado        Int      @map("codigo_estado")
+  tipo                String
+  montoEstimado       Float?   @map("monto_estimado")
+  montoAdjudicado     Float?   @map("monto_adjudicado")
+  fechaAdjudicacion   DateTime? @map("fecha_adjudicacion")
+  fechaCierre         DateTime? @map("fecha_cierre")
+  vigenciaMeses       Int?     @map("vigencia_meses")
+  requirente          String
+  montoConsumido      Float    @default(0) @map("monto_consumido")
+  porcentajeConsumo   Float    @default(0) @map("porcentaje_consumo")
+  alertaEnviada50     Boolean  @default(false) @map("alerta_enviada_50")
+  alertaEnviada75     Boolean  @default(false) @map("alerta_enviada_75")
+  alertaEnviada90     Boolean  @default(false) @map("alerta_enviada_90")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  items               ItemLicitacionMP[]
+  ordenesCompra       OrdenCompraMP[]
+  alertas             AlertaConsumo[]
+
+  @@map("licitaciones_mp")
+}
+
+model ItemLicitacionMP {
+  id                Int           @id @default(autoincrement())
+  licitacionMPId    Int           @map("fk_licitacion_mp_id")
+  correlativo       Int
+  codigoProducto    Int           @map("codigo_producto")
+  codigoCategoria   String        @map("codigo_categoria")
+  categoria         String
+  nombreProducto    String        @map("nombre_producto")
+  descripcion       String?       @db.Text
+  unidadMedida      String        @map("unidad_medida")
+  cantidadTotal     Float         @map("cantidad_total")
+  cantidadConsumida Float         @default(0) @map("cantidad_consumida")
+  montoUnitario     Float         @map("monto_unitario")
+  montoTotal        Float         @map("monto_total")
+  rutProveedor      String?       @map("rut_proveedor")
+  nombreProveedor   String?       @map("nombre_proveedor")
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  licitacionMP      LicitacionMP  @relation(fields: [licitacionMPId], references: [id], onDelete: Cascade)
+  itemsOrden        ItemOrdenCompraMP[]
+
+  @@map("items_licitacion_mp")
+}
+
+model OrdenCompraMP {
+  id                Int           @id @default(autoincrement())
+  licitacionMPId    Int           @map("fk_licitacion_mp_id")
+  codigo            String        @unique
+  nombre            String
+  codigoEstado      Int           @map("codigo_estado")
+  estado            String
+  tipo              String
+  totalNeto         Float         @map("total_neto")
+  impuestos         Float
+  total             Float
+  fechaCreacion     DateTime      @map("fecha_creacion")
+  fechaEnvio        DateTime?     @map("fecha_envio")
+  fechaAceptacion   DateTime?     @map("fecha_aceptacion")
+  rutProveedor      String        @map("rut_proveedor")
+  nombreProveedor   String        @map("nombre_proveedor")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  licitacionMP      LicitacionMP  @relation(fields: [licitacionMPId], references: [id], onDelete: Cascade)
+  items             ItemOrdenCompraMP[]
+
+  @@map("ordenes_compra_mp")
+}
+
+model ItemOrdenCompraMP {
+  id                  Int             @id @default(autoincrement())
+  ordenCompraId       Int             @map("fk_orden_compra_id")
+  itemLicitacionMPId  Int?            @map("fk_item_licitacion_mp_id")
+  correlativo         Int
+  codigoCategoria     Int             @map("codigo_categoria")
+  categoria           String
+  codigoProducto      Int             @map("codigo_producto")
+  producto            String
+  especificacion      String?         @db.Text
+  cantidad            Float
+  unidad              String?
+  precioNeto          Float           @map("precio_neto")
+  totalDescuentos     Float           @default(0) @map("total_descuentos")
+  totalCargos         Float           @default(0) @map("total_cargos")
+  total               Float
+  createdAt           DateTime        @default(now()) @map("created_at")
+
+  ordenCompra         OrdenCompraMP   @relation(fields: [ordenCompraId], references: [id], onDelete: Cascade)
+  itemLicitacion      ItemLicitacionMP? @relation(fields: [itemLicitacionMPId], references: [id])
+
+  @@map("items_orden_compra_mp")
+}
+
+model AlertaConsumo {
+  id              Int           @id @default(autoincrement())
+  licitacionMPId  Int           @map("fk_licitacion_mp_id")
+  tipo            String
+  porcentaje      Float
+  mensaje         String        @db.Text
+  leida           Boolean       @default(false)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  licitacionMP    LicitacionMP  @relation(fields: [licitacionMPId], references: [id], onDelete: Cascade)
+
+  @@map("alertas_consumo")
+}

@@ -1,0 +1,32 @@
+.container {
+  padding: 24px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.filtersCard {
+  margin-bottom: 16px;
+}
+
+.rowWarning {
+  background-color: rgba(250, 173, 20, 0.1);
+}
+
+.rowUrgent {
+  background-color: rgba(250, 140, 22, 0.15);
+}
+
+.rowCritical {
+  background-color: rgba(229, 57, 53, 0.1);
+}
+
+.rowWarning:hover td,
+.rowUrgent:hover td,
+.rowCritical:hover td {
+  background-color: inherit !important;
+}
