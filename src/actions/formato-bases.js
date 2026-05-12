@@ -4,6 +4,9 @@ import prisma from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { formatoBaseSchema } from "@/lib/validations/formato-base"
+import { unlink } from "fs/promises"
+import { join } from "path"
+import { existsSync } from "fs"
 
 export const getFormatoBases = async () => {
   try {
@@ -45,6 +48,19 @@ export const getFormatoBaseById = async (id) => {
   }
 }
 
+const deletePhysicalFile = async (filePath) => {
+  if (!filePath) return
+
+  const fullPath = join(process.cwd(), "public", filePath)
+  if (existsSync(fullPath)) {
+    try {
+      await unlink(fullPath)
+    } catch (error) {
+      console.error("Error al eliminar archivo físico:", error)
+    }
+  }
+}
+
 export const createFormatoBase = async (data) => {
   const session = await auth()
   
@@ -60,14 +76,16 @@ export const createFormatoBase = async (data) => {
     return { error: firstError || "Datos inválidos" }
   }
 
-  const { titulo, tipoBase } = validatedFields.data
+  const { titulo, tipoBase, nombreArchivo, rutaArchivo } = validatedFields.data
 
   try {
     await prisma.formatoBase.create({
       data: {
         titulo,
         tipoBase,
-        documento: data.documento || ""
+        documento: "",
+        nombreArchivo: nombreArchivo || null,
+        rutaArchivo: rutaArchivo || null
       }
     })
 
@@ -93,15 +111,29 @@ export const updateFormatoBase = async (id, data) => {
     return { error: firstError || "Datos inválidos" }
   }
 
-  const { titulo, tipoBase } = validatedFields.data
+  const { titulo, tipoBase, nombreArchivo, rutaArchivo } = validatedFields.data
 
   try {
+    const currentBase = await prisma.formatoBase.findUnique({
+      where: { id: parseInt(id) }
+    })
+
+    if (!currentBase) {
+      return { error: "Formato no encontrado" }
+    }
+
+    if (rutaArchivo && currentBase.rutaArchivo && rutaArchivo !== currentBase.rutaArchivo) {
+      await deletePhysicalFile(currentBase.rutaArchivo)
+    }
+
     await prisma.formatoBase.update({
       where: { id: parseInt(id) },
       data: {
         titulo,
         tipoBase,
-        documento: data.documento || ""
+        documento: "",
+        nombreArchivo: nombreArchivo || currentBase.nombreArchivo,
+        rutaArchivo: rutaArchivo || currentBase.rutaArchivo
       }
     })
 
@@ -120,6 +152,14 @@ export const deleteFormatoBase = async (id) => {
   }
 
   try {
+    const base = await prisma.formatoBase.findUnique({
+      where: { id: parseInt(id) }
+    })
+
+    if (base && base.rutaArchivo) {
+      await deletePhysicalFile(base.rutaArchivo)
+    }
+
     await prisma.formatoBase.delete({
       where: { id: parseInt(id) }
     })

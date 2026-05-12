@@ -104,6 +104,10 @@ model HistorialLicitacion {
   procesoOrigen String?    @map("proceso_origen")
   procesoDestino String?   @map("proceso_destino")
   observacion   String?
+  campoModificado String?  @map("campo_modificado")
+  datoAntiguo   String?    @map("dato_antiguo")
+  datoNuevo     String?    @map("dato_nuevo")
+  requirente    String?
   createdAt     DateTime   @default(now()) @map("created_at")
 
   licitacion    Licitacion @relation(fields: [licitacionId], references: [id])
@@ -202,12 +206,14 @@ model Novedad {
 }
 
 model FormatoBase {
-  id         Int      @id @default(autoincrement())
-  titulo     String
-  tipoBase   String   @map("tipo_base")
-  documento  String
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id            Int      @id @default(autoincrement())
+  titulo        String
+  tipoBase      String   @map("tipo_base")
+  documento     String?
+  nombreArchivo String?  @map("nombre_archivo")
+  rutaArchivo   String?  @map("ruta_archivo")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("formato_bases")
 }

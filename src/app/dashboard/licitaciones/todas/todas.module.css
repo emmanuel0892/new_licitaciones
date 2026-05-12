@@ -1,11 +1,15 @@
 .container {
-  max-width: 1600px;
-  margin: 0 auto;
+  padding: 24px;
 }
 
 .card {
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  background: white;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 24px;
+  position: relative;
+  border-left: 4px solid #23aeaa;
 }
 
 .header {
@@ -18,9 +22,22 @@
 .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
   margin-bottom: 24px;
-  padding: 16px;
-  background: #f8fafa;
+  padding: 20px;
+  background: #fafafa;
   border-radius: 8px;
+  align-items: center;
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filterLabel {
+  font-weight: 500;
+  color: #1f2937;
+  white-space: nowrap;
 }
