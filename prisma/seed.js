@@ -4,7 +4,7 @@ const bcrypt = require("bcryptjs")
 const prisma = new PrismaClient()
 
 const formatosLiquidacion = [
-  { id: 1, titulo: "Adquisición", cantidadPasos: 11 },
+  { id: 1, titulo: "Licitación", cantidadPasos: 19 },
   { id: 2, titulo: "Contraloría", cantidadPasos: 13 },
   { id: 3, titulo: "Contrato", cantidadPasos: 8 },
   { id: 4, titulo: "Suministro", cantidadPasos: 11 },
@@ -12,17 +12,25 @@ const formatosLiquidacion = [
 ]
 
 const procesosAdquisicion = [
-  { numeroPaso: 1, tituloProceso: "Confección de Bases", turno: "Licitador", diasSugeridos: 5 },
-  { numeroPaso: 2, tituloProceso: "Requerimiento referente técnico", turno: "Licitador", diasSugeridos: 5 },
-  { numeroPaso: 3, tituloProceso: "Jurídico", turno: "Secretario Juridico", diasSugeridos: 5 },
-  { numeroPaso: 4, tituloProceso: "Firmas Directivos y Partes", turno: "Subdireccion Administrativa", diasSugeridos: 3 },
-  { numeroPaso: 5, tituloProceso: "Publicación", turno: "Licitador", diasSugeridos: 2 },
-  { numeroPaso: 6, tituloProceso: "Evaluación Técnica", turno: "Licitador", diasSugeridos: 10 },
-  { numeroPaso: 7, tituloProceso: "Preadjudicación y Comisión", turno: "Licitador", diasSugeridos: 5 },
-  { numeroPaso: 8, tituloProceso: "Presupuesto", turno: "Presupuesto", diasSugeridos: 5 },
-  { numeroPaso: 9, tituloProceso: "Jurídico", turno: "Secretario Juridico", diasSugeridos: 5 },
-  { numeroPaso: 10, tituloProceso: "Firmas Directivos y Partes", turno: "Subdireccion Administrativa", diasSugeridos: 3 },
-  { numeroPaso: 11, tituloProceso: "Publicada", turno: "Licitador", diasSugeridos: 2 }
+  { numeroPaso: 1, tituloProceso: "Confección Bases Técnicas", turno: "Licitador", diasSugeridos: 5 },
+  { numeroPaso: 2, tituloProceso: "Firmas Jefatura de Unidad y Jefatura de Depto.", turno: "Jefatura", diasSugeridos: 3 },
+  { numeroPaso: 3, tituloProceso: "Unidad Administrativa Legal", turno: "Secretario Juridico", diasSugeridos: 5 },
+  { numeroPaso: 4, tituloProceso: "Firma Jefatura Unidad Administrativo Legal", turno: "Jefatura", diasSugeridos: 3 },
+  { numeroPaso: 5, tituloProceso: "Firmas Directivas y Partes", turno: "Subdireccion Administrativa", diasSugeridos: 3 },
+  { numeroPaso: 6, tituloProceso: "Firmas Subdirector Administrativo y Director", turno: "Subdireccion Administrativa", diasSugeridos: 3 },
+  { numeroPaso: 7, tituloProceso: "Fecha y Enumeración de Oficina de Partes", turno: "Oficina de Partes", diasSugeridos: 2 },
+  { numeroPaso: 8, tituloProceso: "Publicación de Bases", turno: "Licitador", diasSugeridos: 2 },
+  { numeroPaso: 9, tituloProceso: "Periodo de Apertura y Evaluación Técnica de Ofertas", turno: "Licitador", diasSugeridos: 10 },
+  { numeroPaso: 10, tituloProceso: "Confección de Res, Preadjudicación y Comisión", turno: "Licitador", diasSugeridos: 5 },
+  { numeroPaso: 11, tituloProceso: "Presupuesto", turno: "Presupuesto", diasSugeridos: 5 },
+  { numeroPaso: 12, tituloProceso: "Firmas Resolución Adjudicación", turno: "Subdireccion Administrativa", diasSugeridos: 3 },
+  { numeroPaso: 13, tituloProceso: "Firmas Jefatura de Unidad y Jefatura de Dpto.", turno: "Jefatura", diasSugeridos: 3 },
+  { numeroPaso: 14, tituloProceso: "Unidad Administrativa Legal", turno: "Secretario Juridico", diasSugeridos: 5 },
+  { numeroPaso: 15, tituloProceso: "Firma Jefatura Unidad Administrativo Legal", turno: "Jefatura", diasSugeridos: 3 },
+  { numeroPaso: 16, tituloProceso: "Firmas Directivos y Partes", turno: "Subdireccion Administrativa", diasSugeridos: 3 },
+  { numeroPaso: 17, tituloProceso: "Firmas Subdirector Administrativo y Director(a)", turno: "Subdireccion Administrativa", diasSugeridos: 3 },
+  { numeroPaso: 18, tituloProceso: "Fecha y Enumeración de Oficina de Partes", turno: "Oficina de Partes", diasSugeridos: 2 },
+  { numeroPaso: 19, tituloProceso: "Publicación de Adjudicación o Deserción", turno: "Licitador", diasSugeridos: 2 }
 ]
 
 const procesosContraloria = [

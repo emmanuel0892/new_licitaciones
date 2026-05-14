@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { 
-  Card, Form, Input, Select, DatePicker, Button, Typography, Timeline, 
+  Card, Form, Input, Select, DatePicker, Button, Typography, 
   Space, App, Modal, Row, Col, InputNumber, Statistic, Progress, Tag,
   List, Empty, Divider, Alert, Tooltip, Badge, Table, Spin
 } from "antd"
@@ -18,7 +18,7 @@ import {
   getDashboardStats, buscarLicitacionesSimilares, getLicitacionesMPByRequirenteConAlerta
 } from "@/actions/licitaciones"
 import { getAllLicitacionesMPForTable } from "@/actions/mercadoPublico"
-import { formatMoney } from "@/lib/helpers"
+import { formatMoney, FLUJO_LICITACION, esFormatoLicitacion, getProcesoActualNumero, getMainStepState, getSubStepState } from "@/lib/helpers"
 import dayjs from "dayjs"
 import styles from "./crear.module.css"
 
@@ -27,12 +27,27 @@ const { Option } = Select
 
 const FORMATOS_CONFIG = {
   1: {
-    nombre: "Adquisición",
+    nombre: "Licitación",
     pasos: [
-      "Confección de Bases", "Requerimiento referente técnico", "Jurídico",
-      "Firmas Directivos y Partes", "Publicación", "Evaluación Técnica",
-      "Preadjudicación y Comisión", "Presupuesto", "Jurídico",
-      "Firmas Directivos y Partes", "Publicar"
+      { numero: "1", nombre: "Confección Bases Técnicas", tipo: "principal" },
+      { numero: "1.1", nombre: "Firmas Jefatura de Unidad y Jefatura de Depto.", tipo: "subpaso", parent: "1" },
+      { numero: "2", nombre: "Unidad Administrativa Legal", tipo: "principal" },
+      { numero: "2.1", nombre: "Firma Jefatura Unidad Administrativo Legal", tipo: "subpaso", parent: "2" },
+      { numero: "3", nombre: "Firmas Directivas y Partes", tipo: "principal" },
+      { numero: "3.1", nombre: "Firmas Subdirector Administrativo y Director", tipo: "subpaso", parent: "3" },
+      { numero: "3.2", nombre: "Fecha y Enumeración de Oficina de Partes", tipo: "subpaso", parent: "3" },
+      { numero: "4", nombre: "Publicación de Bases", tipo: "principal" },
+      { numero: "5", nombre: "Periodo de Apertura y Evaluación Técnica de Ofertas", tipo: "principal" },
+      { numero: "6", nombre: "Confección de Res, Preadjudicación y Comisión", tipo: "principal" },
+      { numero: "7", nombre: "Presupuesto", tipo: "principal" },
+      { numero: "8", nombre: "Firmas Resolución Adjudicación", tipo: "principal" },
+      { numero: "8.1", nombre: "Firmas Jefatura de Unidad y Jefatura de Dpto.", tipo: "subpaso", parent: "8" },
+      { numero: "9", nombre: "Unidad Administrativa Legal", tipo: "principal" },
+      { numero: "9.1", nombre: "Firma Jefatura Unidad Administrativo Legal", tipo: "subpaso", parent: "9" },
+      { numero: "10", nombre: "Firmas Directivos y Partes", tipo: "principal" },
+      { numero: "10.1", nombre: "Firmas Subdirector Administrativo y Director(a)", tipo: "subpaso", parent: "10" },
+      { numero: "10.2", nombre: "Fecha y Enumeración de Oficina de Partes", tipo: "subpaso", parent: "10" },
+      { numero: "11", nombre: "Publicación de Adjudicación o Deserción", tipo: "principal" }
     ],
     requiereNumero: true,
     requiereVigencia: true,
@@ -71,7 +86,8 @@ const FORMATOS_CONFIG = {
     ],
     requiereNumero: true,
     requiereVigencia: true,
-    requiereMonto: true
+    requiereMonto: true,
+    ocultarEnCrear: true
   },
   5: {
     nombre: "Otros Trámites",
@@ -114,6 +130,20 @@ const CrearLicitacionPage = () => {
   // Filtros de búsqueda
   const [searchText, setSearchText] = useState("")
   const [searchType, setSearchType] = useState("all")
+  const [expandedSteps, setExpandedSteps] = useState(new Set())
+
+  const toggleStepExpansion = (stepNumero) => {
+    setExpandedSteps(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(stepNumero)) {
+        newSet.delete(stepNumero)
+      } else {
+        newSet.clear()
+        newSet.add(stepNumero)
+      }
+      return newSet
+    })
+  }
 
   useEffect(() => {
     const loadData = async () => {
@@ -419,9 +449,11 @@ const CrearLicitacionPage = () => {
                   placeholder="Seleccione un formato"
                   onChange={handleFormatoChange}
                 >
-                  {Object.entries(FORMATOS_CONFIG).map(([key, value]) => (
-                    <Option key={key} value={key}>{value.nombre}</Option>
-                  ))}
+                  {Object.entries(FORMATOS_CONFIG)
+                    .filter(([key, value]) => !value.ocultarEnCrear)
+                    .map(([key, value]) => (
+                      <Option key={key} value={key}>{value.nombre}</Option>
+                    ))}
                 </Select>
               </Form.Item>
 
@@ -546,18 +578,57 @@ const CrearLicitacionPage = () => {
                   }
                   className={styles.flowCard}
                 >
-                  <Timeline
-                    mode="start"
-                    items={config.pasos.map((paso, index) => ({
-                      color: "#23aeaa",
-                      children: (
-                        <div className={styles.timelineItem}>
-                          <Tag color="#23aeaa">{index + 1}</Tag>
-                          <Text>{paso}</Text>
+                  <div className={styles.workflowContainer}>
+                    {(esFormatoLicitacion(config.nombre) ? FLUJO_LICITACION : config.pasos.map((paso, index) => typeof paso === 'string' ? { numero: String(index + 1), nombre: paso } : paso)).map((paso, index) => {
+                      const pasoObj = typeof paso === 'string' 
+                        ? { numero: String(index + 1), nombre: paso }
+                        : paso
+                      const hasSubpasos = pasoObj.subpasos && pasoObj.subpasos.length > 0
+                      const isExpanded = expandedSteps.has(pasoObj.numero)
+                      const currentNumero = "1"
+                      const estado = pasoObj.numero ? getMainStepState(pasoObj, currentNumero) : "pending"
+                      
+                      return (
+                        <div key={pasoObj.numero} className={styles.workflowStepWrapper}>
+                          <div 
+                            className={`${styles.workflowStepRow} ${isExpanded ? styles.workflowStepRowOpen : ''}`}
+                            onClick={() => hasSubpasos && toggleStepExpansion(pasoObj.numero)}
+                          >
+                            <div className={styles.workflowStepMain}>
+                              <span className={`${styles.workflowStepNumber} ${isExpanded ? styles.workflowStepNumberOpen : ''}`}>
+                                {pasoObj.numero}
+                              </span>
+                              <span className={styles.workflowStepLabel}>
+                                {pasoObj.nombre}
+                              </span>
+                            </div>
+                            {hasSubpasos && (
+                              <span className={`${styles.workflowStepChevron} ${isExpanded ? styles.workflowStepChevronOpen : ''}`}>
+                                {isExpanded ? <DownOutlined /> : <RightOutlined />}
+                              </span>
+                            )}
+                          </div>
+                          {hasSubpasos && (
+                            <div className={`${styles.workflowSubstepsWrapper} ${isExpanded ? styles.workflowSubstepsWrapperOpen : ''}`}>
+                              {pasoObj.subpasos.map((subpaso) => {
+                                const subStatus = currentNumero ? getSubStepState(subpaso.numero, currentNumero) : "pending"
+                                return (
+                                  <div key={subpaso.numero} className={styles.workflowSubstepItem}>
+                                    <span className={styles.workflowSubstepNumber}>
+                                      {subpaso.numero}
+                                    </span>
+                                    <span className={styles.workflowSubstepLabel}>
+                                      {subpaso.nombre}
+                                    </span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
                       )
-                    }))}
-                  />
+                    })}
+                  </div>
                 </Card>
               ) : (
                 <Card size="small" className={styles.emptyCard}>

@@ -5,7 +5,7 @@ import { Table, Button, Space, Tag, Typography, Card, App, Input, Select, Toolti
 import { SearchOutlined, ReloadOutlined, EyeOutlined, HistoryOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons"
 import { getLicitaciones, deleteLicitacion } from "@/actions/licitaciones"
 import { getUsers } from "@/actions/users"
-import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION } from "@/lib/helpers"
+import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion } from "@/lib/helpers"
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalWorkflow from "@/components/modals/ModalWorkflow"
 import ModalEditarLicitacion from "@/components/modals/ModalEditarLicitacion"
@@ -76,7 +76,7 @@ const TodasLicitacionesPage = () => {
       "Monto Presupuestado": l.montoPresupuestado || "Sin Monto",
       "Vigencia": l.vigencia ? formatDate(l.vigencia) : "-",
       "Estado": l.estado,
-      "Proceso Actual": l.procesoActual.tituloProceso,
+      "Proceso Actual": esFormatoLicitacion(l.formatoLiquidacion.titulo) ? getProcesoActualLicitacionLabel(l.procesoActual.tituloProceso) : l.procesoActual.tituloProceso,
       "Fecha de Creación": formatDate(l.createdAt)
     }))
 
@@ -158,7 +158,13 @@ const TodasLicitacionesPage = () => {
       dataIndex: ["procesoActual", "tituloProceso"],
       key: "proceso",
       width: 180,
-      ellipsis: true
+      ellipsis: true,
+      render: (titulo, record) => {
+        if (esFormatoLicitacion(record.formatoLiquidacion.titulo)) {
+          return getProcesoActualLicitacionLabel(titulo)
+        }
+        return titulo
+      }
     },
     {
       title: "Acciones",

@@ -18,7 +18,7 @@ import {
 import { useSession } from "next-auth/react"
 import { getLicitaciones, avanzarLicitacion } from "@/actions/licitaciones"
 import { getUsers } from "@/actions/users"
-import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION } from "@/lib/helpers"
+import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion } from "@/lib/helpers"
 import ModalDevolver from "@/components/modals/ModalDevolver"
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalHistorialNuevo from "@/components/modals/ModalHistorialNuevo"
@@ -109,11 +109,14 @@ const BandejaPage = () => {
     const dataExcel = licitaciones.map((l) => ({
       "Número de Licitación": l.numeroLicitacion || "Sin número",
       "Nombre de Licitación": l.nombreLicitacion,
-      "Monto Presupuestado": l.montoPresupuestado || "Sin Monto",
-      "Fecha de Creación": formatDate(l.createdAt),
+      "Formato": l.formatoLiquidacion.titulo,
       "Creador": `${l.usuario.name} ${l.usuario.lastname}`,
-      "Proceso Actual": l.procesoActual.tituloProceso,
-      "Estado": l.estado
+      "Requirente": l.requirente,
+      "Monto Presupuestado": l.montoPresupuestado || "Sin Monto",
+      "Vigencia": l.vigencia ? formatDate(l.vigencia) : "-",
+      "Estado": l.estado,
+      "Proceso Actual": esFormatoLicitacion(l.formatoLiquidacion.titulo) ? getProcesoActualLicitacionLabel(l.procesoActual.tituloProceso) : l.procesoActual.tituloProceso,
+      "Fecha de Creación": formatDate(l.createdAt)
     }))
 
     const ws = XLSX.utils.json_to_sheet(dataExcel)
@@ -184,7 +187,13 @@ const BandejaPage = () => {
       dataIndex: ["procesoActual", "tituloProceso"],
       key: "proceso",
       width: 180,
-      ellipsis: true
+      ellipsis: true,
+      render: (titulo, record) => {
+        if (esFormatoLicitacion(record.formatoLiquidacion.titulo)) {
+          return getProcesoActualLicitacionLabel(titulo)
+        }
+        return titulo
+      }
     },
     {
       title: "Acciones",

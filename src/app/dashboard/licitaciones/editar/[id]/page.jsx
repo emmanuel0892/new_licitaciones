@@ -12,7 +12,7 @@ const { Option } = Select
 
 const FORMATOS_CONFIG = {
   1: {
-    nombre: "Adquisición",
+    nombre: "Licitación",
     pasos: [
       "Confección de Bases", "Requerimiento referente técnico", "Jurídico",
       "Firmas Directivos y Partes", "Publicación", "Evaluación Técnica",
@@ -56,7 +56,8 @@ const FORMATOS_CONFIG = {
     ],
     requiereNumero: true,
     requiereVigencia: true,
-    requiereMonto: true
+    requiereMonto: true,
+    ocultarEnCrear: true
   },
   5: {
     nombre: "Otros Trámites",
