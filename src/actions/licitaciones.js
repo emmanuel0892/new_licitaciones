@@ -431,3 +431,193 @@ export const getHistorialLicitacion = async (id) => {
     return { error: "Error al obtener el historial" }
   }
 }
+
+// Obtener estadísticas para el dashboard de crear licitación
+export const getDashboardStats = async () => {
+  const session = await auth()
+  
+  if (!session) {
+    return { error: "No autorizado" }
+  }
+
+  try {
+    const now = new Date()
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+    const startOfYear = new Date(now.getFullYear(), 0, 1)
+
+    // Licitaciones activas (no finalizadas)
+    const licitacionesActivas = await prisma.licitacion.count({
+      where: { estado: { not: "Finalizada" } }
+    })
+
+    // Licitaciones próximas a vencer (vigencia en los próximos 30 días)
+    const proximasVencer = await prisma.licitacion.count({
+      where: {
+        estado: { not: "Finalizada" },
+        vigencia: {
+          gte: now,
+          lte: thirtyDaysFromNow
+        }
+      }
+    })
+
+    // Presupuesto total del año (suma de montos presupuestados)
+    const licitacionesAno = await prisma.licitacion.findMany({
+      where: {
+        createdAt: { gte: startOfYear }
+      },
+      select: { montoPresupuestado: true }
+    })
+
+    const presupuestoTotal = licitacionesAno.reduce((acc, lic) => {
+      const monto = parseFloat(lic.montoPresupuestado) || 0
+      return acc + monto
+    }, 0)
+
+    // Licitaciones finalizadas este año (comprometido/ejecutado)
+    const licitacionesFinalizadas = await prisma.licitacion.findMany({
+      where: {
+        createdAt: { gte: startOfYear },
+        estado: "Finalizada"
+      },
+      select: { montoPresupuestado: true }
+    })
+
+    const montoComprometido = licitacionesFinalizadas.reduce((acc, lic) => {
+      const monto = parseFloat(lic.montoPresupuestado) || 0
+      return acc + monto
+    }, 0)
+
+    // Consumo de licitaciones MP
+    const licitacionesMP = await prisma.licitacionMP.findMany({
+      select: {
+        montoAdjudicado: true,
+        montoConsumido: true,
+        porcentajeConsumo: true
+      }
+    })
+
+    const totalAdjudicadoMP = licitacionesMP.reduce((acc, l) => acc + (l.montoAdjudicado || 0), 0)
+    const totalConsumidoMP = licitacionesMP.reduce((acc, l) => acc + (l.montoConsumido || 0), 0)
+    const porcentajeConsumoMP = totalAdjudicadoMP > 0 
+      ? (totalConsumidoMP / totalAdjudicadoMP) * 100 
+      : 0
+
+    // Alertas activas (licitaciones MP con consumo >= 50%)
+    const alertasActivas = await prisma.licitacionMP.count({
+      where: { porcentajeConsumo: { gte: 50 } }
+    })
+
+    return {
+      data: {
+        licitacionesActivas,
+        proximasVencer,
+        presupuestoTotal,
+        montoComprometido,
+        saldoDisponible: presupuestoTotal - montoComprometido,
+        porcentajeEjecucion: presupuestoTotal > 0 
+          ? (montoComprometido / presupuestoTotal) * 100 
+          : 0,
+        totalAdjudicadoMP,
+        totalConsumidoMP,
+        porcentajeConsumoMP,
+        alertasActivas
+      }
+    }
+  } catch (error) {
+    console.error(error)
+    return { error: "Error al obtener estadísticas" }
+  }
+}
+
+// Buscar licitaciones similares por nombre
+export const buscarLicitacionesSimilares = async (nombre, requirente) => {
+  const session = await auth()
+  
+  if (!session) {
+    return { error: "No autorizado" }
+  }
+
+  if (!nombre || nombre.length < 3) {
+    return { data: [] }
+  }
+
+  try {
+    const palabras = nombre.toLowerCase().split(" ").filter(p => p.length > 3)
+    
+    if (palabras.length === 0) {
+      return { data: [] }
+    }
+
+    // Buscar en licitaciones internas
+    const licitacionesInternas = await prisma.licitacion.findMany({
+      where: {
+        OR: palabras.map(palabra => ({
+          nombreLicitacion: { contains: palabra }
+        }))
+      },
+      include: {
+        formatoLiquidacion: { select: { titulo: true } },
+        procesoActual: { select: { tituloProceso: true } }
+      },
+      take: 5,
+      orderBy: { createdAt: "desc" }
+    })
+
+    // Buscar en licitaciones de Mercado Público
+    const licitacionesMP = await prisma.licitacionMP.findMany({
+      where: {
+        OR: [
+          ...palabras.map(palabra => ({
+            nombre: { contains: palabra }
+          })),
+          ...(requirente ? [{ requirente: { contains: requirente } }] : [])
+        ]
+      },
+      include: {
+        _count: { select: { ordenesCompra: true } }
+      },
+      take: 5,
+      orderBy: { createdAt: "desc" }
+    })
+
+    return {
+      data: {
+        internas: licitacionesInternas,
+        mercadoPublico: licitacionesMP
+      }
+    }
+  } catch (error) {
+    console.error(error)
+    return { error: "Error al buscar licitaciones similares" }
+  }
+}
+
+// Obtener licitaciones MP por requirente con alertas
+export const getLicitacionesMPByRequirenteConAlerta = async (requirente) => {
+  const session = await auth()
+  
+  if (!session) {
+    return { error: "No autorizado" }
+  }
+
+  if (!requirente) {
+    return { data: [] }
+  }
+
+  try {
+    const licitaciones = await prisma.licitacionMP.findMany({
+      where: {
+        requirente: { contains: requirente },
+        porcentajeConsumo: { gte: 40 }
+      },
+      orderBy: { porcentajeConsumo: "desc" },
+      take: 10
+    })
+
+    return { data: licitaciones }
+  } catch (error) {
+    console.error(error)
+    return { error: "Error al obtener licitaciones" }
+  }
+}

@@ -1,18 +1,87 @@
 .container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
+  padding: 0 16px;
+}
+
+.statsRow {
+  margin-bottom: 20px;
+}
+
+.statCard {
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  height: 100%;
+}
+
+.statCard:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.statTitle {
+  font-size: 13px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .card {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+}
+
+.flowCard {
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  height: 100%;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.emptyCard {
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  height: 100%;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rightPanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.rightPanel > :global(.ant-row) {
+  flex: 1;
+}
+
+.rightPanelCol {
+  height: 100%;
+}
+
+.alertCard {
+  border-radius: 10px;
+  border-left: 4px solid #e53935;
+  box-shadow: 0 2px 8px rgba(229, 57, 53, 0.1);
+}
+
+.similarCard {
+  border-radius: 10px;
+  border-left: 4px solid #1890ff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.1);
 }
 
 .timelineItem {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  padding: 4px 0;
 }
 
 .stepNumber {
@@ -59,4 +128,44 @@
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+.tableCard {
+  margin-top: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.tableCard :global(.ant-table-expanded-row) {
+  background: #fafafa;
+}
+
+.tableCard :global(.ant-table-expanded-row) > td {
+  padding: 12px 16px !important;
+}
+
+.tableCard :global(.ant-table-row-expand-icon) {
+  color: #23aeaa;
+}
+
+.tableCard :global(.ant-table-row:hover) {
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .statsRow {
+    margin-bottom: 16px;
+  }
+  
+  .statCard {
+    margin-bottom: 8px;
+  }
+  
+  .flowCard {
+    max-height: 300px;
+  }
+
+  .tableCard {
+    margin-top: 16px;
+  }
 }

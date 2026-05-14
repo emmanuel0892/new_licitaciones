@@ -279,7 +279,7 @@ export const syncOrdenesCompraMP = async (licitacionMPId) => {
 
     // Obtener órdenes de compra desde la API
     const response = await fetch(
-      `${API_BASE_URL}/ordenesdecompra.json?CodigoLicitacion=${licitacion.codigoExterno}&estado=aceptada&ticket=${API_TICKET}`
+      `${API_BASE_URL}/ordenesdecompra.json?CodigoLicitacion=${licitacion.codigoExterno}&ticket=${API_TICKET}`
     )
 
     if (!response.ok) {
@@ -332,7 +332,10 @@ export const syncOrdenesCompraMP = async (licitacionMPId) => {
           }
         })
 
-        totalConsumido += ocDetalle.Total || 0
+        // Solo sumar al consumo si está Aceptada (6) o Recepción Conforme (12)
+        if (ocDetalle.CodigoEstado === 6 || ocDetalle.CodigoEstado === 12) {
+          totalConsumido += ocDetalle.Total || 0
+        }
 
         // Sincronizar items de la orden
         if (ocDetalle.Items?.Listado) {
@@ -562,5 +565,166 @@ export const getRequirentesMPUnicos = async () => {
   } catch (error) {
     console.error(error)
     return { error: "Error al obtener requirentes" }
+  }
+}
+
+// Obtener todas las licitaciones MP con órdenes de compra incluidas
+export const getAllLicitacionesMPForTable = async () => {
+  const session = await auth()
+  if (!session) return { error: "No autorizado" }
+
+  try {
+    const licitaciones = await prisma.licitacionMP.findMany({
+      select: {
+        id: true,
+        codigoExterno: true,
+        nombre: true,
+        estado: true,
+        tipo: true,
+        montoAdjudicado: true,
+        montoConsumido: true,
+        porcentajeConsumo: true,
+        requirente: true,
+        fechaAdjudicacion: true,
+        vigenciaMeses: true,
+        ordenesCompra: {
+          select: {
+            id: true,
+            codigo: true,
+            nombre: true,
+            estado: true,
+            estadoProveedor: true,
+            tipo: true,
+            totalNeto: true,
+            impuestos: true,
+            total: true,
+            fechaCreacion: true,
+            fechaAceptacion: true,
+            nombreProveedor: true,
+            items: {
+              select: {
+                id: true,
+                correlativo: true,
+                codigoProducto: true,
+                producto: true,
+                especificacionComprador: true,
+                cantidad: true,
+                unidad: true,
+                precioNeto: true,
+                total: true
+              },
+              orderBy: { correlativo: "asc" }
+            }
+          },
+          orderBy: { fechaCreacion: "desc" }
+        },
+        _count: {
+          select: { ordenesCompra: true, items: true }
+        }
+      },
+      orderBy: { updatedAt: "desc" }
+    })
+
+    return { data: licitaciones }
+  } catch (error) {
+    console.error(error)
+    return { error: "Error al obtener licitaciones" }
+  }
+}
+
+// Obtener órdenes de compra de una licitación para tabla expandida
+export const getOrdenesCompraByLicitacionId = async (licitacionMPId) => {
+  const session = await auth()
+  if (!session) return { error: "No autorizado" }
+
+  try {
+    const ordenes = await prisma.ordenCompraMP.findMany({
+      where: { licitacionMPId: parseInt(licitacionMPId) },
+      select: {
+        id: true,
+        codigo: true,
+        nombre: true,
+        estado: true,
+        estadoProveedor: true,
+        tipo: true,
+        totalNeto: true,
+        impuestos: true,
+        total: true,
+        fechaCreacion: true,
+        fechaAceptacion: true,
+        nombreProveedor: true,
+        _count: {
+          select: { items: true }
+        }
+      },
+      orderBy: { fechaCreacion: "desc" }
+    })
+
+    return { data: ordenes }
+  } catch (error) {
+    console.error(error)
+    return { error: "Error al obtener órdenes de compra" }
+  }
+}
+
+// Obtener items de una orden de compra para tabla expandida
+export const getItemsOrdenCompraById = async (ordenCompraId) => {
+  const session = await auth()
+  if (!session) return { error: "No autorizado" }
+
+  try {
+    const items = await prisma.itemOrdenCompraMP.findMany({
+      where: { ordenCompraId: parseInt(ordenCompraId) },
+      select: {
+        id: true,
+        correlativo: true,
+        codigoProducto: true,
+        producto: true,
+        especificacionComprador: true,
+        especificacionProveedor: true,
+        cantidad: true,
+        unidad: true,
+        precioNeto: true,
+        total: true
+      },
+      orderBy: { correlativo: "asc" }
+    })
+
+    return { data: items }
+  } catch (error) {
+    console.error(error)
+    return { error: "Error al obtener items" }
+  }
+}
+
+// Obtener items de licitación para detalle
+export const getItemsLicitacionMPById = async (licitacionMPId) => {
+  const session = await auth()
+  if (!session) return { error: "No autorizado" }
+
+  try {
+    const items = await prisma.itemLicitacionMP.findMany({
+      where: { licitacionMPId: parseInt(licitacionMPId) },
+      select: {
+        id: true,
+        correlativo: true,
+        codigoProducto: true,
+        nombreProducto: true,
+        descripcion: true,
+        unidadMedida: true,
+        cantidadTotal: true,
+        cantidadAdjudicada: true,
+        cantidadConsumida: true,
+        montoUnitario: true,
+        montoTotal: true,
+        nombreProveedor: true
+      },
+      orderBy: { correlativo: "asc" }
+    })
+
+    return { data: items }
+  } catch (error) {
+    console.error(error)
+    return { error: "Error al obtener items de licitación" }
   }
 }
