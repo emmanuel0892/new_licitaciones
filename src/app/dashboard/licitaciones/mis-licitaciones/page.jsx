@@ -105,16 +105,14 @@ const MisLicitacionesPage = () => {
       width: 150,
       render: (_, record) => (
         <Space size="small">
-          {(record.contadorDevoluciones > 0 || record.contadorEdiciones > 0) && (
-            <Tooltip title="Ver historial">
-              <Button
-                type="text"
-                size="small"
-                icon={<HistoryOutlined style={{ color: "#6B7280" }} />}
-                onClick={() => modalHistorialRef.current?.open(record.id)}
-              />
-            </Tooltip>
-          )}
+          <Tooltip title="Ver historial">
+            <Button
+              type="text"
+              size="small"
+              icon={<HistoryOutlined style={{ color: "#722ed1" }} />}
+              onClick={() => modalHistorialRef.current?.open(record.id, record)}
+            />
+          </Tooltip>
 
           {record._count.documentos > 0 && (
             <Tooltip title="Ver documentos">
@@ -135,16 +133,14 @@ const MisLicitacionesPage = () => {
             />
           </Tooltip>
 
-          {record.procesoActual.turno === "Licitador" && (
-            <Tooltip title="Editar">
-              <Button
-                type="text"
-                size="small"
-                icon={<EditOutlined style={{ color: "#23aeaa" }} />}
-                onClick={() => modalEditarRef.current?.open(record.id)}
-              />
-            </Tooltip>
-          )}
+          <Tooltip title="Editar">
+            <Button
+              type="text"
+              size="small"
+              icon={<EditOutlined style={{ color: "#23aeaa" }} />}
+              onClick={() => modalEditarRef.current?.open(record.id)}
+            />
+          </Tooltip>
         </Space>
       )
     }

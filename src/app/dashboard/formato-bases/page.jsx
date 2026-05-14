@@ -13,12 +13,12 @@ const { Title, Text } = Typography
 const CategoriaCard = ({ titulo, data, color, onEdit, onDelete, canEdit }) => {
   const { message } = App.useApp()
 
-  const handleDownload = (documento, nombreArchivo) => {
-    if (!documento) {
+  const handleDownload = (rutaArchivo, nombreArchivo) => {
+    if (!rutaArchivo) {
       message.warning("No hay documento disponible")
       return
     }
-    message.success("Descargando documento...")
+    window.open(rutaArchivo, "_blank")
   }
 
   return (
@@ -46,7 +46,7 @@ const CategoriaCard = ({ titulo, data, color, onEdit, onDelete, canEdit }) => {
                   type="text"
                   size="small"
                   icon={<DownloadOutlined style={{ color: "#23aeaa" }} />}
-                  onClick={() => handleDownload(item.documento, item.titulo)}
+                  onClick={() => handleDownload(item.rutaArchivo, item.nombreArchivo)}
                 />,
                 ...(canEdit ? [
                   <Button

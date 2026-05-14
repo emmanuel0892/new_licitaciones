@@ -1,13 +1,14 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { Table, Button, Space, Tag, Typography, Card, App, Input, Select, Tooltip } from "antd"
-import { SearchOutlined, ReloadOutlined, EyeOutlined, HistoryOutlined, FileTextOutlined, DownloadOutlined } from "@ant-design/icons"
-import { getLicitaciones } from "@/actions/licitaciones"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { Table, Button, Space, Tag, Typography, Card, App, Input, Select, Tooltip, Popconfirm } from "antd"
+import { SearchOutlined, ReloadOutlined, EyeOutlined, HistoryOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons"
+import { getLicitaciones, deleteLicitacion } from "@/actions/licitaciones"
 import { getUsers } from "@/actions/users"
 import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION } from "@/lib/helpers"
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalWorkflow from "@/components/modals/ModalWorkflow"
+import ModalEditarLicitacion from "@/components/modals/ModalEditarLicitacion"
 import * as XLSX from "xlsx"
 import styles from "./todas.module.css"
 
@@ -27,8 +28,9 @@ const TodasLicitacionesPage = () => {
 
   const modalHistorialRef = useRef(null)
   const modalWorkflowRef = useRef(null)
+  const modalEditarRef = useRef(null)
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     const [licResult, usersResult] = await Promise.all([
       getLicitaciones(filters),
@@ -44,11 +46,11 @@ const TodasLicitacionesPage = () => {
     }
 
     setLoading(false)
-  }
+  }, [filters])
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [loadData])
 
   const handleSearch = () => {
     loadData()
@@ -85,6 +87,16 @@ const TodasLicitacionesPage = () => {
 
     setGeneratingExcel(false)
     message.success("Informe generado correctamente")
+  }
+
+  const handleDelete = async (id) => {
+    const result = await deleteLicitacion(id)
+    if (result.success) {
+      message.success("Licitación eliminada correctamente")
+      loadData()
+    } else {
+      message.error(result.error || "Error al eliminar la licitación")
+    }
   }
 
   const columns = [
@@ -128,13 +140,11 @@ const TodasLicitacionesPage = () => {
       render: (text) => formatMoney(text)
     },
     {
-      title: "Estado",
-      dataIndex: "estado",
-      key: "estado",
+      title: "Vigencia",
+      dataIndex: "vigencia",
+      key: "vigencia",
       width: 110,
-      render: (text) => (
-        <Tag color={getEstadoColor(text)}>{text}</Tag>
-      )
+      render: (text) => text ? formatDate(text) : "-"
     },
     {
       title: "Fecha Creación",
@@ -154,29 +164,17 @@ const TodasLicitacionesPage = () => {
       title: "Acciones",
       key: "actions",
       fixed: "right",
-      width: 120,
+      width: 180,
       render: (_, record) => (
         <Space size="small">
-          {(record.contadorDevoluciones > 0 || record.contadorEdiciones > 0) && (
-            <Tooltip title="Ver historial">
-              <Button
-                type="text"
-                size="small"
-                icon={<HistoryOutlined style={{ color: "#6B7280" }} />}
-                onClick={() => modalHistorialRef.current?.open(record.id)}
-              />
-            </Tooltip>
-          )}
-
-          {record._count.documentos > 0 && (
-            <Tooltip title="Ver documentos">
-              <Button
-                type="text"
-                size="small"
-                icon={<FileTextOutlined style={{ color: "#FFD96D" }} />}
-              />
-            </Tooltip>
-          )}
+          <Tooltip title="Ver historial">
+            <Button
+              type="text"
+              size="small"
+              icon={<HistoryOutlined style={{ color: "#722ed1" }} />}
+              onClick={() => modalHistorialRef.current?.open(record.id, record)}
+            />
+          </Tooltip>
 
           <Tooltip title="Ver workflow">
             <Button
@@ -186,6 +184,31 @@ const TodasLicitacionesPage = () => {
               onClick={() => modalWorkflowRef.current?.open(record.id)}
             />
           </Tooltip>
+
+          <Tooltip title="Editar">
+            <Button
+              type="text"
+              size="small"
+              icon={<EditOutlined style={{ color: "#23aeaa" }} />}
+              onClick={() => modalEditarRef.current?.open(record.id)}
+            />
+          </Tooltip>
+
+          <Popconfirm
+            title="¿Estás seguro de eliminar esta licitación?"
+            description="Esta acción no se puede deshacer"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Sí"
+            cancelText="No"
+          >
+            <Tooltip title="Eliminar">
+              <Button
+                type="text"
+                size="small"
+                icon={<DeleteOutlined style={{ color: "#e53935" }} />}
+              />
+            </Tooltip>
+          </Popconfirm>
         </Space>
       )
     }
@@ -206,41 +229,42 @@ const TodasLicitacionesPage = () => {
         </div>
 
         <div className={styles.filters}>
-          <Input
-            placeholder="N° Licitación / MEMO"
-            value={filters.numeroLicitacion}
-            onChange={(e) => setFilters({ ...filters, numeroLicitacion: e.target.value })}
-            style={{ width: 180 }}
-            allowClear
-          />
+          <div className={styles.filterGroup}>
+            <Text className={styles.filterLabel}>Filtrar Por:</Text>
+          </div>
 
-          <Select
-            placeholder="Creador"
-            value={filters.usuarioId}
-            onChange={(value) => setFilters({ ...filters, usuarioId: value })}
-            style={{ width: 180 }}
-            allowClear
-            options={users.map((u) => ({
-              value: u.id,
-              label: `${u.name} ${u.lastname}`
-            }))}
-          />
+          <div className={styles.filterGroup}>
+            <Text className={styles.filterLabel}>N° de Licitación | MEMO:</Text>
+            <Input
+              placeholder="Buscar por Número de Licitación o MEMO"
+              value={filters.numeroLicitacion}
+              onChange={(e) => setFilters({ ...filters, numeroLicitacion: e.target.value })}
+              style={{ width: 250 }}
+              allowClear
+            />
+          </div>
 
-          <Select
-            placeholder="Estado"
-            value={filters.estado}
-            onChange={(value) => setFilters({ ...filters, estado: value })}
-            style={{ width: 140 }}
-            allowClear
-            options={ESTADOS_LICITACION}
-          />
+          <div className={styles.filterGroup}>
+            <Text className={styles.filterLabel}>Creador:</Text>
+            <Select
+              placeholder="Seleccione usuario"
+              value={filters.usuarioId}
+              onChange={(value) => setFilters({ ...filters, usuarioId: value })}
+              style={{ width: 200 }}
+              allowClear
+              options={users.map((u) => ({
+                value: u.id,
+                label: `${u.name} ${u.lastname}`
+              }))}
+            />
+          </div>
 
           <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
             Buscar
           </Button>
 
-          <Button icon={<ReloadOutlined />} onClick={() => { handleClearFilters(); loadData(); }}>
-            Limpiar
+          <Button icon={<ReloadOutlined />} onClick={handleClearFilters}>
+            Mostrar Todo
           </Button>
         </div>
 
@@ -252,13 +276,15 @@ const TodasLicitacionesPage = () => {
           pagination={{
             pageSize: 10,
             showSizeChanger: false,
-            showTotal: (total) => `Total: ${total} licitaciones`
+            showTotal: (total) => `Total: ${total} licitaciones`,
+            position: ["bottomRight"]
           }}
         />
       </Card>
 
       <ModalHistorial ref={modalHistorialRef} />
       <ModalWorkflow ref={modalWorkflowRef} />
+      <ModalEditarLicitacion ref={modalEditarRef} onSuccess={loadData} />
     </div>
   )
 }

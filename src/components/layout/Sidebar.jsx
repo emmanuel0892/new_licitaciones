@@ -74,7 +74,14 @@ const Sidebar = ({ children }) => {
             key: "/dashboard/licitaciones/mis-licitaciones",
             icon: <FolderOutlined />,
             label: "Mis Licitaciones"
-          }
+          },
+          ...(userType === ROLES.SUPER_ADMIN ? [
+            {
+              key: "/dashboard/licitaciones/todas",
+              icon: <FileSearchOutlined />,
+              label: "Todas las Licitaciones"
+            }
+          ] : [])
         ]
       })
     }
@@ -90,14 +97,6 @@ const Sidebar = ({ children }) => {
         key: "/dashboard/licitaciones/bandeja",
         icon: <InboxOutlined />,
         label: "Bandeja de Entrada"
-      })
-    }
-
-    if (userType === ROLES.SUPER_ADMIN) {
-      items.push({
-        key: "/dashboard/licitaciones/todas",
-        icon: <FileSearchOutlined />,
-        label: "Todas las Licitaciones"
       })
     }
 
@@ -196,19 +195,9 @@ const Sidebar = ({ children }) => {
         theme="light"
       >
         <div className={styles.logoContainer}>
-          <div className={styles.logo}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#23aeaa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 17L12 22L22 17" stroke="#23aeaa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 12L12 17L22 12" stroke="#23aeaa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+          <div onClick={() => router.push("/dashboard")} style={{ cursor: "pointer" }}>
+            <img src="/logoHRR.png" alt="Logo HRR" style={{ width: 220, height: "auto", objectFit: "contain", padding: "20px 0" }} />
           </div>
-          {!collapsed && (
-            <div className={styles.logoText}>
-              <Text strong style={{ fontSize: 16, color: "#1f2937" }}>HRR</Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>Licitaciones</Text>
-            </div>
-          )}
         </div>
 
         <Menu

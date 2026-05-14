@@ -7,7 +7,7 @@ import { createLicitacionSchema, devolverLicitacionSchema } from "@/lib/validati
 
 export const getLicitaciones = async (filters = {}) => {
   const session = await auth()
-  
+
   if (!session) {
     return { error: "No autorizado" }
   }
@@ -17,21 +17,31 @@ export const getLicitaciones = async (filters = {}) => {
 
   try {
     const where = {}
+    const andConditions = []
 
     if (numeroLicitacion) {
-      where.numeroLicitacion = { contains: numeroLicitacion, mode: "insensitive" }
+      andConditions.push({
+        OR: [
+          { numeroLicitacion: { contains: numeroLicitacion } },
+          { nombreLicitacion: { contains: numeroLicitacion } }
+        ]
+      })
     }
 
     if (usuarioId) {
-      where.usuarioId = usuarioId
+      andConditions.push({ usuarioId: parseInt(usuarioId) })
     }
 
     if (estado) {
-      where.estado = estado
+      andConditions.push({ estado })
     }
 
     if (turno) {
-      where.procesoActual = { turno }
+      andConditions.push({ procesoActual: { turno } })
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions
     }
 
     const licitaciones = await prisma.licitacion.findMany({
@@ -242,7 +252,8 @@ export const avanzarLicitacion = async (id) => {
           usuarioId: session.user.id,
           tipoAccion: "avance",
           procesoOrigen: licitacion.procesoActual.tituloProceso,
-          procesoDestino: "Finalizada"
+          procesoDestino: "Finalizada",
+          requirente: licitacion.requirente
         }
       })
 
@@ -267,7 +278,8 @@ export const avanzarLicitacion = async (id) => {
         usuarioId: session.user.id,
         tipoAccion: "avance",
         procesoOrigen: licitacion.procesoActual.tituloProceso,
-        procesoDestino: siguienteProceso.tituloProceso
+        procesoDestino: siguienteProceso.tituloProceso,
+        requirente: licitacion.requirente
       }
     })
 
@@ -335,7 +347,8 @@ export const devolverLicitacion = async (data) => {
         tipoAccion: "devolucion",
         procesoOrigen: licitacion.procesoActual.tituloProceso,
         procesoDestino: procesoAnterior.tituloProceso,
-        observacion
+        observacion,
+        requirente: licitacion.requirente
       }
     })
 
@@ -389,32 +402,68 @@ export const updateLicitacion = async (data) => {
         nombreLicitacion,
         requirente,
         montoPresupuestado: montoPresupuestado || null,
-        vigencia: vigencia ? new Date(vigencia) : null,
+        vigencia: vigencia ? (() => {
+          const [year, month, day] = vigencia.split('-').map(Number)
+          return new Date(year, month - 1, day, 12, 0, 0, 0)
+        })() : null,
         contadorEdiciones: { increment: 1 }
       }
     })
 
-    await prisma.historialLicitacion.create({
-      data: {
-        licitacionId: parseInt(id),
-        usuarioId: session.user.id,
-        tipoAccion: "edicion",
-        procesoOrigen: "Edición de datos",
-        procesoDestino: "Edición de datos"
-      }
-    })
+    const cambios = []
+    if (numeroLicitacion !== licitacion.numeroLicitacion) {
+      cambios.push({
+        campoModificado: "Número Licitación",
+        datoAntiguo: licitacion.numeroLicitacion || "Sin número",
+        datoNuevo: numeroLicitacion || "Sin número"
+      })
+    }
+    if (nombreLicitacion !== licitacion.nombreLicitacion) {
+      cambios.push({
+        campoModificado: "Nombre Licitación",
+        datoAntiguo: licitacion.nombreLicitacion,
+        datoNuevo: nombreLicitacion
+      })
+    }
+    if (requirente !== licitacion.requirente) {
+      cambios.push({
+        campoModificado: "Requirente",
+        datoAntiguo: licitacion.requirente,
+        datoNuevo: requirente
+      })
+    }
+    if (montoPresupuestado !== licitacion.montoPresupuestado) {
+      cambios.push({
+        campoModificado: "Monto Presupuestado",
+        datoAntiguo: licitacion.montoPresupuestado || "Sin monto",
+        datoNuevo: montoPresupuestado || "Sin monto"
+      })
+    }
+
+    for (const cambio of cambios) {
+      await prisma.historialLicitacion.create({
+        data: {
+          licitacionId: parseInt(id),
+          usuarioId: session.user.id,
+          tipoAccion: "edicion",
+          procesoOrigen: "Edición de datos",
+          procesoDestino: "Edición de datos",
+          observacion: `${cambio.campoModificado}: ${cambio.datoAntiguo} → ${cambio.datoNuevo}`
+        }
+      })
+    }
 
     revalidatePath("/dashboard/licitaciones")
     return { success: true }
   } catch (error) {
-    console.error(error)
-    return { error: "Error al actualizar la licitación" }
+    console.error("Error en updateLicitacion:", error)
+    return { error: error.message || "Error al actualizar la licitación" }
   }
 }
 
 export const getHistorialLicitacion = async (id) => {
   const session = await auth()
-  
+
   if (!session) {
     return { error: "No autorizado" }
   }
@@ -619,5 +668,34 @@ export const getLicitacionesMPByRequirenteConAlerta = async (requirente) => {
   } catch (error) {
     console.error(error)
     return { error: "Error al obtener licitaciones" }
+    
+  }
+}
+
+export const deleteLicitacion = async (id) => {
+  const session = await auth()
+
+  if (!session || session.user.typeAccount !== "Super Admin") {
+    return { error: "No autorizado" }
+  }
+
+  try {
+    const licitacion = await prisma.licitacion.findUnique({
+      where: { id: parseInt(id) }
+    })
+
+    if (!licitacion) {
+      return { error: "Licitación no encontrada" }
+    }
+
+    await prisma.licitacion.delete({
+      where: { id: parseInt(id) }
+    })
+
+    revalidatePath("/dashboard/licitaciones")
+    return { success: true }
+  } catch (error) {
+    console.error(error)
+    return { error: "Error al eliminar la licitación" }
   }
 }

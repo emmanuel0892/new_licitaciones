@@ -12,7 +12,8 @@ import {
   UploadOutlined,
   AlignLeftOutlined,
   TableOutlined,
-  DownloadOutlined
+  DownloadOutlined,
+  HistoryOutlined
 } from "@ant-design/icons"
 import { useSession } from "next-auth/react"
 import { getLicitaciones, avanzarLicitacion } from "@/actions/licitaciones"
@@ -20,6 +21,7 @@ import { getUsers } from "@/actions/users"
 import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION } from "@/lib/helpers"
 import ModalDevolver from "@/components/modals/ModalDevolver"
 import ModalHistorial from "@/components/modals/ModalHistorial"
+import ModalHistorialNuevo from "@/components/modals/ModalHistorialNuevo"
 import ModalWorkflow from "@/components/modals/ModalWorkflow"
 import ModalDocumentos from "@/components/modals/ModalDocumentos"
 import * as XLSX from "xlsx"
@@ -43,6 +45,7 @@ const BandejaPage = () => {
 
   const modalDevolverRef = useRef(null)
   const modalHistorialRef = useRef(null)
+  const modalHistorialNuevoRef = useRef(null)
   const modalWorkflowRef = useRef(null)
   const modalDocumentosRef = useRef(null)
 
@@ -194,19 +197,17 @@ const BandejaPage = () => {
 
         return (
           <Space size="small">
-            {/* 1. Ver Observaciones - Solo si tiene devoluciones o ediciones */}
-            {(record.contadorDevoluciones > 0 || record.contadorEdiciones > 0) && (
-              <Tooltip title="Ver observaciones">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<AlignLeftOutlined style={{ color: "#6B7280" }} />}
-                  onClick={() => modalHistorialRef.current?.open(record.id)}
-                />
-              </Tooltip>
-            )}
+            {/* 0. Ver Historial - Siempre visible */}
+            <Tooltip title="Ver historial">
+              <Button
+                type="text"
+                size="small"
+                icon={<HistoryOutlined style={{ color: "#722ed1" }} />}
+                onClick={() => modalHistorialNuevoRef.current?.open(record.id, record)}
+              />
+            </Tooltip>
 
-            {/* 2. Ver Documentos - Solo si tiene documentos */}
+            {/* 1. Ver Documentos - Solo si tiene documentos */}
             {record._count.documentos > 0 && (
               <Tooltip title="Ver documentos">
                 <Button
@@ -373,6 +374,7 @@ const BandejaPage = () => {
 
       <ModalDevolver ref={modalDevolverRef} onSuccess={loadData} />
       <ModalHistorial ref={modalHistorialRef} />
+      <ModalHistorialNuevo ref={modalHistorialNuevoRef} />
       <ModalWorkflow ref={modalWorkflowRef} />
       <ModalDocumentos ref={modalDocumentosRef} onSuccess={loadData} />
     </div>
