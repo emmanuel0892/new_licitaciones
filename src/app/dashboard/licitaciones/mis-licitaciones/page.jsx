@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Table, Button, Space, Tag, Typography, Card, App, Tooltip } from "antd"
 import { EyeOutlined, EditOutlined, FileTextOutlined, HistoryOutlined } from "@ant-design/icons"
 import { getMisLicitaciones } from "@/actions/licitaciones"
-import { formatDate, formatMoney, getEstadoColor, getProcesoActualLicitacionLabel, esFormatoLicitacion } from "@/lib/helpers"
+import { formatDate, formatMoney, getEstadoColor, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel } from "@/lib/helpers"
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalWorkflow from "@/components/modals/ModalWorkflow"
 import ModalEditarLicitacion from "@/components/modals/ModalEditarLicitacion"
@@ -46,7 +46,8 @@ const MisLicitacionesPage = () => {
       title: "Formato",
       dataIndex: ["formatoLiquidacion", "titulo"],
       key: "formato",
-      width: 120
+      width: 120,
+      render: (titulo) => getFormatoLabel(titulo)
     },
     {
       title: "Nombre",

@@ -5,7 +5,7 @@ import { Table, Button, Space, Tag, Typography, Card, App, Input, Select, Toolti
 import { SearchOutlined, ReloadOutlined, EyeOutlined, HistoryOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons"
 import { getLicitaciones, deleteLicitacion } from "@/actions/licitaciones"
 import { getUsers } from "@/actions/users"
-import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion } from "@/lib/helpers"
+import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel } from "@/lib/helpers"
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalWorkflow from "@/components/modals/ModalWorkflow"
 import ModalEditarLicitacion from "@/components/modals/ModalEditarLicitacion"
@@ -70,7 +70,7 @@ const TodasLicitacionesPage = () => {
     const dataExcel = licitaciones.map((l) => ({
       "Número de Licitación": l.numeroLicitacion || "Sin número",
       "Nombre de Licitación": l.nombreLicitacion,
-      "Formato": l.formatoLiquidacion.titulo,
+      "Formato": getFormatoLabel(l.formatoLiquidacion.titulo),
       "Creador": `${l.usuario.name} ${l.usuario.lastname}`,
       "Requirente": l.requirente,
       "Monto Presupuestado": l.montoPresupuestado || "Sin Monto",
@@ -111,7 +111,8 @@ const TodasLicitacionesPage = () => {
       title: "Formato",
       dataIndex: ["formatoLiquidacion", "titulo"],
       key: "formato",
-      width: 120
+      width: 120,
+      render: (titulo) => getFormatoLabel(titulo)
     },
     {
       title: "Nombre",

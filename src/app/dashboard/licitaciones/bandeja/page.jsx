@@ -13,12 +13,13 @@ import {
   AlignLeftOutlined,
   TableOutlined,
   DownloadOutlined,
-  HistoryOutlined
+  HistoryOutlined,
+  SyncOutlined
 } from "@ant-design/icons"
 import { useSession } from "next-auth/react"
-import { getLicitaciones, avanzarLicitacion } from "@/actions/licitaciones"
+import { getLicitaciones, avanzarLicitacion, migrarLicitacionesPaso11AFinalizada } from "@/actions/licitaciones"
 import { getUsers } from "@/actions/users"
-import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion } from "@/lib/helpers"
+import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel, getProcesoActualNumero, getMainStepNumero } from "@/lib/helpers"
 import ModalDevolver from "@/components/modals/ModalDevolver"
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalHistorialNuevo from "@/components/modals/ModalHistorialNuevo"
@@ -82,14 +83,24 @@ const BandejaPage = () => {
     await loadData()
   }
 
-  const handleClearFilters = () => {
-    setFilters({
+  const handleClearFilters = async () => {
+    const emptyFilters = {
       numeroLicitacion: "",
       usuarioId: undefined,
       estado: undefined,
       turno: undefined
-    })
+    }
+    setFilters(emptyFilters)
+    
+    const result = await getLicitaciones(emptyFilters)
+    if (result.data) {
+      setLicitaciones(result.data.map((l) => ({ ...l, key: l.id })))
+    }
   }
+
+  useEffect(() => {
+    loadData()
+  }, [])
 
   const handleAvanzar = async (id) => {
     message.loading("Avanzando licitación...")
@@ -102,6 +113,17 @@ const BandejaPage = () => {
     }
   }
 
+  const handleMigrarPaso11AFinalizada = async () => {
+    message.loading("Migrando licitaciones...")
+    const result = await migrarLicitacionesPaso11AFinalizada()
+    if (result.success) {
+      message.success(result.message || "Migración completada")
+      loadData()
+    } else {
+      message.error(result.error || "Error al migrar")
+    }
+  }
+
   const handleExportExcel = async () => {
     setGeneratingExcel(true)
     message.loading("Generando informe...")
@@ -109,13 +131,13 @@ const BandejaPage = () => {
     const dataExcel = licitaciones.map((l) => ({
       "Número de Licitación": l.numeroLicitacion || "Sin número",
       "Nombre de Licitación": l.nombreLicitacion,
-      "Formato": l.formatoLiquidacion.titulo,
+      "Formato": getFormatoLabel(l.formatoLiquidacion.titulo),
       "Creador": `${l.usuario.name} ${l.usuario.lastname}`,
       "Requirente": l.requirente,
       "Monto Presupuestado": l.montoPresupuestado || "Sin Monto",
       "Vigencia": l.vigencia ? formatDate(l.vigencia) : "-",
       "Estado": l.estado,
-      "Proceso Actual": esFormatoLicitacion(l.formatoLiquidacion.titulo) ? getProcesoActualLicitacionLabel(l.procesoActual.tituloProceso) : l.procesoActual.tituloProceso,
+      "Proceso Actual": esFormatoLicitacion(l.formatoLiquidacion.titulo) ? getProcesoActualLicitacionLabel(l.procesoActual) : l.procesoActual.tituloProceso,
       "Fecha de Creación": formatDate(l.createdAt)
     }))
 
@@ -145,7 +167,8 @@ const BandejaPage = () => {
       title: "Formato",
       dataIndex: ["formatoLiquidacion", "titulo"],
       key: "formato",
-      width: 120
+      width: 120,
+      render: (titulo) => getFormatoLabel(titulo)
     },
     {
       title: "Nombre",
@@ -186,13 +209,26 @@ const BandejaPage = () => {
       title: "Proceso Actual",
       dataIndex: ["procesoActual", "tituloProceso"],
       key: "proceso",
-      width: 180,
-      ellipsis: true,
+      width: 200,
       render: (titulo, record) => {
-        if (esFormatoLicitacion(record.formatoLiquidacion.titulo)) {
-          return getProcesoActualLicitacionLabel(titulo)
+        let procesoLabel = esFormatoLicitacion(record.formatoLiquidacion.titulo) 
+          ? getProcesoActualLicitacionLabel(record.procesoActual) 
+          : titulo
+        
+        // Quitar el número inicial si tiene formato "X Nombre"
+        if (procesoLabel && /^\d+\s+/.test(procesoLabel)) {
+          procesoLabel = procesoLabel.replace(/^\d+\s+/, "")
         }
-        return titulo
+        
+        return (
+          <Tooltip title={procesoLabel}>
+            <div className={styles.procesoActualCell}>
+              <span className={styles.procesoActualText}>
+                {procesoLabel}
+              </span>
+            </div>
+          </Tooltip>
+        )
       }
     },
     {
@@ -229,7 +265,14 @@ const BandejaPage = () => {
             )}
 
             {/* 3. Subir Documento - Solo si no es Publicada y tiene permisos */}
-            {canPerformAction(record) && !isPublicada && record.estado !== "Finalizada" && (
+            {(() => {
+              const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
+              const currentNumero = isLicitacion ? getProcesoActualNumero(record.procesoActual.tituloProceso) : null
+              const currentMainNumero = isLicitacion ? getMainStepNumero(currentNumero) : null
+              const isLastStep = isLicitacion && currentMainNumero === "11"
+              
+              return canPerformAction(record) && !isPublicada && record.estado !== "Finalizada" && !isLastStep
+            })() && (
               <Tooltip title="Subir documento">
                 <Button
                   type="text"
@@ -241,7 +284,14 @@ const BandejaPage = () => {
             )}
 
             {/* 4. Devolver - Solo si no es primer paso ni Publicada y tiene permisos */}
-            {canPerformAction(record) && !isFirstStep && !isPublicada && record.estado !== "Finalizada" && (
+            {(() => {
+              const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
+              const currentNumero = isLicitacion ? getProcesoActualNumero(record.procesoActual.tituloProceso) : null
+              const currentMainNumero = isLicitacion ? getMainStepNumero(currentNumero) : null
+              const isLastStep = isLicitacion && currentMainNumero === "11"
+              
+              return canPerformAction(record) && !isFirstStep && !isPublicada && record.estado !== "Finalizada" && !isLastStep
+            })() && (
               <Tooltip title="Devolver">
                 <Button
                   type="text"
@@ -253,7 +303,14 @@ const BandejaPage = () => {
             )}
 
             {/* 5. Avanzar - Solo si tiene permisos y no está finalizada */}
-            {canPerformAction(record) && record.estado !== "Finalizada" && (
+            {(() => {
+              const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
+              const currentNumero = isLicitacion ? getProcesoActualNumero(record.procesoActual.tituloProceso) : null
+              const currentMainNumero = isLicitacion ? getMainStepNumero(currentNumero) : null
+              const isLastStep = isLicitacion && currentMainNumero === "11"
+              
+              return canPerformAction(record) && record.estado !== "Finalizada" && !isLastStep
+            })() && (
               <Popconfirm
                 title="¿Desea avanzar esta licitación?"
                 okText="Avanzar"
@@ -309,13 +366,24 @@ const BandejaPage = () => {
       <Card className={styles.card}>
         <div className={styles.header}>
           <Title level={3} style={{ margin: 0 }}>Bandeja de Entrada</Title>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={handleExportExcel}
-            loading={generatingExcel}
-          >
-            Generar Informe
-          </Button>
+          <Space>
+            {userType === "Super Admin" && (
+              <Button
+                icon={<SyncOutlined />}
+                onClick={handleMigrarPaso11AFinalizada}
+                type="default"
+              >
+                Migrar Paso 11
+              </Button>
+            )}
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={handleExportExcel}
+              loading={generatingExcel}
+            >
+              Generar Informe
+            </Button>
+          </Space>
         </div>
 
         <div className={styles.filters}>
@@ -363,7 +431,7 @@ const BandejaPage = () => {
             Buscar
           </Button>
 
-          <Button icon={<ReloadOutlined />} onClick={() => { handleClearFilters(); loadData(); }}>
+          <Button icon={<ReloadOutlined />} onClick={handleClearFilters}>
             Limpiar
           </Button>
         </div>

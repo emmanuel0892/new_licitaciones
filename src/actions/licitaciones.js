@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { createLicitacionSchema, devolverLicitacionSchema } from "@/lib/validations/licitacion"
+import { esFormatoLicitacion, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getMainStepNumero, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
 
 export const getLicitaciones = async (filters = {}) => {
   const session = await auth()
@@ -237,6 +238,103 @@ export const avanzarLicitacion = async (id) => {
       return { error: "Licitación no encontrada" }
     }
 
+    const formato = licitacion.formatoLiquidacion.titulo
+
+    // Si es formato Licitación, usar el nuevo flujo de avance
+    if (esFormatoLicitacion(formato)) {
+      const currentTitulo = licitacion.procesoActual.tituloProceso
+      
+      console.log("=== AVANCE LICITACION DEBUG ===")
+      console.log("currentTitulo:", currentTitulo)
+      
+      // Obtener el número actual del proceso
+      const currentNumero = getProcesoActualNumero(currentTitulo)
+      const currentMainNumero = getMainStepNumero(currentNumero)
+      
+      console.log("currentNumero:", currentNumero)
+      console.log("currentMainNumero:", currentMainNumero)
+      
+      // Si está en el paso 11, bloquear avance
+      if (currentMainNumero === "11") {
+        return { error: "La licitación ya se encuentra en el último paso del flujo." }
+      }
+
+      // Encontrar el siguiente paso principal usando FLUJO_LICITACION_AVANCE
+      const currentIndex = FLUJO_LICITACION_AVANCE.indexOf(currentMainNumero)
+      
+      console.log("currentIndex:", currentIndex)
+      console.log("FLUJO_LICITACION_AVANCE:", FLUJO_LICITACION_AVANCE)
+      
+      if (currentIndex === -1) {
+        return { error: "No se pudo determinar el proceso actual" }
+      }
+
+      if (currentIndex >= FLUJO_LICITACION_AVANCE.length - 1) {
+        return { error: "La licitación ya se encuentra en el último paso del flujo." }
+      }
+
+      const nextMainNumero = FLUJO_LICITACION_AVANCE[currentIndex + 1]
+      const nextProceso = FLUJO_LICITACION.find(p => p.numero === nextMainNumero)
+      
+      console.log("nextMainNumero:", nextMainNumero)
+      console.log("nextProceso:", nextProceso)
+
+      if (!nextProceso) {
+        return { error: "No se encontró el siguiente proceso" }
+      }
+
+      // Buscar el proceso en formatoLiquidacion.procesos usando el mapeo
+      // El nuevo flujo "3" corresponde a numeroPaso antiguo 4
+      const numeroPasoAntiguo = MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO[nextMainNumero]
+      const siguienteProceso = licitacion.formatoLiquidacion.procesos.find(p => 
+        p.numeroPaso === numeroPasoAntiguo
+      )
+      
+      console.log("nextMainNumero:", nextMainNumero)
+      console.log("numeroPasoAntiguo:", numeroPasoAntiguo)
+      console.log("siguienteProceso:", siguienteProceso)
+      console.log("formatoLiquidacion.procesos:", licitacion.formatoLiquidacion.procesos.map(p => ({ numeroPaso: p.numeroPaso, tituloProceso: p.tituloProceso })))
+
+      if (!siguienteProceso) {
+        return { error: "No se encontró el siguiente proceso en los datos de la licitación" }
+      }
+
+      // Actualizar el tituloProceso del proceso siguiente para que coincida con el nuevo flujo
+      await prisma.procesoLicitacion.update({
+        where: { id: siguienteProceso.id },
+        data: {
+          tituloProceso: `${nextProceso.numero} ${nextProceso.nombre}`
+        }
+      })
+
+      // Si el siguiente paso es el 11, cambiar estado a Finalizada
+      const isLastStep = nextMainNumero === "11"
+
+      await prisma.licitacion.update({
+        where: { id: parseInt(id) },
+        data: {
+          procesoActualId: siguienteProceso.id,
+          fechaRecepcion: new Date(),
+          estado: isLastStep ? "Finalizada" : "Pendiente"
+        }
+      })
+
+      await prisma.historialLicitacion.create({
+        data: {
+          licitacionId: parseInt(id),
+          usuarioId: session.user.id,
+          tipoAccion: "avance",
+          procesoOrigen: licitacion.procesoActual.tituloProceso,
+          procesoDestino: `${nextProceso.numero} ${nextProceso.nombre}`,
+          requirente: licitacion.requirente
+        }
+      })
+
+      revalidatePath("/dashboard/licitaciones")
+      return { success: true }
+    }
+
+    // Para otros formatos, usar la lógica original
     const procesos = licitacion.formatoLiquidacion.procesos
     const procesoActualIndex = procesos.findIndex(p => p.id === licitacion.procesoActualId)
     
@@ -321,6 +419,100 @@ export const devolverLicitacion = async (data) => {
       return { error: "Licitación no encontrada" }
     }
 
+    const formato = licitacion.formatoLiquidacion.titulo
+
+    // Si es formato Licitación, usar el nuevo flujo para devolución
+    if (esFormatoLicitacion(formato)) {
+      const currentTitulo = licitacion.procesoActual.tituloProceso
+      
+      console.log("=== DEVOLUCION LICITACION DEBUG ===")
+      console.log("currentTitulo:", currentTitulo)
+      
+      // Obtener el número actual del proceso
+      const currentNumero = getProcesoActualNumero(currentTitulo)
+      const currentMainNumero = getMainStepNumero(currentNumero)
+      
+      console.log("currentNumero:", currentNumero)
+      console.log("currentMainNumero:", currentMainNumero)
+      
+      // Si está en el paso 1, bloquear devolución
+      if (currentMainNumero === "1") {
+        return { error: "No se puede devolver, está en el primer proceso" }
+      }
+
+      // Encontrar el paso anterior principal usando FLUJO_LICITACION_AVANCE
+      const currentIndex = FLUJO_LICITACION_AVANCE.indexOf(currentMainNumero)
+      
+      console.log("currentIndex:", currentIndex)
+      console.log("FLUJO_LICITACION_AVANCE:", FLUJO_LICITACION_AVANCE)
+      
+      if (currentIndex === -1) {
+        return { error: "No se pudo determinar el proceso actual" }
+      }
+
+      if (currentIndex === 0) {
+        return { error: "No se puede devolver, está en el primer proceso" }
+      }
+
+      const prevMainNumero = FLUJO_LICITACION_AVANCE[currentIndex - 1]
+      const prevProceso = FLUJO_LICITACION.find(p => p.numero === prevMainNumero)
+      
+      console.log("prevMainNumero:", prevMainNumero)
+      console.log("prevProceso:", prevProceso)
+
+      if (!prevProceso) {
+        return { error: "No se encontró el proceso anterior" }
+      }
+
+      // Buscar el proceso en formatoLiquidacion.procesos usando el mapeo
+      const numeroPasoAntiguo = MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO[prevMainNumero]
+      const procesoAnterior = licitacion.formatoLiquidacion.procesos.find(p => 
+        p.numeroPaso === numeroPasoAntiguo
+      )
+      
+      console.log("prevMainNumero:", prevMainNumero)
+      console.log("numeroPasoAntiguo:", numeroPasoAntiguo)
+      console.log("procesoAnterior:", procesoAnterior)
+
+      if (!procesoAnterior) {
+        return { error: "No se encontró el proceso anterior en los datos de la licitación" }
+      }
+
+      // Actualizar el tituloProceso del proceso anterior para que coincida con el nuevo flujo
+      await prisma.procesoLicitacion.update({
+        where: { id: procesoAnterior.id },
+        data: {
+          tituloProceso: `${prevProceso.numero} ${prevProceso.nombre}`
+        }
+      })
+
+      await prisma.licitacion.update({
+        where: { id: licitacionId },
+        data: {
+          procesoActualId: procesoAnterior.id,
+          estado: "Devuelto",
+          contadorDevoluciones: { increment: 1 },
+          fechaRecepcion: new Date()
+        }
+      })
+
+      await prisma.historialLicitacion.create({
+        data: {
+          licitacionId: licitacionId,
+          usuarioId: session.user.id,
+          tipoAccion: "devolucion",
+          procesoOrigen: licitacion.procesoActual.tituloProceso,
+          procesoDestino: `${prevProceso.numero} ${prevProceso.nombre}`,
+          observacion: observacion,
+          requirente: licitacion.requirente
+        }
+      })
+
+      revalidatePath("/dashboard/licitaciones")
+      return { success: true }
+    }
+
+    // Para otros formatos, usar la lógica original
     const procesos = licitacion.formatoLiquidacion.procesos
     const procesoActualIndex = procesos.findIndex(p => p.id === licitacion.procesoActualId)
 
@@ -342,12 +534,12 @@ export const devolverLicitacion = async (data) => {
 
     await prisma.historialLicitacion.create({
       data: {
-        licitacionId,
+        licitacionId: licitacionId,
         usuarioId: session.user.id,
         tipoAccion: "devolucion",
         procesoOrigen: licitacion.procesoActual.tituloProceso,
         procesoDestino: procesoAnterior.tituloProceso,
-        observacion,
+        observacion: observacion,
         requirente: licitacion.requirente
       }
     })
@@ -458,6 +650,67 @@ export const updateLicitacion = async (data) => {
   } catch (error) {
     console.error("Error en updateLicitacion:", error)
     return { error: error.message || "Error al actualizar la licitación" }
+  }
+}
+
+// Función para migrar licitaciones en paso 11 a estado Finalizada
+export const migrarLicitacionesPaso11AFinalizada = async () => {
+  const session = await auth()
+  
+  if (!session) {
+    return { error: "No autorizado" }
+  }
+
+  if (session.user.typeAccount !== "Super Admin") {
+    return { error: "Solo Super Admin puede ejecutar esta migración" }
+  }
+
+  try {
+    // Buscar licitaciones en formato Licitación que estén en paso 11 y con estado Pendiente
+    const licitaciones = await prisma.licitacion.findMany({
+      where: {
+        estado: "Pendiente"
+      },
+      include: {
+        formatoLiquidacion: {
+          include: {
+            procesos: true
+          }
+        },
+        procesoActual: true
+      }
+    })
+
+    let actualizadas = 0
+
+    for (const licitacion of licitaciones) {
+      const formato = licitacion.formatoLiquidacion.titulo
+      
+      // Solo procesar formato Licitación
+      if (!esFormatoLicitacion(formato)) {
+        continue
+      }
+
+      const currentTitulo = licitacion.procesoActual.tituloProceso
+      const currentNumero = getProcesoActualNumero(currentTitulo)
+      const currentMainNumero = getMainStepNumero(currentNumero)
+
+      // Si está en paso 11, actualizar estado a Finalizada
+      if (currentMainNumero === "11") {
+        await prisma.licitacion.update({
+          where: { id: licitacion.id },
+          data: { estado: "Finalizada" }
+        })
+        actualizadas++
+        console.log(`Licitación ${licitacion.nombreLicitacion} actualizada a Finalizada`)
+      }
+    }
+
+    revalidatePath("/dashboard/licitaciones")
+    return { success: true, message: `Se actualizaron ${actualizadas} licitaciones a estado Finalizada` }
+  } catch (error) {
+    console.error("Error en migrarLicitacionesPaso11AFinalizada:", error)
+    return { error: error.message || "Error al migrar licitaciones" }
   }
 }
 

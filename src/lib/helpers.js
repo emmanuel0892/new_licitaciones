@@ -217,6 +217,26 @@ export const FLUJO_LICITACION_SECUENCIA = [
   "11"
 ]
 
+// Secuencia solo para avance manual (solo pasos principales)
+export const FLUJO_LICITACION_AVANCE = [
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+  "11"
+]
+
+export const getMainStepNumero = (numero) => {
+  if (!numero) return "1"
+  return String(numero).split(".")[0]
+}
+
 export const getParentStep = (numeroProceso) => {
   if (!numeroProceso) return null
   if (numeroProceso.includes(".")) {
@@ -312,20 +332,95 @@ export const MAP_NUMERO_A_PROCESO_LICITACION = {
 
 export const MAP_PROCESO_ANTIGUO_A_NUMERO = {
   "Confección de Bases": "1",
-  "Requerimiento referente técnico": "2.1",
+  "Requerimiento referente técnico": "1.1",
   "Jurídico": "2",
   "Firmas Directivos y Partes": "3",
   "Publicación": "4",
   "Publicada": "11",
   "Evaluación Técnica": "5",
   "Preadjudicación y Comisión": "6",
-  "Presupuesto": "7"
+  "Presupuesto": "7",
+  "Finalizada": "11"
+}
+
+// Mapeo del nuevo flujo al numeroPaso antiguo en la base de datos
+export const MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO = {
+  "1": 1,
+  "2": 2,
+  "3": 4,
+  "4": 5,
+  "5": 6,
+  "6": 7,
+  "7": 8,
+  "8": 9,
+  "9": 10,
+  "10": 11,
+  "11": 11
+}
+
+// Mapeo inverso: de numeroPaso antiguo a nuevo numero de flujo
+export const MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO = {
+  1: "1",
+  2: "2",
+  3: "2",
+  4: "3",
+  5: "4",
+  6: "5",
+  7: "6",
+  8: "7",
+  9: "8",
+  10: "9",
+  11: "11"
+}
+
+// Función para obtener el nombre del proceso actual basado en numeroPaso
+export const getProcesoActualLabelByNumeroPaso = (numeroPaso) => {
+  if (!numeroPaso) return "Pendiente"
+  
+  const nuevoNumero = MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO[numeroPaso]
+  if (!nuevoNumero) return "Pendiente"
+  
+  const proceso = FLUJO_LICITACION.find(p => p.numero === nuevoNumero)
+  return proceso ? `${proceso.numero} ${proceso.nombre}` : "Pendiente"
 }
 
 export const getProcesoActualLicitacionLabel = (procesoActual) => {
   if (!procesoActual) return "Pendiente"
 
+  console.log("getProcesoActualLicitacionLabel input:", procesoActual, typeof procesoActual)
+
+  // Si es un objeto
+  if (typeof procesoActual === 'object') {
+    // Si tiene numeroPaso, usar el mapeo basado en numeroPaso
+    if (procesoActual.numeroPaso !== undefined) {
+      console.log("Usando numeroPaso:", procesoActual.numeroPaso)
+      return getProcesoActualLabelByNumeroPaso(procesoActual.numeroPaso)
+    }
+    
+    // Si tiene tituloProceso con formato "X Nombre", extraer el número y usarlo
+    if (procesoActual.tituloProceso && /^\d+\s+/.test(procesoActual.tituloProceso)) {
+      const numero = procesoActual.tituloProceso.split(" ")[0]
+      console.log("Extrayendo numero desde tituloProceso:", numero)
+      return procesoActual.tituloProceso
+    }
+    
+    // Si tiene tituloProceso sin formato, usar el mapeo antiguo
+    if (procesoActual.tituloProceso) {
+      console.log("Usando tituloProceso con mapeo antiguo:", procesoActual.tituloProceso)
+      const valor = procesoActual.tituloProceso.trim()
+      
+      if (MAP_PROCESO_ANTIGUO_A_NUMERO[valor]) {
+        const numeroNuevo = MAP_PROCESO_ANTIGUO_A_NUMERO[valor]
+        return MAP_NUMERO_A_PROCESO_LICITACION[numeroNuevo]
+      }
+      
+      return valor
+    }
+  }
+
+  // Si es un string, procesarlo normalmente
   const valor = String(procesoActual).trim()
+  console.log("Procesando como string:", valor)
 
   if (MAP_NUMERO_A_PROCESO_LICITACION[valor]) {
     return MAP_NUMERO_A_PROCESO_LICITACION[valor]
@@ -343,6 +438,14 @@ export const getProcesoActualNumero = (procesoActual) => {
   if (!procesoActual) return "1"
 
   const valor = String(procesoActual).trim()
+
+  // Si el valor ya tiene el formato "X Nombre", extraer el número
+  if (/^\d+\s+/.test(valor)) {
+    const numero = valor.split(" ")[0]
+    if (FLUJO_LICITACION_SECUENCIA.includes(numero)) {
+      return numero
+    }
+  }
 
   if (FLUJO_LICITACION_SECUENCIA.includes(valor)) {
     return valor

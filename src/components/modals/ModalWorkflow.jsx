@@ -4,7 +4,7 @@ import { useState, useImperativeHandle, forwardRef } from "react"
 import { Modal, Typography, Tag, Spin, Table, Button, Row, Col } from "antd"
 import { CheckCircleFilled, ClockCircleFilled, DownOutlined, RightOutlined } from "@ant-design/icons"
 import { getLicitacionById, getHistorialLicitacion } from "@/actions/licitaciones"
-import { formatDate, formatMoney, FLUJO_LICITACION, esFormatoLicitacion, getParentStep, getProcesoActualNumero, getMainStepState, getSubStepState } from "@/lib/helpers"
+import { formatDate, formatMoney, FLUJO_LICITACION, FLUJO_LICITACION_SECUENCIA, FLUJO_LICITACION_AVANCE, esFormatoLicitacion, getParentStep, getProcesoActualNumero, getMainStepState, getSubStepState, getFormatoLabel, getMainStepNumero, getProcesoActualLabelByNumeroPaso, MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO } from "@/lib/helpers"
 
 const { Text, Title } = Typography
 
@@ -124,6 +124,29 @@ const FLUJO_LICITACION_TABLA = [
   }
 ]
 
+// Estructura plana de pasos y subpasos para el workflow vertical
+const FLUJO_LICITACION_PLANAR = [
+  { numero: "1", nombre: "Confección Bases Técnicas", tipo: "principal" },
+  { numero: "1.1", nombre: "Firmas Jefatura de Unidad y Jefatura de Depto.", tipo: "subpaso", parent: "1" },
+  { numero: "2", nombre: "Unidad Administrativa Legal", tipo: "principal" },
+  { numero: "2.1", nombre: "Firma Jefatura Unidad Administrativo Legal", tipo: "subpaso", parent: "2" },
+  { numero: "3", nombre: "Firmas Directivas y Partes", tipo: "principal" },
+  { numero: "3.1", nombre: "Firmas Subdirector Administrativo y Director", tipo: "subpaso", parent: "3" },
+  { numero: "3.2", nombre: "Fecha y Enumeración de Oficina de Partes", tipo: "subpaso", parent: "3" },
+  { numero: "4", nombre: "Publicación de Bases", tipo: "principal" },
+  { numero: "5", nombre: "Periodo de Apertura y Evaluación Técnica de Ofertas", tipo: "principal" },
+  { numero: "6", nombre: "Confección de Res, Preadjudicación y Comisión", tipo: "principal" },
+  { numero: "7", nombre: "Presupuesto", tipo: "principal" },
+  { numero: "8", nombre: "Firmas Resolución Adjudicación", tipo: "principal" },
+  { numero: "8.1", nombre: "Firmas Jefatura de Unidad y Jefatura de Dpto.", tipo: "subpaso", parent: "8" },
+  { numero: "9", nombre: "Unidad Administrativa Legal", tipo: "principal" },
+  { numero: "9.1", nombre: "Firma Jefatura Unidad Administrativo Legal", tipo: "subpaso", parent: "9" },
+  { numero: "10", nombre: "Firmas Directivos y Partes", tipo: "principal" },
+  { numero: "10.1", nombre: "Firmas Subdirector Administrativo y Director(a)", tipo: "subpaso", parent: "10" },
+  { numero: "10.2", nombre: "Fecha y Enumeración de Oficina de Partes", tipo: "subpaso", parent: "10" },
+  { numero: "11", nombre: "Publicación de Adjudicación o Deserción", tipo: "principal" }
+]
+
 const ModalWorkflow = forwardRef((props, ref) => {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -163,16 +186,14 @@ const ModalWorkflow = forwardRef((props, ref) => {
       return licitacion.formatoLiquidacion.procesos?.sort((a, b) => a.numeroPaso - b.numeroPaso) || []
     }
 
+    // Para formato Licitación, usar FLUJO_LICITACION_TABLA con nombres nuevos
     const tableData = []
     FLUJO_LICITACION_TABLA.forEach(paso => {
-      const pasoProcess = licitacion.formatoLiquidacion.procesos.find(p => p.numero === paso.numero || String(p.numeroPaso) === paso.numero)
-      const tituloProceso = pasoProcess ? pasoProcess.tituloProceso : `${paso.numero} ${paso.nombre}`
-      
       tableData.push({
         key: paso.numero,
         numero: paso.numero,
         nombre: paso.nombre,
-        tituloProceso: tituloProceso,
+        tituloProceso: `${paso.numero} ${paso.nombre}`,
         diasSugeridos: paso.diasSugeridos,
         hasSubpasos: paso.subpasos && paso.subpasos.length > 0,
         subpasos: paso.subpasos,
@@ -209,7 +230,11 @@ const ModalWorkflow = forwardRef((props, ref) => {
     if (!licitacion) return "pending"
     
     if (esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)) {
-      const currentNumero = getProcesoActualNumero(procesoActual?.tituloProceso || procesoActual)
+      // Para formato Licitación, usar numeroPaso en lugar de tituloProceso
+      const currentNumeroPaso = procesoActual?.numeroPaso
+      const currentNuevoNumero = currentNumeroPaso ? MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO[currentNumeroPaso] : null
+      const currentNumero = currentNuevoNumero || getProcesoActualNumero(procesoActual?.tituloProceso || procesoActual)
+      
       if (!currentNumero) return "pending"
       
       if (proceso.numero) {
@@ -238,12 +263,11 @@ const ModalWorkflow = forwardRef((props, ref) => {
   }
 
   const calcularTotalTiempo = () => {
-    if (!licitacion?.formatoLiquidacion?.procesos) return { dias: 0, meses: 0 }
-
+    const rows = transformTableData()
     let totalDias = 0
 
-    licitacion.formatoLiquidacion.procesos.forEach((proceso) => {
-      const status = getStepStatus(proceso, licitacion.procesoActual)
+    rows.forEach((row) => {
+      const status = getStepStatus(row, licitacion.procesoActual)
       if (status === "completed") {
         totalDias += 1
       } else if (status === "current") {
@@ -252,7 +276,9 @@ const ModalWorkflow = forwardRef((props, ref) => {
     })
 
     const meses = (totalDias / 30.44).toFixed(1)
-    return { dias: totalDias, meses }
+    const result = { dias: totalDias, meses }
+    console.log("calcularTotalTiempo:", result)
+    return result
   }
 
   // Mapeo de nombres nuevos a antiguos para buscar en historial
@@ -488,46 +514,51 @@ const ModalWorkflow = forwardRef((props, ref) => {
 
   const diasEnProcesoColumns = [
     {
+      title: "",
+      key: "expand",
+      width: 40,
+      align: "center",
+      render: (text, record) => {
+        if (!record.hasSubpasos) return null
+        return (
+          <button
+            onClick={() => toggleTableRowExpansion(record.key)}
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              border: "1px solid #14B8A6",
+              color: "#0F766E",
+              background: "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.2s ease",
+              cursor: "pointer",
+              fontSize: 14,
+              fontWeight: "bold"
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = "#CCFBF1"
+              e.target.style.transform = "scale(1.05)"
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = "white"
+              e.target.style.transform = "scale(1)"
+            }}
+          >
+            {expandedTableRows.has(record.key) ? "–" : "+"}
+          </button>
+        )
+      }
+    },
+    {
       title: "Días sugeridos",
       dataIndex: "diasSugeridos",
       key: "diasSugeridos",
       align: "center",
       width: 100,
-      render: (text, record) => (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          {record.hasSubpasos && (
-            <button
-              onClick={() => toggleTableRowExpansion(record.key)}
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: "50%",
-                border: "1px solid #14B8A6",
-                color: "#0F766E",
-                background: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "all 0.2s ease",
-                cursor: "pointer",
-                fontSize: 14,
-                fontWeight: "bold"
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = "#CCFBF1"
-                e.target.style.transform = "scale(1.05)"
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = "white"
-                e.target.style.transform = "scale(1)"
-              }}
-            >
-              {expandedTableRows.has(record.key) ? "–" : "+"}
-            </button>
-          )}
-          <span>{text || "-"}</span>
-        </div>
-      )
+      render: (text) => text || "-"
     },
     {
       title: "Proceso",
@@ -661,7 +692,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
               <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <Tag color="#9BC331" style={{ fontSize: 12, fontWeight: "bold" }}>Formato:</Tag>
-                  <Text style={{ marginLeft: 8 }}>{licitacion.formatoLiquidacion.titulo}</Text>
+                  <Text style={{ marginLeft: 8 }}>{getFormatoLabel(licitacion.formatoLiquidacion.titulo)}</Text>
                 </div>
               </div>
               <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -723,15 +754,8 @@ const ModalWorkflow = forwardRef((props, ref) => {
             <div>
               <Title level={5} style={{ marginBottom: 16 }}>Procesos</Title>
               {(() => {
-                const pasos = esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)
-                  ? FLUJO_LICITACION
-                  : licitacion.formatoLiquidacion.procesos?.sort((a, b) => a.numeroPaso - b.numeroPaso) || []
-
-                if (pasos.length === 0) {
-                  return <Text type="secondary">No hay procesos disponibles</Text>
-                }
-
                 if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)) {
+                  const pasos = licitacion.formatoLiquidacion.procesos?.sort((a, b) => a.numeroPaso - b.numeroPaso) || []
                   return (
                     <Row gutter={[8, 8]}>
                       {pasos.map((proceso) => {
@@ -754,71 +778,109 @@ const ModalWorkflow = forwardRef((props, ref) => {
                   )
                 }
 
+                const currentNumeroPaso = licitacion.procesoActual?.numeroPaso
+                const currentNumero = esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)
+                  ? (currentNumeroPaso ? MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO[currentNumeroPaso] : null) || getProcesoActualNumero(licitacion.procesoActual?.tituloProceso || licitacion.procesoActual)
+                  : getProcesoActualNumero(licitacion.procesoActual?.tituloProceso || licitacion.procesoActual)
+
                 return (
-                  <Row gutter={[8, 8]}>
-                    {pasos.map((paso) => {
-                      const hasSubpasos = paso.subpasos && paso.subpasos.length > 0
-                      const isExpanded = expandedSteps.has(paso.numero)
-                      const status = getStepStatus(paso, licitacion.procesoActual)
-                      return (
-                        <Col span={12} key={paso.numero}>
-                          <div>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                                padding: "8px 0",
-                                cursor: hasSubpasos ? 'pointer' : 'default',
-                                backgroundColor: status === "current" ? "#E6FFFA" : "transparent",
-                                padding: status === "current" ? "8px" : "0",
-                                borderRadius: status === "current" ? "8px" : "0"
-                              }}
-                              onClick={() => hasSubpasos && toggleStepExpansion(paso.numero)}
-                            >
-                              {renderStepIcon(status, paso.numero)}
-                              <Text 
-                                style={{ 
-                                  fontSize: 12,
-                                  fontWeight: status === "current" ? "bold" : "normal",
-                                  color: status === "current" ? "#0F766E" : "inherit"
-                                }}
-                              >
+                  <div style={{
+                    maxHeight: 420,
+                    overflowY: "auto",
+                    overflowX: "hidden",
+                    paddingRight: 8
+                  }}>
+                    <style>{`
+                      .workflow-process-scroll::-webkit-scrollbar {
+                        width: 6px;
+                      }
+                      .workflow-process-scroll::-webkit-scrollbar-track {
+                        background: transparent;
+                      }
+                      .workflow-process-scroll::-webkit-scrollbar-thumb {
+                        background: #cbd5e1;
+                        border-radius: 999px;
+                      }
+                      .workflow-process-scroll::-webkit-scrollbar-thumb:hover {
+                        background: #94a3b8;
+                      }
+                    `}</style>
+                    <div className="workflow-process-scroll" style={{
+                      position: "relative",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 14,
+                      paddingLeft: 28
+                    }}>
+                      <div style={{
+                        position: "absolute",
+                        left: 12,
+                        top: 8,
+                        bottom: 8,
+                        width: 2,
+                        background: "#E5E7EB",
+                        borderRadius: "50%"
+                      }}></div>
+                      {FLUJO_LICITACION_PLANAR.map((paso) => {
+                        const stepIndex = FLUJO_LICITACION_SECUENCIA.indexOf(paso.numero)
+                        const currentIndex = currentNumero ? FLUJO_LICITACION_SECUENCIA.indexOf(String(currentNumero)) : -1
+                        
+                        let status = "pending"
+                        if (stepIndex !== -1 && currentIndex !== -1) {
+                          if (stepIndex < currentIndex) {
+                            status = "completed"
+                          } else if (stepIndex === currentIndex) {
+                            status = "current"
+                          }
+                        }
+
+                        const isSubstep = paso.tipo === "subpaso"
+
+                        return (
+                          <div key={paso.numero} style={{
+                            position: "relative",
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 12,
+                            marginLeft: isSubstep ? 28 : 0,
+                            transition: "all 0.25s ease"
+                          }}>
+                            <div style={{
+                              minWidth: 26,
+                              height: 26,
+                              borderRadius: "50%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              zIndex: 1,
+                              backgroundColor: status === "completed" ? "#63B72F" : status === "current" ? "#14B8A6" : "#D9D9D9",
+                              color: "white",
+                              boxShadow: status === "current" ? "0 0 0 5px rgba(20, 184, 166, 0.15)" : "none"
+                            }}>
+                              {status === "completed" ? <CheckCircleFilled style={{ fontSize: 14 }} /> : paso.numero}
+                            </div>
+                            <div style={{
+                              flex: 1,
+                              padding: "6px 10px",
+                              borderRadius: 12,
+                              transition: "all 0.25s ease",
+                              backgroundColor: status === "current" ? "#E6FFFA" : "transparent",
+                              border: status === "current" ? "1px solid #99F6E4" : "none",
+                              fontWeight: status === "current" ? 700 : "normal",
+                              color: status === "current" ? "#0F766E" : "inherit",
+                              boxShadow: status === "current" ? "0 6px 18px rgba(20, 184, 166, 0.08)" : "none"
+                            }}>
+                              <Text style={{ fontSize: isSubstep ? 11 : 12 }}>
                                 {paso.numero} {paso.nombre}
                               </Text>
-                              {hasSubpasos && (
-                                <span style={{ marginLeft: 4, fontSize: 10 }}>
-                                  {isExpanded ? '▼' : '▶'}
-                                </span>
-                              )}
                             </div>
-                            {hasSubpasos && isExpanded && (
-                              <div style={{ marginLeft: 32, marginTop: 4, backgroundColor: '#f5f5f5', padding: 6, borderRadius: 4 }}>
-                                {paso.subpasos.map((subpaso) => {
-                                  const currentNumero = getProcesoActualNumero(licitacion.procesoActual?.tituloProceso || licitacion.procesoActual)
-                                  const subStatus = currentNumero ? getSubStepState(subpaso.numero, currentNumero) : "pending"
-                                  return (
-                                    <div key={subpaso.numero} style={{ padding: '4px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                      {renderStepIcon(subStatus, subpaso.numero)}
-                                      <Text 
-                                        style={{ 
-                                          fontSize: 11, 
-                                          fontWeight: subStatus === "current" ? "bold" : "normal",
-                                          color: subStatus === "current" ? "#0F766E" : "inherit"
-                                        }}
-                                      >
-                                        {subpaso.numero} {subpaso.nombre}
-                                      </Text>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            )}
                           </div>
-                        </Col>
-                      )
-                    })}
-                  </Row>
+                        )
+                      })}
+                    </div>
+                  </div>
                 )
               })()}
             </div>
@@ -842,6 +904,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
                   }
                 }}
                 expandable={{
+                  expandIcon: () => null,
                   expandedRowRender: (record) => {
                     if (!record.hasSubpasos || !expandedTableRows.has(record.key)) {
                       return null
@@ -961,7 +1024,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
                 dataSource={[calcularTotalTiempo()]}
                 pagination={false}
                 size="small"
-                rowKey="dias"
+                rowKey={() => "total"}
                 style={{
                   backgroundColor: "white",
                   borderRadius: 8,
