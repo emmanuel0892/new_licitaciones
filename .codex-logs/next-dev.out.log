@@ -1,0 +1,114 @@
+
+> new_licitaciones@0.1.0 dev
+> next dev
+
+[32m✔[0m [33mConsole Ninja[0m extension is connected to [33mNext.js[0m, see [36mhttps://tinyurl.com/2vt8jxzw[0m
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://172.20.10.9:3000
+- Environments: .env
+✓ Ready in 816ms
+⚠ Console Ninja Turbopack support is a PRO feature, [33mcurrently available to community users while in preview[0m
+
+ GET / 200 in 2.5s (next.js: 2.0s, proxy.ts: 229ms, application-code: 227ms)
+ GET / 200 in 140ms (next.js: 9ms, proxy.ts: 22ms, application-code: 109ms)
+○ Compiling /dashboard ...
+ GET /dashboard 200 in 1372ms (next.js: 654ms, proxy.ts: 18ms, application-code: 700ms)
+ GET /dashboard/novedades 200 in 2.1s (next.js: 2.0s, proxy.ts: 12ms, application-code: 79ms)
+ POST /dashboard/novedades 200 in 48ms (next.js: 5ms, proxy.ts: 16ms, application-code: 27ms)
+  └─ ƒ getNovedades() in 10ms src/actions/novedades.js
+ POST /dashboard/novedades 200 in 34ms (next.js: 6ms, proxy.ts: 12ms, application-code: 16ms)
+  └─ ƒ getNovedades() in 5ms src/actions/novedades.js
+○ Compiling /dashboard/licitaciones/crear ...
+ GET /dashboard/licitaciones/crear 200 in 4.2s (next.js: 4.1s, proxy.ts: 9ms, application-code: 79ms)
+ GET /dashboard/licitaciones/crear 200 in 88ms (next.js: 14ms, proxy.ts: 14ms, application-code: 59ms)
+ POST /dashboard/licitaciones/crear 200 in 73ms (next.js: 9ms, proxy.ts: 19ms, application-code: 45ms)
+  └─ ƒ getFormatosLiquidacion() in 24ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/crear 200 in 43ms (next.js: 7ms, proxy.ts: 13ms, application-code: 23ms)
+  └─ ƒ getRequirentes() in 7ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/crear 200 in 71ms (next.js: 8ms, proxy.ts: 11ms, application-code: 52ms)
+  └─ ƒ getDashboardStats() in 44ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/crear 200 in 192ms (next.js: 4ms, proxy.ts: 13ms, application-code: 175ms)
+  └─ ƒ getAllLicitacionesMPForTable() in 104ms src/actions/mercadoPublico.js
+ POST /dashboard/licitaciones/crear 200 in 25ms (next.js: 4ms, proxy.ts: 9ms, application-code: 12ms)
+  └─ ƒ getFormatosLiquidacion() in 4ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/crear 200 in 33ms (next.js: 6ms, proxy.ts: 15ms, application-code: 12ms)
+  └─ ƒ getRequirentes() in 2ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/crear 200 in 44ms (next.js: 4ms, proxy.ts: 8ms, application-code: 31ms)
+  └─ ƒ getDashboardStats() in 23ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/crear 200 in 127ms (next.js: 4ms, proxy.ts: 7ms, application-code: 116ms)
+  └─ ƒ getAllLicitacionesMPForTable() in 70ms src/actions/mercadoPublico.js
+ POST /dashboard/licitaciones/crear 200 in 42ms (next.js: 2ms, proxy.ts: 4ms, application-code: 36ms)
+  └─ ƒ getProcesosByFormato(1) in 28ms src/actions/licitaciones.js
+○ Compiling /dashboard/licitaciones/bandeja ...
+ GET /dashboard/licitaciones/bandeja 200 in 3.5s (next.js: 3.3s, proxy.ts: 45ms, application-code: 103ms)
+ GET /dashboard/licitaciones/bandeja 200 in 107ms (next.js: 12ms, proxy.ts: 44ms, application-code: 51ms)
+ POST /dashboard/licitaciones/bandeja 200 in 68ms (next.js: 8ms, proxy.ts: 22ms, application-code: 39ms)
+  └─ ƒ getLicitaciones({"numeroLicitacion":""}) in 24ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/bandeja 200 in 45ms (next.js: 6ms, proxy.ts: 10ms, application-code: 29ms)
+  └─ ƒ getUsers() in 19ms src/actions/users.js
+ POST /dashboard/licitaciones/bandeja 200 in 32ms (next.js: 6ms, proxy.ts: 11ms, application-code: 15ms)
+  └─ ƒ getRoles() in 3ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/bandeja 200 in 40ms (next.js: 7ms, proxy.ts: 10ms, application-code: 23ms)
+  └─ ƒ getLicitaciones({"numeroLicitacion":""}) in 13ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/bandeja 200 in 60ms (next.js: 5ms, proxy.ts: 12ms, application-code: 44ms)
+  └─ ƒ getUsers() in 25ms src/actions/users.js
+ POST /dashboard/licitaciones/bandeja 200 in 66ms (next.js: 22ms, proxy.ts: 12ms, application-code: 32ms)
+  └─ ƒ getRoles() in 12ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/bandeja 200 in 56ms (next.js: 13ms, proxy.ts: 13ms, application-code: 30ms)
+  └─ ƒ getLicitaciones({"numeroLicitacion":""}) in 18ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/bandeja 200 in 64ms (next.js: 9ms, proxy.ts: 25ms, application-code: 30ms)
+  └─ ƒ getUsers() in 13ms src/actions/users.js
+ POST /dashboard/licitaciones/bandeja 200 in 35ms (next.js: 5ms, proxy.ts: 16ms, application-code: 13ms)
+  └─ ƒ getRoles() in 2ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/bandeja 200 in 46ms (next.js: 5ms, proxy.ts: 10ms, application-code: 31ms)
+  └─ ƒ getLicitaciones({"numeroLicitacion":""}) in 21ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/bandeja 200 in 50ms (next.js: 5ms, proxy.ts: 9ms, application-code: 36ms)
+  └─ ƒ getUsers() in 18ms src/actions/users.js
+ POST /dashboard/licitaciones/bandeja 200 in 26ms (next.js: 5ms, proxy.ts: 10ms, application-code: 11ms)
+  └─ ƒ getRoles() in 2ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/bandeja 200 in 59ms (next.js: 5ms, proxy.ts: 9ms, application-code: 46ms)
+  └─ ƒ getLicitacionById(9) in 34ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/bandeja 200 in 55ms (next.js: 4ms, proxy.ts: 11ms, application-code: 40ms)
+  └─ ƒ getHistorialLicitacion(9) in 26ms src/actions/licitaciones.js
+ POST /dashboard/licitaciones/bandeja 200 in 57ms (next.js: 7ms, proxy.ts: 11ms, application-code: 39ms)
+  └─ ƒ getProcesosByFormato(1) in 21ms src/actions/licitaciones.js
+ GET /dashboard/consumo 200 in 1953ms (next.js: 1839ms, proxy.ts: 8ms, application-code: 106ms)
+ POST /dashboard/consumo 200 in 139ms (next.js: 5ms, proxy.ts: 8ms, application-code: 126ms)
+  └─ ƒ getLicitacionesMP({"alertaActiva":false,"codigo":""}) in 49ms src/actions/mercadoPublico.js
+ POST /dashboard/consumo 200 in 70ms (next.js: 8ms, proxy.ts: 31ms, application-code: 31ms)
+  └─ ƒ getRequirentesMPUnicos() in 21ms src/actions/mercadoPublico.js
+ POST /dashboard/consumo 200 in 89ms (next.js: 4ms, proxy.ts: 7ms, application-code: 77ms)
+  └─ ƒ getLicitacionesMP({"alertaActiva":false,"codigo":""}) in 43ms src/actions/mercadoPublico.js
+ POST /dashboard/consumo 200 in 51ms (next.js: 4ms, proxy.ts: 7ms, application-code: 40ms)
+  └─ ƒ getRequirentesMPUnicos() in 29ms src/actions/mercadoPublico.js
+ GET /dashboard/formato-bases 200 in 1693ms (next.js: 1597ms, proxy.ts: 7ms, application-code: 89ms)
+ POST /dashboard/formato-bases 200 in 43ms (next.js: 7ms, proxy.ts: 10ms, application-code: 26ms)
+  └─ ƒ getFormatoBases() in 8ms src/actions/formato-bases.js
+ POST /dashboard/formato-bases 200 in 29ms (next.js: 6ms, proxy.ts: 7ms, application-code: 16ms)
+  └─ ƒ getFormatoBases() in 4ms src/actions/formato-bases.js
+ GET /dashboard/formato-bases 200 in 630ms (next.js: 6ms, proxy.ts: 11ms, application-code: 613ms)
+ POST /dashboard/formato-bases 200 in 33ms (next.js: 6ms, proxy.ts: 12ms, application-code: 15ms)
+  └─ ƒ getFormatoBases() in 3ms src/actions/formato-bases.js
+ POST /dashboard/formato-bases 200 in 30ms (next.js: 6ms, proxy.ts: 11ms, application-code: 13ms)
+  └─ ƒ getFormatoBases() in 2ms src/actions/formato-bases.js
+ GET /dashboard/formato-bases 200 in 96ms (next.js: 5ms, proxy.ts: 7ms, application-code: 84ms)
+ POST /dashboard/formato-bases 200 in 24ms (next.js: 4ms, proxy.ts: 9ms, application-code: 12ms)
+  └─ ƒ getFormatoBases() in 2ms src/actions/formato-bases.js
+ POST /dashboard/formato-bases 200 in 31ms (next.js: 8ms, proxy.ts: 10ms, application-code: 14ms)
+  └─ ƒ getFormatoBases() in 3ms src/actions/formato-bases.js
+ GET /dashboard/formato-bases 200 in 111ms (next.js: 5ms, proxy.ts: 10ms, application-code: 97ms)
+ POST /dashboard/formato-bases 200 in 32ms (next.js: 7ms, proxy.ts: 12ms, application-code: 13ms)
+  └─ ƒ getFormatoBases() in 3ms src/actions/formato-bases.js
+ POST /dashboard/formato-bases 200 in 31ms (next.js: 4ms, proxy.ts: 13ms, application-code: 15ms)
+  └─ ƒ getFormatoBases() in 2ms src/actions/formato-bases.js
+ GET /dashboard/formato-bases 200 in 109ms (next.js: 5ms, proxy.ts: 8ms, application-code: 96ms)
+ POST /dashboard/formato-bases 200 in 34ms (next.js: 7ms, proxy.ts: 12ms, application-code: 15ms)
+  └─ ƒ getFormatoBases() in 2ms src/actions/formato-bases.js
+ POST /dashboard/formato-bases 200 in 40ms (next.js: 10ms, proxy.ts: 8ms, application-code: 22ms)
+  └─ ƒ getFormatoBases() in 7ms src/actions/formato-bases.js
+ GET /dashboard/formato-bases 200 in 93ms (next.js: 4ms, proxy.ts: 7ms, application-code: 81ms)
+ POST /dashboard/formato-bases 200 in 34ms (next.js: 11ms, proxy.ts: 11ms, application-code: 12ms)
+  └─ ƒ getFormatoBases() in 2ms src/actions/formato-bases.js
+ POST /dashboard/formato-bases 200 in 27ms (next.js: 8ms, proxy.ts: 8ms, application-code: 12ms)
+  └─ ƒ getFormatoBases() in 2ms src/actions/formato-bases.js

@@ -1,0 +1,431 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String                @id @default(cuid())
+  name                 String
+  lastname             String
+  rut                  String                @unique
+  email                String                @unique
+  password             String
+  typeAccount          String                @map("type_account")
+  departamento         String
+  active               String                @default("active")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  documentosLicitacion DocumentoLicitacion[]
+  historialLicitacion  HistorialLicitacion[]
+  licitaciones         Licitacion[]
+  user_roles           user_roles[]
+
+  @@map("users")
+}
+
+model FormatoLiquidacion {
+  id            Int                 @id @default(autoincrement())
+  titulo        String
+  cantidadPasos Int                 @map("cantidad_pasos")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  licitaciones  Licitacion[]
+  procesos      ProcesoLicitacion[]
+
+  @@map("formato_liquidacion")
+}
+
+model ProcesoLicitacion {
+  id                   Int                @id @default(autoincrement())
+  formatoLiquidacionId Int                @map("fk_formato_liquidacion_id")
+  tituloProceso        String             @map("titulo_proceso")
+  numeroPaso           Int                @map("numero_paso")
+  diasSugeridos        Int                @default(5) @map("dias_sugeridos")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  roleId               String             @map("role_id") @db.VarChar(36)
+  licitaciones         Licitacion[]
+  formatoLiquidacion   FormatoLiquidacion @relation(fields: [formatoLiquidacionId], references: [id])
+  role                 roles              @relation(fields: [roleId], references: [id])
+
+  @@index([formatoLiquidacionId], map: "proceso_licitacion_fk_formato_liquidacion_id_fkey")
+  @@index([roleId], map: "proceso_licitacion_role_id_fkey")
+  @@map("proceso_licitacion")
+}
+
+model Licitacion {
+  id                   Int                   @id @default(autoincrement())
+  formatoLiquidacionId Int                   @map("fk_formato_liquidacion_id")
+  usuarioId            String                @map("fk_usuario_id")
+  procesoActualId      Int                   @map("fk_proceso_actual_id")
+  requirente           String
+  productoServicio     String?               @map("producto_servicio")
+  numeroLicitacion     String?               @map("numero_licitacion")
+  vigencia             DateTime?
+  nombreLicitacion     String                @map("nombre_licitacion")
+  montoPresupuestado   String?               @map("monto_presupuestado")
+  estado               String                @default("Pendiente")
+  contadorDevoluciones Int                   @default(0) @map("contador_devoluciones")
+  contadorEdiciones    Int                   @default(0) @map("contador_ediciones")
+  fechaRecepcion       DateTime?             @map("fecha_recepcion")
+  inicioAnticipado     Boolean?              @default(false) @map("inicio_anticipado")
+  flujoPostPaso11      String?              @map("flujo_post_paso_11") @db.VarChar(30)
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  documentos           DocumentoLicitacion[]
+  historial            HistorialLicitacion[]
+  formatoLiquidacion   FormatoLiquidacion    @relation(fields: [formatoLiquidacionId], references: [id])
+  procesoActual        ProcesoLicitacion     @relation(fields: [procesoActualId], references: [id])
+  usuario              User                  @relation(fields: [usuarioId], references: [id])
+
+  @@index([formatoLiquidacionId], map: "licitaciones_fk_formato_liquidacion_id_fkey")
+  @@index([procesoActualId], map: "licitaciones_fk_proceso_actual_id_fkey")
+  @@index([usuarioId], map: "licitaciones_fk_usuario_id_fkey")
+  @@map("licitaciones")
+}
+
+model DocumentoLicitacion {
+  id            Int        @id @default(autoincrement())
+  licitacionId  Int        @map("fk_licitacion_id")
+  usuarioId     String     @map("fk_usuario_id")
+  nombreArchivo String     @map("nombre_archivo")
+  rutaArchivo   String     @map("ruta_archivo")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  licitacion    Licitacion @relation(fields: [licitacionId], references: [id])
+  usuario       User       @relation(fields: [usuarioId], references: [id])
+
+  @@index([licitacionId], map: "documentos_licitacion_fk_licitacion_id_fkey")
+  @@index([usuarioId], map: "documentos_licitacion_fk_usuario_id_fkey")
+  @@map("documentos_licitacion")
+}
+
+model HistorialLicitacion {
+  id              Int        @id @default(autoincrement())
+  licitacionId    Int        @map("fk_licitacion_id")
+  usuarioId       String     @map("fk_usuario_id")
+  tipoAccion      String     @map("tipo_accion")
+  procesoOrigen   String?    @map("proceso_origen")
+  procesoDestino  String?    @map("proceso_destino")
+  observacion     String?
+  createdAt       DateTime   @default(now()) @map("created_at")
+  campoModificado String?    @map("campo_modificado")
+  datoAntiguo     String?    @map("dato_antiguo")
+  datoNuevo       String?    @map("dato_nuevo")
+  requirente      String?
+  licitacion      Licitacion @relation(fields: [licitacionId], references: [id])
+  usuario         User       @relation(fields: [usuarioId], references: [id])
+
+  @@index([licitacionId], map: "historial_licitacion_fk_licitacion_id_fkey")
+  @@index([usuarioId], map: "historial_licitacion_fk_usuario_id_fkey")
+  @@map("historial_licitacion")
+}
+
+model Requirente {
+  id        Int      @id @default(autoincrement())
+  nombre    String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("requirentes")
+}
+
+model PAC {
+  id            Int      @id @default(autoincrement())
+  servicio      String
+  supraServicio String   @map("supra_servicio")
+  bodega        String
+  codigo        String
+  detalle       String
+  unidadMedida  String   @map("unidad_medida")
+  costoUnitario Float    @map("costo_unitario")
+  cantidadAnual Int      @map("cantidad_anual")
+  enero         Int      @default(0)
+  febrero       Int      @default(0)
+  marzo         Int      @default(0)
+  abril         Int      @default(0)
+  mayo          Int      @default(0)
+  junio         Int      @default(0)
+  julio         Int      @default(0)
+  agosto        Int      @default(0)
+  septiembre    Int      @default(0)
+  octubre       Int      @default(0)
+  noviembre     Int      @default(0)
+  diciembre     Int      @default(0)
+  mensual       Float    @default(0)
+  anoPac        String   @map("ano_pac")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("pac")
+}
+
+model RequerimientoAbastecimiento {
+  id          Int                      @id @default(autoincrement())
+  titulo      String
+  descripcion String?
+  estado      String                   @default("Pendiente")
+  createdAt   DateTime                 @default(now()) @map("created_at")
+  updatedAt   DateTime                 @updatedAt @map("updated_at")
+  historial   HistorialRequerimiento[]
+  productos   ProductoRequerimiento[]
+
+  @@map("requerimiento_abastecimiento")
+}
+
+model ProductoRequerimiento {
+  id                 Int                         @id @default(autoincrement())
+  requerimientoId    Int                         @map("fk_requerimiento_id")
+  nombreProducto     String                      @map("nombre_producto")
+  cantidad           Int
+  stock              Int                         @default(0)
+  cantidadProgramada Int                         @default(0) @map("cantidad_programada")
+  createdAt          DateTime                    @default(now()) @map("created_at")
+  requerimiento      RequerimientoAbastecimiento @relation(fields: [requerimientoId], references: [id])
+
+  @@index([requerimientoId], map: "producto_requerimiento_fk_requerimiento_id_fkey")
+  @@map("producto_requerimiento")
+}
+
+model HistorialRequerimiento {
+  id              Int                         @id @default(autoincrement())
+  requerimientoId Int                         @map("fk_requerimiento_id")
+  accion          String
+  descripcion     String?
+  createdAt       DateTime                    @default(now()) @map("created_at")
+  requerimiento   RequerimientoAbastecimiento @relation(fields: [requerimientoId], references: [id])
+
+  @@index([requerimientoId], map: "historial_requerimiento_fk_requerimiento_id_fkey")
+  @@map("historial_requerimiento")
+}
+
+model Novedad {
+  id          Int      @id @default(autoincrement())
+  titular     String
+  descripcion String
+  imagen      String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("novedades")
+}
+
+model FormatoBase {
+  id            Int      @id @default(autoincrement())
+  titulo        String
+  tipoBase      String   @map("tipo_base")
+  documento     String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  nombreArchivo String?  @map("nombre_archivo")
+  rutaArchivo   String?  @map("ruta_archivo")
+
+  @@map("formato_bases")
+}
+
+model LicitacionMP {
+  id                       Int                @id @default(autoincrement())
+  codigoExterno            String             @unique @map("codigo_externo")
+  nombre                   String
+  descripcion              String?            @db.Text
+  estado                   String
+  codigoEstado             Int                @map("codigo_estado")
+  tipo                     String
+  montoEstimado            Float?             @map("monto_estimado")
+  montoAdjudicado          Float?             @map("monto_adjudicado")
+  fechaAdjudicacion        DateTime?          @map("fecha_adjudicacion")
+  fechaCierre              DateTime?          @map("fecha_cierre")
+  vigenciaMeses            Int?               @map("vigencia_meses")
+  requirente               String
+  montoConsumido           Float              @default(0) @map("monto_consumido")
+  porcentajeConsumo        Float              @default(0) @map("porcentaje_consumo")
+  alertaEnviada50          Boolean            @default(false) @map("alerta_enviada_50")
+  alertaEnviada75          Boolean            @default(false) @map("alerta_enviada_75")
+  alertaEnviada90          Boolean            @default(false) @map("alerta_enviada_90")
+  createdAt                DateTime           @default(now()) @map("created_at")
+  updatedAt                DateTime           @updatedAt @map("updated_at")
+  adjudicacionNumOferentes Int?               @map("adjudicacion_num_oferentes")
+  adjudicacionNumero       String?            @map("adjudicacion_numero")
+  adjudicacionTipo         Int?               @map("adjudicacion_tipo")
+  adjudicacionUrlActa      String?            @map("adjudicacion_url_acta") @db.Text
+  cargoUsuario             String?            @map("cargo_usuario")
+  codigoOrganismo          String?            @map("codigo_organismo")
+  codigoTipo               Int?               @map("codigo_tipo")
+  codigoUnidad             String?            @map("codigo_unidad")
+  comunaUnidad             String?            @map("comuna_unidad")
+  direccionUnidad          String?            @map("direccion_unidad")
+  etapas                   Int?               @default(1)
+  fechaCreacion            DateTime?          @map("fecha_creacion_mp")
+  fechaFinal               DateTime?          @map("fecha_final")
+  fechaInicio              DateTime?          @map("fecha_inicio")
+  fechaPublicacion         DateTime?          @map("fecha_publicacion")
+  modalidad                Int?               @default(1)
+  moneda                   String?            @default("CLP")
+  nombreOrganismo          String?            @map("nombre_organismo")
+  nombreUnidad             String?            @map("nombre_unidad")
+  nombreUsuario            String?            @map("nombre_usuario")
+  regionUnidad             String?            @map("region_unidad")
+  rutUnidad                String?            @map("rut_unidad")
+  tiempoDuracion           String?            @map("tiempo_duracion")
+  unidadTiempoDuracion     Int?               @map("unidad_tiempo_duracion")
+  alertas                  AlertaConsumo[]
+  items                    ItemLicitacionMP[]
+  ordenesCompra            OrdenCompraMP[]
+
+  @@map("licitaciones_mp")
+}
+
+model ItemLicitacionMP {
+  id                 Int                 @id @default(autoincrement())
+  licitacionMPId     Int                 @map("fk_licitacion_mp_id")
+  correlativo        Int
+  codigoProducto     Int                 @map("codigo_producto")
+  codigoCategoria    String              @map("codigo_categoria")
+  categoria          String?             @db.Text
+  nombreProducto     String              @map("nombre_producto")
+  descripcion        String?             @db.Text
+  unidadMedida       String              @map("unidad_medida")
+  cantidadTotal      Float               @map("cantidad_total")
+  cantidadConsumida  Float               @default(0) @map("cantidad_consumida")
+  montoUnitario      Float               @map("monto_unitario")
+  montoTotal         Float               @map("monto_total")
+  rutProveedor       String?             @map("rut_proveedor")
+  nombreProveedor    String?             @map("nombre_proveedor")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  cantidadAdjudicada Float?              @map("cantidad_adjudicada")
+  licitacionMP       LicitacionMP        @relation(fields: [licitacionMPId], references: [id], onDelete: Cascade)
+  itemsOrden         ItemOrdenCompraMP[]
+
+  @@index([licitacionMPId], map: "items_licitacion_mp_fk_licitacion_mp_id_fkey")
+  @@map("items_licitacion_mp")
+}
+
+model OrdenCompraMP {
+  id                      Int                 @id @default(autoincrement())
+  licitacionMPId          Int?                @map("fk_licitacion_mp_id")
+  codigo                  String              @unique
+  nombre                  String
+  codigoEstado            Int                 @map("codigo_estado")
+  estado                  String
+  tipo                    String
+  totalNeto               Float               @map("total_neto")
+  impuestos               Float
+  total                   Float
+  fechaCreacion           DateTime            @map("fecha_creacion")
+  fechaEnvio              DateTime?           @map("fecha_envio")
+  fechaAceptacion         DateTime?           @map("fecha_aceptacion")
+  rutProveedor            String?             @map("rut_proveedor")
+  nombreProveedor         String?             @map("nombre_proveedor")
+  createdAt               DateTime            @default(now()) @map("created_at")
+  updatedAt               DateTime            @updatedAt @map("updated_at")
+  cargoContacto           String?             @map("cargo_contacto")
+  cargos                  Float               @default(0)
+  codigoEstadoProveedor   Int?                @map("codigo_estado_proveedor")
+  codigoLicitacion        String?             @map("codigo_licitacion")
+  codigoOrganismo         String?             @map("codigo_organismo")
+  codigoProveedor         String?             @map("codigo_proveedor")
+  codigoTipo              String?             @map("codigo_tipo")
+  comunaProveedor         String?             @map("comuna_proveedor")
+  comunaUnidad            String?             @map("comuna_unidad")
+  descripcion             String?             @db.Text
+  descuentos              Float               @default(0)
+  direccionProveedor      String?             @map("direccion_proveedor")
+  direccionUnidad         String?             @map("direccion_unidad")
+  estadoProveedor         String?             @map("estado_proveedor")
+  fechaCancelacion        DateTime?           @map("fecha_cancelacion")
+  fechaUltimaModificacion DateTime?           @map("fecha_ultima_modificacion")
+  financiamiento          String?
+  formaPago               String?             @map("forma_pago")
+  nombreContacto          String?             @map("nombre_contacto")
+  nombreOrganismo         String?             @map("nombre_organismo")
+  nombreUnidad            String?             @map("nombre_unidad")
+  porcentajeIva           Float?              @default(19) @map("porcentaje_iva")
+  regionProveedor         String?             @map("region_proveedor")
+  rutUnidad               String?             @map("rut_unidad")
+  tipoDespacho            String?             @map("tipo_despacho")
+  tipoMoneda              String?             @default("CLP") @map("tipo_moneda")
+  items                   ItemOrdenCompraMP[]
+  licitacionMP            LicitacionMP?       @relation(fields: [licitacionMPId], references: [id])
+
+  @@index([licitacionMPId], map: "ordenes_compra_mp_fk_licitacion_mp_id_fkey")
+  @@map("ordenes_compra_mp")
+}
+
+model ItemOrdenCompraMP {
+  id                      Int               @id @default(autoincrement())
+  ordenCompraId           Int               @map("fk_orden_compra_id")
+  itemLicitacionMPId      Int?              @map("fk_item_licitacion_mp_id")
+  correlativo             Int
+  codigoCategoria         Int               @map("codigo_categoria")
+  categoria               String?           @db.Text
+  codigoProducto          Int               @map("codigo_producto")
+  producto                String
+  cantidad                Float
+  unidad                  String?
+  precioNeto              Float             @map("precio_neto")
+  totalDescuentos         Float             @default(0) @map("total_descuentos")
+  totalCargos             Float             @default(0) @map("total_cargos")
+  total                   Float
+  createdAt               DateTime          @default(now()) @map("created_at")
+  especificacionComprador String?           @map("especificacion_comprador") @db.Text
+  especificacionProveedor String?           @map("especificacion_proveedor") @db.Text
+  moneda                  String?           @default("CLP")
+  totalImpuestos          Float             @default(0) @map("total_impuestos")
+  itemLicitacion          ItemLicitacionMP? @relation(fields: [itemLicitacionMPId], references: [id])
+  ordenCompra             OrdenCompraMP     @relation(fields: [ordenCompraId], references: [id], onDelete: Cascade)
+
+  @@index([itemLicitacionMPId], map: "items_orden_compra_mp_fk_item_licitacion_mp_id_fkey")
+  @@index([ordenCompraId], map: "items_orden_compra_mp_fk_orden_compra_id_fkey")
+  @@map("items_orden_compra_mp")
+}
+
+model AlertaConsumo {
+  id             Int          @id @default(autoincrement())
+  licitacionMPId Int          @map("fk_licitacion_mp_id")
+  tipo           String
+  porcentaje     Float
+  mensaje        String       @db.Text
+  leida          Boolean      @default(false)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  licitacionMP   LicitacionMP @relation(fields: [licitacionMPId], references: [id], onDelete: Cascade)
+
+  @@index([licitacionMPId], map: "alertas_consumo_fk_licitacion_mp_id_fkey")
+  @@map("alertas_consumo")
+}
+
+model roles {
+  id          String              @id @db.VarChar(36)
+  name        String              @unique(map: "name") @db.VarChar(100)
+  permissions String              @db.LongText
+  created_at  DateTime            @default(now()) @db.Timestamp(0)
+  updated_at  DateTime            @default(now()) @db.Timestamp(0)
+  procesos    ProcesoLicitacion[]
+  user_roles  user_roles[]
+}
+
+model user_roles {
+  user_id    String
+  role_id    String   @db.VarChar(36)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  roles      roles    @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_user_roles_role")
+  users      User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_user_roles_user")
+
+  @@id([user_id, role_id])
+  @@index([role_id], map: "fk_user_roles_role")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model proceso_licitacion_backup_antes_paso_1_1 {
+  id                        Int      @default(0)
+  fk_formato_liquidacion_id Int
+  titulo_proceso            String
+  numero_paso               Int
+  dias_sugeridos            Int      @default(5)
+  created_at                DateTime @default(now())
+  updated_at                DateTime
+  role_id                   String   @db.VarChar(36)
+
+  @@ignore
+}

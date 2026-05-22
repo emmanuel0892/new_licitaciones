@@ -1,0 +1,47 @@
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.categoriaCard {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  height: 100%;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.colorBar {
+  width: 4px;
+  height: 20px;
+  border-radius: 2px;
+}
+
+.listItem {
+  padding: 12px 0 !important;
+}
+
+.listItem:hover {
+  background: #f8fafa;
+  margin: 0 -12px;
+  padding: 12px !important;
+  border-radius: 8px;
+}

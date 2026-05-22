@@ -1,0 +1,59 @@
+@keyframes fadeSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dias-procesos-table-scroll {
+  overflow: hidden;
+  overflow-x: hidden;
+  border: 1px solid #99f6e4;
+  border-radius: 10px;
+}
+
+.dias-procesos-table-scroll .ant-table-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dias-procesos-table-scroll .ant-table-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dias-procesos-table-scroll .ant-table-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.dias-procesos-table-scroll .ant-table-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dias-procesos-table-scroll .ant-table-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  border-radius: 10px 10px 0 0;
+}
+
+.dias-procesos-table-scroll .ant-table-thead > tr > th {
+  background: #f8fafc;
+  line-height: 1.25;
+  padding: 10px 8px;
+  white-space: normal;
+  word-break: normal;
+}
+
+.dias-procesos-table-scroll .ant-table-tbody > tr > td {
+  padding: 8px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.dias-procesos-table-scroll .ant-table-cell {
+  font-size: 12px;
+}
