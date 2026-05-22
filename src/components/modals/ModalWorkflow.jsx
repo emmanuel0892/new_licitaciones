@@ -134,6 +134,22 @@ const ModalWorkflow = forwardRef((props, ref) => {
     })
   }
 
+  const getFechaInicioRamaInicioAnticipado = (historialOrdenado, procesos) => {
+    const pasoDecision = procesos.find((proceso) => getProcesoNumero(proceso) === 15)
+    const primerPasoInicioAnticipado = procesos.find((proceso) => getProcesoNumero(proceso) === 16)
+    const historialInicioRama = findHistorialTransicion(
+      historialOrdenado,
+      pasoDecision,
+      primerPasoInicioAnticipado
+    )
+
+    return historialInicioRama?.createdAt ?? historialInicioRama?.created_at ?? null
+  }
+
+  const isPasoInicioAnticipado = (numeroPaso) => {
+    return numeroPaso >= 16 && numeroPaso <= 23
+  }
+
   const getAprobadoPor = (historialProceso) => {
     if (!historialProceso) return null
 
@@ -169,6 +185,10 @@ const ModalWorkflow = forwardRef((props, ref) => {
       licitacion?.flujoPostPaso11 ??
       licitacion?.flujo_post_paso_11 ??
       null
+    const fechaInicioRamaInicioAnticipado =
+      flujoPostPaso11 === "inicio_anticipado"
+        ? getFechaInicioRamaInicioAnticipado(historialOrdenado, procesosBase)
+        : null
 
     return procesosVisiblesOrdenados.map((proceso, index) => {
       const procesoAnterior = procesosVisiblesOrdenados[index - 1]
@@ -184,14 +204,33 @@ const ModalWorkflow = forwardRef((props, ref) => {
           getProcesoNumero(procesoSiguiente) > 15
         )
       )
+      const getFechaMinimaTransicion = (procesoOrigen, procesoDestino) => {
+        const involucraInicioAnticipado =
+          isPasoInicioAnticipado(getProcesoNumero(procesoOrigen)) ||
+          isPasoInicioAnticipado(getProcesoNumero(procesoDestino))
+
+        if (
+          flujoPostPaso11 === "inicio_anticipado" &&
+          fechaInicioRamaInicioAnticipado &&
+          involucraInicioAnticipado
+        ) {
+          return fechaInicioRamaInicioAnticipado
+        }
+
+        if (debeCortarPorReset) {
+          return fechaReset
+        }
+
+        return null
+      }
       const historialRecepcion = index === 0
         ? null
         : findHistorialTransicion(historialOrdenado, procesoAnterior, proceso, {
-          fechaMinima: debeCortarPorReset ? fechaReset : null
+          fechaMinima: getFechaMinimaTransicion(procesoAnterior, proceso)
         })
       const historialEmision = procesoSiguiente
         ? findHistorialTransicion(historialOrdenado, proceso, procesoSiguiente, {
-          fechaMinima: debeCortarPorReset ? fechaReset : null
+          fechaMinima: getFechaMinimaTransicion(proceso, procesoSiguiente)
         })
         : null
       const esDestinoUltimaDevolucionReset = Boolean(
@@ -221,7 +260,9 @@ const ModalWorkflow = forwardRef((props, ref) => {
       }
 
       if (!fechaRecepcion && numeroPaso === 15 && fechaEmision && procesoAnterior) {
-        const recepcionPaso15 = findHistorialTransicion(historialOrdenado, procesoAnterior, proceso)
+        const recepcionPaso15 = findHistorialTransicion(historialOrdenado, procesoAnterior, proceso, {
+          fechaMinima: getFechaMinimaTransicion(procesoAnterior, proceso)
+        })
 
         if (recepcionPaso15) {
           fechaRecepcion = recepcionPaso15.createdAt
@@ -229,7 +270,6 @@ const ModalWorkflow = forwardRef((props, ref) => {
       }
 
       const fueAlcanzado = Boolean(fechaRecepcion)
-      const fueEmitido = Boolean(fechaEmision)
 
       return {
         ...proceso,
