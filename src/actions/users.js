@@ -5,6 +5,27 @@ import bcrypt from "bcryptjs"
 import { registerSchema, updateUserSchema } from "@/lib/validations/auth"
 import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
+
+const ALLOWED_SIGNATURE_MIME_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
+const MAX_SIGNATURE_SIZE_BYTES = 2 * 1024 * 1024
+const MAX_SIGNATURE_BASE64_LENGTH = Math.ceil((MAX_SIGNATURE_SIZE_BYTES * 4) / 3) + 200
+
+const userSignatureSchema = z.object({
+  userId: z.string().min(1, "El usuario es requerido"),
+  firmaBase64: z
+    .string()
+    .min(1, "La firma es requerida")
+    .refine((value) => {
+      const match = value.match(/^data:([^;]+);base64,/)
+      return match && ALLOWED_SIGNATURE_MIME_TYPES.includes(match[1])
+    }, "Solo se permiten imagenes PNG, JPG, JPEG o WEBP")
+    .refine((value) => value.length <= MAX_SIGNATURE_BASE64_LENGTH, "La firma no puede superar los 2MB")
+})
+
+const deleteUserSignatureSchema = z.object({
+  userId: z.string().min(1, "El usuario es requerido")
+})
 
 export const getUsers = async () => {
   const session = await auth()
@@ -23,6 +44,7 @@ export const getUsers = async () => {
         email: true,
         typeAccount: true,
         departamento: true,
+        firma: true,
         active: true,
         createdAt: true
       },
@@ -53,6 +75,7 @@ export const getUserById = async (id) => {
         email: true,
         typeAccount: true,
         departamento: true,
+        firma: true,
         active: true
       }
     })
@@ -191,5 +214,69 @@ export const changeUserStatus = async (id) => {
     return { success: true, newStatus }
   } catch (error) {
     return { error: "Error al cambiar el estado del usuario" }
+  }
+}
+
+export const updateUserSignature = async (data) => {
+  const session = await auth()
+  
+  if (!session || session.user.typeAccount !== "Super Admin") {
+    return { error: "No autorizado" }
+  }
+
+  const validatedFields = userSignatureSchema.safeParse(data)
+
+  if (!validatedFields.success) {
+    const errors = validatedFields.error.flatten().fieldErrors
+    const firstError = Object.values(errors)[0]?.[0]
+    return { error: firstError || "Datos invalidos" }
+  }
+
+  const { userId, firmaBase64 } = validatedFields.data
+
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        firma: firmaBase64,
+        updatedAt: new Date()
+      }
+    })
+
+    revalidatePath("/dashboard/usuarios")
+    return { success: true }
+  } catch (error) {
+    return { error: "Error al guardar la firma" }
+  }
+}
+
+export const deleteUserSignature = async (userId) => {
+  const session = await auth()
+  
+  if (!session || session.user.typeAccount !== "Super Admin") {
+    return { error: "No autorizado" }
+  }
+
+  const validatedFields = deleteUserSignatureSchema.safeParse({ userId })
+
+  if (!validatedFields.success) {
+    const errors = validatedFields.error.flatten().fieldErrors
+    const firstError = Object.values(errors)[0]?.[0]
+    return { error: firstError || "Datos invalidos" }
+  }
+
+  try {
+    await prisma.user.update({
+      where: { id: validatedFields.data.userId },
+      data: {
+        firma: null,
+        updatedAt: new Date()
+      }
+    })
+
+    revalidatePath("/dashboard/usuarios")
+    return { success: true }
+  } catch (error) {
+    return { error: "Error al eliminar la firma" }
   }
 }

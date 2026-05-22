@@ -16,6 +16,7 @@ model User {
   password             String
   typeAccount          String                @map("type_account")
   departamento         String
+  firma                String?               @db.LongText
   active               String                @default("active")
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")

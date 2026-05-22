@@ -1,32 +1,56 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Table, Button, Space, Tag, Typography, Card, App, Popconfirm } from "antd"
-import { PlusOutlined, EditOutlined, CheckOutlined, StopOutlined } from "@ant-design/icons"
+import { Table, Button, Space, Tag, Typography, Card, App, Popconfirm, Tooltip } from "antd"
+import { PlusOutlined, EditOutlined, CheckOutlined, StopOutlined, UploadOutlined } from "@ant-design/icons"
 import { getUsers, changeUserStatus } from "@/actions/users"
 import { formatDate } from "@/lib/helpers"
 import ModalUsuario from "@/components/modals/ModalUsuario"
+import ModalFirmaUsuario from "@/components/modals/ModalFirmaUsuario"
 import styles from "./usuarios.module.css"
 
 const { Title } = Typography
+
+const mapUsersToRows = (items = []) => items.map((user) => ({ ...user, key: user.id }))
 
 const UsuariosPage = () => {
   const { message } = App.useApp()
   const [loading, setLoading] = useState(true)
   const [users, setUsers] = useState([])
   const modalRef = useRef(null)
+  const signatureModalRef = useRef(null)
 
   const loadUsers = async () => {
     setLoading(true)
     const result = await getUsers()
     if (result.data) {
-      setUsers(result.data.map((user) => ({ ...user, key: user.id })))
+      setUsers(mapUsersToRows(result.data))
     }
     setLoading(false)
   }
 
   useEffect(() => {
-    loadUsers()
+    let ignore = false
+
+    const loadInitialUsers = async () => {
+      const result = await getUsers()
+
+      if (ignore) {
+        return
+      }
+
+      if (result.data) {
+        setUsers(mapUsersToRows(result.data))
+      }
+
+      setLoading(false)
+    }
+
+    loadInitialUsers()
+
+    return () => {
+      ignore = true
+    }
   }, [])
 
   const handleChangeStatus = async (id) => {
@@ -42,6 +66,10 @@ const UsuariosPage = () => {
 
   const handleOpenModal = (id, action) => {
     modalRef.current?.open(id, action)
+  }
+
+  const handleOpenSignatureModal = (user) => {
+    signatureModalRef.current?.open(user)
   }
 
   const columns = [
@@ -101,7 +129,7 @@ const UsuariosPage = () => {
       title: "Acciones",
       key: "actions",
       fixed: "right",
-      width: 120,
+      width: 160,
       render: (_, record) => (
         <Space size="small">
           <Button
@@ -109,6 +137,13 @@ const UsuariosPage = () => {
             icon={<EditOutlined style={{ color: "#23aeaa" }} />}
             onClick={() => handleOpenModal(record.id, "edit")}
           />
+          <Tooltip title="Subir firma">
+            <Button
+              type="text"
+              icon={<UploadOutlined style={{ color: "#1677ff" }} />}
+              onClick={() => handleOpenSignatureModal(record)}
+            />
+          </Tooltip>
           {record.active === "active" ? (
             <Popconfirm
               title="¿Deseas deshabilitar este usuario?"
@@ -168,6 +203,7 @@ const UsuariosPage = () => {
       </Card>
 
       <ModalUsuario ref={modalRef} onSuccess={loadUsers} />
+      <ModalFirmaUsuario ref={signatureModalRef} onSuccess={loadUsers} />
     </div>
   )
 }
