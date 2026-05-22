@@ -249,10 +249,28 @@ const BandejaPage = () => {
       render: (titulo) => getFormatoLabel(titulo)
     },
     {
-      title: "Nombre",
+      title: "Nombre de la Licitación",
       dataIndex: "nombreLicitacion",
       key: "nombre",
-      ellipsis: true
+      width: 280,
+      render: (text) => (
+        <Tooltip title={text || "Sin nombre"}>
+          <div style={{
+            minWidth: "240px",
+            maxWidth: "280px",
+            whiteSpace: "normal",
+            wordBreak: "break-word",
+            lineHeight: "1.3",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            textOverflow: "ellipsis"
+          }}>
+            {text || <Text type="secondary">Sin nombre</Text>}
+          </div>
+        </Tooltip>
+      )
     },
     {
       title: "Creador",
@@ -562,7 +580,7 @@ const BandejaPage = () => {
           columns={columns}
           dataSource={licitaciones}
           loading={loading}
-          scroll={{ x: 1630 }}
+          scroll={{ x: 1960 }}
           pagination={{
             pageSize: 10,
             showSizeChanger: false,
