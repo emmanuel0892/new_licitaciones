@@ -4,25 +4,29 @@ import prisma from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { createLicitacionSchema, devolverLicitacionSchema } from "@/lib/validations/licitacion"
-import { esFormatoLicitacion, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getMainStepNumero, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
+import { esFormatoLicitacion, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getMainStepNumero, getNextStep, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
+import { assertCanAdvanceBySignature, canAdvanceBySignature } from "@/lib/signatures"
 
-const getFlujoPostPaso11Update = (targetStep) => {
-  if (targetStep <= 15) {
+const getFlujoPostPaso12Update = (targetStep) => {
+  if (targetStep <= 16) {
     return {
+      flujoPostPaso12: null,
       flujoPostPaso11: null,
       inicioAnticipado: false
     }
   }
 
-  if (targetStep >= 16 && targetStep <= 23) {
+  if (targetStep >= 17 && targetStep <= 24) {
     return {
+      flujoPostPaso12: "inicio_anticipado",
       flujoPostPaso11: "inicio_anticipado",
       inicioAnticipado: true
     }
   }
 
-  if (targetStep >= 24 && targetStep <= 34) {
+  if (targetStep >= 25 && targetStep <= 35) {
     return {
+      flujoPostPaso12: "contrato",
       flujoPostPaso11: "contrato",
       inicioAnticipado: false
     }
@@ -32,7 +36,7 @@ const getFlujoPostPaso11Update = (targetStep) => {
 }
 
 const getPasoAnteriorLicitacion = (currentStep) => {
-  if (currentStep === 16 || currentStep === 24) return 15
+  if (currentStep === 17 || currentStep === 25) return 16
   return currentStep - 1
 }
 
@@ -80,13 +84,54 @@ export const getLicitaciones = async (filters = {}) => {
       include: {
         usuario: { select: { name: true, lastname: true } },
         formatoLiquidacion: { select: { titulo: true } },
-        procesoActual: { select: { tituloProceso: true, roleId: true, diasSugeridos: true, role: { select: { name: true } } } },
+        procesoActual: { select: { tituloProceso: true, numeroPaso: true, roleId: true, diasSugeridos: true, role: { select: { name: true } } } },
         _count: { select: { documentos: true } }
       },
       orderBy: { createdAt: "desc" }
     })
 
-    return { data: licitaciones }
+    const stepsToValidate = [
+      ...new Set(
+        licitaciones
+          .filter((licitacion) => esFormatoLicitacion(licitacion.formatoLiquidacion.titulo))
+          .map((licitacion) => Number(licitacion.procesoActual?.numeroPaso))
+          .filter(Boolean)
+      )
+    ]
+
+    const signatureValidationByStepEntries = await Promise.all(
+      stepsToValidate.map(async (numeroPaso) => [
+        numeroPaso,
+        await canAdvanceBySignature(numeroPaso)
+      ])
+    )
+    const signatureValidationByStep = Object.fromEntries(signatureValidationByStepEntries)
+
+    const licitacionesWithSignatureValidation = licitaciones.map((licitacion) => {
+      if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)) {
+        return {
+          ...licitacion,
+          signatureValidation: {
+            canAdvance: true,
+            missing: [],
+            required: []
+          }
+        }
+      }
+
+      const numeroPaso = Number(licitacion.procesoActual?.numeroPaso)
+
+      return {
+        ...licitacion,
+        signatureValidation: signatureValidationByStep[numeroPaso] ?? {
+          canAdvance: true,
+          missing: [],
+          required: []
+        }
+      }
+    })
+
+    return { data: licitacionesWithSignatureValidation }
   } catch (error) {
     return { error: "Error al obtener licitaciones" }
   }
@@ -290,19 +335,21 @@ export const avanzarLicitacion = async (id) => {
     // Si es formato Licitación, usar numeroPaso directamente de la BD
     if (esFormatoLicitacion(formato)) {
       const currentStep = Number(licitacion.procesoActual.numeroPaso)
-      const nextStep = currentStep + 1
+      const nextStep = getNextStep(currentStep)
 
       console.log("=== AVANCE LICITACION DEBUG ===")
       console.log("currentStep:", currentStep)
       console.log("nextStep:", nextStep)
 
+      await assertCanAdvanceBySignature(currentStep)
+
       // Si está en el paso 15, mostrar modal de inicio anticipado
-      if (currentStep === 15) {
+      if (currentStep === 16) {
         return { showInicioAnticipadoModal: true }
       }
 
       // Si está en el paso 23, es el último paso
-      if (currentStep === 23 || currentStep === 34) {
+      if (!nextStep) {
         return { error: "La licitación ya se encuentra en el último paso del flujo." }
       }
 
@@ -324,7 +371,7 @@ export const avanzarLicitacion = async (id) => {
         return { error: "No se encontraron los procesos necesarios" }
       }
 
-      const isLastStep = nextStep === 23 || nextStep === 34
+      const isLastStep = nextStep === 24 || nextStep === 35
 
       await prisma.licitacion.update({
         where: { id: parseInt(id) },
@@ -336,7 +383,7 @@ export const avanzarLicitacion = async (id) => {
           },
           fechaRecepcion: new Date(),
           estado: isLastStep ? "Finalizada" : "Pendiente",
-          ...getFlujoPostPaso11Update(nextStep)
+          ...getFlujoPostPaso12Update(nextStep)
         }
       })
 
@@ -410,7 +457,7 @@ export const avanzarLicitacion = async (id) => {
     return { success: true }
   } catch (error) {
     console.error(error)
-    return { error: "Error al avanzar la licitación" }
+    return { error: error.message || "Error al avanzar la licitación" }
   }
 }
 
@@ -449,7 +496,7 @@ export const devolverLicitacion = async (data) => {
     if (esFormatoLicitacion(formato)) {
       const currentStep = Number(licitacion.procesoActual.numeroPaso)
       const prevStep = getPasoAnteriorLicitacion(currentStep)
-      const reiniciaFlujoPostPaso11 = prevStep <= 15
+      const reiniciaFlujoPostPaso12 = prevStep <= 16
 
       if (currentStep <= 1) {
         return { error: "No se puede devolver, está en el primer proceso" }
@@ -483,7 +530,7 @@ export const devolverLicitacion = async (data) => {
           },
           fechaRecepcion: new Date(),
           estado: "Pendiente",
-          ...getFlujoPostPaso11Update(prevStep)
+          ...getFlujoPostPaso12Update(prevStep)
         }
       })
 
@@ -494,8 +541,8 @@ export const devolverLicitacion = async (data) => {
           tipoAccion: "devolucion",
           procesoOrigen: procesoActual.tituloProceso,
           procesoDestino: procesoAnterior.tituloProceso,
-          observacion: reiniciaFlujoPostPaso11
-            ? `${observacion}\nDevolucion y reinicio de flujo posterior al paso 11`
+          observacion: reiniciaFlujoPostPaso12
+            ? `${observacion}\nDevolucion y reinicio de flujo posterior al paso 12`
             : observacion,
           requirente: licitacion.requirente,
           createdAt: new Date()
@@ -950,11 +997,11 @@ export const avanzarLicitacionConInicioAnticipado = async (id) => {
 
     const currentStep = Number(licitacion.procesoActual.numeroPaso)
 
-    if (currentStep !== 15) {
-      return { error: "Solo se puede iniciar el flujo anticipado desde el paso 15" }
+    if (currentStep !== 16) {
+      return { error: "Solo se puede iniciar el flujo anticipado desde el paso 16" }
     }
 
-    const nextStep = 16
+    const nextStep = getNextStep(currentStep, "inicio_anticipado")
 
     const procesoActual = await prisma.procesoLicitacion.findFirst({
       where: {
@@ -985,6 +1032,7 @@ export const avanzarLicitacionConInicioAnticipado = async (id) => {
         fechaRecepcion: new Date(),
         estado: "Pendiente",
         inicioAnticipado: true,
+        flujoPostPaso12: "inicio_anticipado",
         flujoPostPaso11: "inicio_anticipado"
       }
     })
@@ -1043,11 +1091,11 @@ export const avanzarLicitacionConContrato = async (id) => {
     const currentStep = Number(licitacion.procesoActual.numeroPaso)
     console.log("currentStep:", currentStep)
 
-    if (currentStep !== 15) {
-      return { error: "Solo se puede iniciar el flujo de contrato desde el paso 15" }
+    if (currentStep !== 16) {
+      return { error: "Solo se puede iniciar el flujo de contrato desde el paso 16" }
     }
 
-    const nextStep = 24
+    const nextStep = getNextStep(currentStep, "contrato")
     console.log("nextStep:", nextStep)
 
     const procesoActual = await prisma.procesoLicitacion.findFirst({
@@ -1082,6 +1130,7 @@ export const avanzarLicitacionConContrato = async (id) => {
         fechaRecepcion: new Date(),
         estado: "Pendiente",
         inicioAnticipado: false,
+        flujoPostPaso12: "contrato",
         flujoPostPaso11: "contrato"
       }
     })
@@ -1133,8 +1182,8 @@ export const finalizarLicitacionSinInicioAnticipado = async (id) => {
 
     const currentStep = Number(licitacion.procesoActual.numeroPaso)
 
-    if (currentStep !== 15) {
-      return { error: "Solo se puede finalizar sin inicio anticipado desde el paso 15" }
+    if (currentStep !== 16) {
+      return { error: "Solo se puede finalizar sin inicio anticipado desde el paso 16" }
     }
 
     await prisma.licitacion.update({

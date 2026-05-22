@@ -51,6 +51,37 @@ export const ROLES = {
   SUBDIRECCION_ADMINISTRATIVA: "Subdireccion Administrativa"
 }
 
+const ROLE_LABELS = {
+  requirente: "Requirente",
+  coordinador_licitacion: "Coordinador Licitacion",
+  jefe_compras: "Jefe Compras",
+  jefe_adquisiciones: "Jefe Adquisiciones",
+  abogado: "Abogado",
+  jefe_unidad_legal: "Jefe Unidad Legal",
+  secretaria_legal: "Secretaria Legal",
+  secretaria_adquisiciones: "Secretaria Adquisiciones",
+  subdirector_administrativo: "Subdirector Administrativo",
+  secretaria_subdireccion: "Secretaria Subdireccion",
+  director: "Director",
+  secretaria_direccion: "Secretaria Direccion",
+  oficina_partes: "Oficina de Partes",
+  jefe_presupuesto: "Jefe Presupuesto",
+  analista_presupuesto: "Analista Presupuesto",
+  visor: "Visor"
+}
+
+export const formatRoleLabel = (roleName = "") => {
+  if (ROLE_LABELS[roleName]) {
+    return ROLE_LABELS[roleName]
+  }
+
+  return roleName
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ")
+}
+
 export const DEPARTAMENTOS = [
   { value: "RR.HH", label: "RR.HH" },
   { value: "Contabilidad", label: "Contabilidad" },
@@ -328,6 +359,9 @@ export const MAP_NUMERO_A_PROCESO_LICITACION = {
   "11": "Publicación de Adjudicación o Deserción"
 }
 
+MAP_NUMERO_A_PROCESO_LICITACION["11"] = "Fecha y EnumeraciÃ³n de Oficina de Partes"
+MAP_NUMERO_A_PROCESO_LICITACION["12"] = "PublicaciÃ³n de AdjudicaciÃ³n o DeserciÃ³n"
+
 export const MAP_PROCESO_ANTIGUO_A_NUMERO = {
   "Confección de Bases": "1",
   "Requerimiento referente técnico": "1.1",
@@ -374,12 +408,11 @@ export const MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO = {
 // Función para obtener el nombre del proceso actual basado en numeroPaso
 export const getProcesoActualLabelByNumeroPaso = (numeroPaso) => {
   if (!numeroPaso) return "Pendiente"
-  
-  const nuevoNumero = MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO[numeroPaso]
-  if (!nuevoNumero) return "Pendiente"
-  
-  const proceso = FLUJO_LICITACION.find(p => p.numero === nuevoNumero)
-  return proceso ? `${proceso.numero} ${proceso.nombre}` : "Pendiente"
+
+  const numeroVisual = getStepLabel(numeroPaso)
+  const nombreProceso = MAP_NUMERO_A_PROCESO_LICITACION[numeroVisual]
+
+  return nombreProceso ? `${numeroVisual} ${nombreProceso}` : numeroVisual
 }
 
 export const getProcesoActualLicitacionLabel = (procesoActual) => {
@@ -392,7 +425,10 @@ export const getProcesoActualLicitacionLabel = (procesoActual) => {
     // Si tiene numeroPaso, usar el mapeo basado en numeroPaso
     if (procesoActual.numeroPaso !== undefined) {
       console.log("Usando numeroPaso:", procesoActual.numeroPaso)
-      return getProcesoActualLabelByNumeroPaso(procesoActual.numeroPaso)
+      const numeroVisual = getStepLabel(procesoActual.numeroPaso)
+      return procesoActual.tituloProceso
+        ? `${numeroVisual} ${procesoActual.tituloProceso}`
+        : getProcesoActualLabelByNumeroPaso(procesoActual.numeroPaso)
     }
     
     // Si tiene tituloProceso con formato "X Nombre", extraer el número y usarlo
@@ -496,6 +532,33 @@ export const getFormatoLabel = (formato) => {
 }
 
 // Helper para obtener número visual de Licitación basado en numero_paso
+export const getNextStep = (currentStep, decision = null) => {
+  const current = Number(currentStep)
+
+  if (current < 16) return current + 1
+
+  if (current === 16) {
+    if (decision === "inicio_anticipado") return 17
+    if (decision === "contrato") return 25
+    return null
+  }
+
+  if (current >= 17 && current < 24) return current + 1
+  if (current === 24) return null
+
+  if (current >= 25 && current < 35) return current + 1
+
+  if (current === 35) {
+    if (decision === "addendum_si") return 36
+    if (decision === "addendum_no") return null
+    return null
+  }
+
+  if (current >= 36) return current + 1
+
+  return null
+}
+
 export const WORKFLOW_STEP_LABELS = {
     1: "1",
     2: "1.1",
@@ -512,27 +575,28 @@ export const WORKFLOW_STEP_LABELS = {
     13: "9.1",
     14: "10",
     15: "11",
-    // Inicio anticipado
     16: "12",
-    17: "12.1",
-    18: "13",
-    19: "13.1",
-    20: "14",
-    21: "14.1",
-    22: "14.2",
-    23: "15",
+    // Inicio anticipado
+    17: "13",
+    18: "13.1",
+    19: "14",
+    20: "14.1",
+    21: "15",
+    22: "15.1",
+    23: "15.2",
+    24: "16",
     // Contrato
-    24: "12",
     25: "13",
     26: "14",
     27: "15",
-    28: "15.1",
-    29: "16",
-    30: "16.1",
-    31: "17",
-    32: "17.1",
-    33: "17.2",
-    34: "18"
+    28: "16",
+    29: "16.1",
+    30: "17",
+    31: "17.1",
+    32: "18",
+    33: "18.1",
+    34: "18.2",
+    35: "19"
 }
 
 export const getStepLabel = (numeroPaso) => {
@@ -545,5 +609,5 @@ export const getNumeroVisualLicitacion = (numeroPaso) => {
 
 // Helper para identificar si es un subpaso visual en Licitación
 export const isSubpasoVisualLicitacion = (numeroPaso) => {
-  return [2, 4, 11, 13, 17, 19, 21, 22, 28, 30, 32, 33].includes(Number(numeroPaso))
+  return [2, 4, 11, 13, 18, 20, 22, 23, 29, 31, 33, 34].includes(Number(numeroPaso))
 }

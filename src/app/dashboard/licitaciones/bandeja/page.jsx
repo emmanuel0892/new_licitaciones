@@ -14,12 +14,14 @@ import {
   TableOutlined,
   DownloadOutlined,
   HistoryOutlined,
-  SyncOutlined
+  CheckCircleOutlined,
+  ExclamationCircleOutlined
 } from "@ant-design/icons"
 import { useSession } from "next-auth/react"
-import { getLicitaciones, avanzarLicitacion, avanzarLicitacionConInicioAnticipado, avanzarLicitacionConContrato, migrarLicitacionesPaso11AFinalizada, getRoles } from "@/actions/licitaciones"
+import { useRouter } from "next/navigation"
+import { getLicitaciones, avanzarLicitacion, avanzarLicitacionConInicioAnticipado, avanzarLicitacionConContrato, getRoles } from "@/actions/licitaciones"
 import { getUsers } from "@/actions/users"
-import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel, getProcesoActualNumero, getMainStepNumero } from "@/lib/helpers"
+import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel, formatRoleLabel } from "@/lib/helpers"
 import ModalDevolver from "@/components/modals/ModalDevolver"
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalHistorialNuevo from "@/components/modals/ModalHistorialNuevo"
@@ -34,6 +36,7 @@ const { Title, Text } = Typography
 const BandejaPage = () => {
   const { message } = App.useApp()
   const { data: session } = useSession()
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [licitaciones, setLicitaciones] = useState([])
   const [users, setUsers] = useState([])
@@ -80,7 +83,46 @@ const BandejaPage = () => {
   }
 
   useEffect(() => {
-    loadData()
+    let ignore = false
+
+    const loadInitialData = async () => {
+      const initialFilters = {
+        numeroLicitacion: "",
+        usuarioId: undefined,
+        estado: undefined,
+        roleId: undefined
+      }
+
+      const [licResult, usersResult, rolesResult] = await Promise.all([
+        getLicitaciones(initialFilters),
+        getUsers(),
+        getRoles()
+      ])
+
+      if (ignore) {
+        return
+      }
+
+      if (licResult.data) {
+        setLicitaciones(licResult.data.map((l) => ({ ...l, key: l.id })))
+      }
+
+      if (usersResult.data) {
+        setUsers(usersResult.data)
+      }
+
+      if (rolesResult.data) {
+        setRoles(rolesResult.data)
+      }
+
+      setLoading(false)
+    }
+
+    loadInitialData()
+
+    return () => {
+      ignore = true
+    }
   }, [])
 
   const handleSearch = async () => {
@@ -105,10 +147,6 @@ const BandejaPage = () => {
       setLicitaciones(result.data.map((l) => ({ ...l, key: l.id })))
     }
   }
-
-  useEffect(() => {
-    loadData()
-  }, [])
 
   const handleAvanzar = async (id) => {
     message.loading("Avanzando licitación...")
@@ -156,17 +194,6 @@ const BandejaPage = () => {
     setInicioAnticipadoModalData({ id: null, open: false })
   }
 
-  const handleMigrarPaso11AFinalizada = async () => {
-    message.loading("Migrando licitaciones...")
-    const result = await migrarLicitacionesPaso11AFinalizada()
-    if (result.success) {
-      message.success(result.message || "Migración completada")
-      loadData()
-    } else {
-      message.error(result.error || "Error al migrar")
-    }
-  }
-
   const handleExportExcel = async () => {
     setGeneratingExcel(true)
     message.loading("Generando informe...")
@@ -196,6 +223,14 @@ const BandejaPage = () => {
   const canPerformAction = (record) => {
     if (userType === "Super Admin") return true
     return record.procesoActual.roleId === userType
+  }
+
+  const getMissingSignaturesMessage = (missingSignatures = []) => {
+    if (missingSignatures.length === 0) {
+      return ""
+    }
+
+    return `Faltan firmas obligatorias: ${missingSignatures.join(", ")}`
   }
 
   const columns = [
@@ -279,7 +314,47 @@ const BandejaPage = () => {
       dataIndex: ["procesoActual", "role", "name"],
       key: "rol",
       width: 150,
-      render: (roleName) => roleName || <Text type="secondary">Sin asignar</Text>
+      render: (roleName) => roleName ? formatRoleLabel(roleName) : <Text type="secondary">Sin asignar</Text>
+    },
+    {
+      title: "Firmas requeridas",
+      key: "firmas",
+      width: 230,
+      render: (_, record) => {
+        const requiredSignatures = record.signatureValidation?.required || []
+        const missingSignatures = record.signatureValidation?.missing || []
+
+        if (requiredSignatures.length === 0) {
+          return <Text type="secondary">No aplica</Text>
+        }
+
+        return (
+          <Space direction="vertical" size={4} className={styles.signatureCell}>
+            <Text strong>Firmas requeridas</Text>
+            {requiredSignatures.map((signature) => (
+              <Tag
+                key={signature.label}
+                color={signature.completed ? "success" : "warning"}
+                icon={signature.completed ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
+                className={styles.signatureTag}
+              >
+                {signature.label}: {signature.completed ? "Completada" : "Pendiente"}
+              </Tag>
+            ))}
+
+            {missingSignatures.length > 0 && (
+              <Button
+                type="link"
+                size="small"
+                className={styles.signatureUploadButton}
+                onClick={() => router.push("/dashboard/usuarios")}
+              >
+                Subir firma
+              </Button>
+            )}
+          </Space>
+        )
+      }
     },
     {
       title: "Acciones",
@@ -289,6 +364,9 @@ const BandejaPage = () => {
       render: (_, record) => {
         const isPublicada = record.procesoActual?.tituloProceso === "Publicada"
         const isFirstStep = record.procesoActual?.numeroPaso === 1
+        const missingSignatures = record.signatureValidation?.missing || []
+        const hasMissingSignatures = missingSignatures.length > 0
+        const missingSignaturesMessage = getMissingSignaturesMessage(missingSignatures)
 
         return (
           <Space size="small">
@@ -317,9 +395,8 @@ const BandejaPage = () => {
             {/* 3. Subir Documento - Solo si no es Publicada y tiene permisos */}
             {(() => {
               const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
-              const currentNumero = isLicitacion ? getProcesoActualNumero(record.procesoActual.tituloProceso) : null
-              const currentMainNumero = isLicitacion ? getMainStepNumero(currentNumero) : null
-              const isLastStep = isLicitacion && currentMainNumero === "19"
+              const currentStep = Number(record.procesoActual?.numeroPaso)
+              const isLastStep = isLicitacion && [24, 35].includes(currentStep)
               
               return canPerformAction(record) && !isPublicada && record.estado !== "Finalizada" && !isLastStep
             })() && (
@@ -336,9 +413,8 @@ const BandejaPage = () => {
             {/* 4. Devolver - Solo si no es primer paso ni Publicada y tiene permisos */}
             {(() => {
               const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
-              const currentNumero = isLicitacion ? getProcesoActualNumero(record.procesoActual.tituloProceso) : null
-              const currentMainNumero = isLicitacion ? getMainStepNumero(currentNumero) : null
-              const isLastStep = isLicitacion && currentMainNumero === "19"
+              const currentStep = Number(record.procesoActual?.numeroPaso)
+              const isLastStep = isLicitacion && [24, 35].includes(currentStep)
               
               return canPerformAction(record) && !isFirstStep && !isPublicada && record.estado !== "Finalizada" && !isLastStep
             })() && (
@@ -355,26 +431,38 @@ const BandejaPage = () => {
             {/* 5. Avanzar - Solo si tiene permisos y no está finalizada */}
             {(() => {
               const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
-              const currentNumero = isLicitacion ? getProcesoActualNumero(record.procesoActual.tituloProceso) : null
-              const currentMainNumero = isLicitacion ? getMainStepNumero(currentNumero) : null
-              const isLastStep = isLicitacion && currentMainNumero === "19"
+              const currentStep = Number(record.procesoActual?.numeroPaso)
+              const isLastStep = isLicitacion && [24, 35].includes(currentStep)
               
               return canPerformAction(record) && record.estado !== "Finalizada" && !isLastStep
             })() && (
-              <Popconfirm
-                title="¿Desea avanzar esta licitación?"
-                okText="Avanzar"
-                cancelText="Cancelar"
-                onConfirm={() => handleAvanzar(record.id)}
-              >
-                <Tooltip title="Avanzar">
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<ArrowUpOutlined style={{ color: "#268e00" }} />}
-                  />
+              hasMissingSignatures ? (
+                <Tooltip title={missingSignaturesMessage}>
+                  <span>
+                    <Button
+                      type="text"
+                      size="small"
+                      disabled
+                      icon={<ArrowUpOutlined />}
+                    />
+                  </span>
                 </Tooltip>
-              </Popconfirm>
+              ) : (
+                <Popconfirm
+                  title="¿Desea avanzar esta licitación?"
+                  okText="Avanzar"
+                  cancelText="Cancelar"
+                  onConfirm={() => handleAvanzar(record.id)}
+                >
+                  <Tooltip title="Avanzar">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<ArrowUpOutlined style={{ color: "#268e00" }} />}
+                    />
+                  </Tooltip>
+                </Popconfirm>
+              )
             )}
 
             {/* 6. Ver WorkFlow - Disponible para todos */}
@@ -410,15 +498,6 @@ const BandejaPage = () => {
         <div className={styles.header}>
           <Title level={3} style={{ margin: 0 }}>Bandeja de Entrada</Title>
           <Space>
-            {userType === "Super Admin" && (
-              <Button
-                icon={<SyncOutlined />}
-                onClick={handleMigrarPaso11AFinalizada}
-                type="default"
-              >
-                Migrar Paso 11
-              </Button>
-            )}
             <Button
               icon={<DownloadOutlined />}
               onClick={handleExportExcel}
@@ -467,7 +546,7 @@ const BandejaPage = () => {
             onChange={(value) => setFilters({ ...filters, roleId: value })}
             style={{ width: 200 }}
             allowClear
-            options={userType === "Super Admin" ? roles.map(r => ({ value: r.id, label: r.name })) : roles.filter(r => r.id === userType).map(r => ({ value: r.id, label: r.name }))}
+            options={userType === "Super Admin" ? roles.map(r => ({ value: r.id, label: formatRoleLabel(r.name) })) : roles.filter(r => r.id === userType).map(r => ({ value: r.id, label: formatRoleLabel(r.name) }))}
           />
 
           <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
@@ -483,7 +562,7 @@ const BandejaPage = () => {
           columns={columns}
           dataSource={licitaciones}
           loading={loading}
-          scroll={{ x: 1400 }}
+          scroll={{ x: 1630 }}
           pagination={{
             pageSize: 10,
             showSizeChanger: false,

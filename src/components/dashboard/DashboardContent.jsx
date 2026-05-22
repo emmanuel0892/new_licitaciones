@@ -1,6 +1,7 @@
 "use client"
 
 import { Card, Row, Col, Statistic, Typography } from "antd"
+import Link from "next/link"
 import {
   FileTextOutlined,
   InboxOutlined,
@@ -32,7 +33,7 @@ const DashboardContent = ({ user, stats }) => {
               title="Total Licitaciones"
               value={stats.totalLicitaciones}
               prefix={<FileTextOutlined style={{ color: "#23aeaa" }} />}
-              valueStyle={{ color: "#1f2937" }}
+              styles={{ content: { color: "#1f2937" } }}
             />
           </Card>
         </Col>
@@ -42,7 +43,7 @@ const DashboardContent = ({ user, stats }) => {
               title="Pendientes"
               value={stats.pendientes}
               prefix={<ClockCircleOutlined style={{ color: "#e5be01" }} />}
-              valueStyle={{ color: "#1f2937" }}
+              styles={{ content: { color: "#1f2937" } }}
             />
           </Card>
         </Col>
@@ -52,7 +53,7 @@ const DashboardContent = ({ user, stats }) => {
               title="Finalizadas"
               value={stats.finalizadas}
               prefix={<CheckCircleOutlined style={{ color: "#268e00" }} />}
-              valueStyle={{ color: "#1f2937" }}
+              styles={{ content: { color: "#1f2937" } }}
             />
           </Card>
         </Col>
@@ -62,7 +63,7 @@ const DashboardContent = ({ user, stats }) => {
               title="Devueltas"
               value={stats.enProceso}
               prefix={<InboxOutlined style={{ color: "#e53935" }} />}
-              valueStyle={{ color: "#1f2937" }}
+              styles={{ content: { color: "#1f2937" } }}
             />
           </Card>
         </Col>
@@ -80,18 +81,18 @@ const DashboardContent = ({ user, stats }) => {
         <Col xs={24} lg={8}>
           <Card title="Accesos Rápidos" className={styles.card}>
             <div className={styles.quickLinks}>
-              <a href="/dashboard/licitaciones/crear" className={styles.quickLink}>
+              <Link href="/dashboard/licitaciones/crear" className={styles.quickLink}>
                 <FileTextOutlined />
                 <span>Crear Licitación</span>
-              </a>
-              <a href="/dashboard/licitaciones/bandeja" className={styles.quickLink}>
+              </Link>
+              <Link href="/dashboard/licitaciones/bandeja" className={styles.quickLink}>
                 <InboxOutlined />
                 <span>Bandeja de Entrada</span>
-              </a>
-              <a href="/dashboard/novedades" className={styles.quickLink}>
+              </Link>
+              <Link href="/dashboard/novedades" className={styles.quickLink}>
                 <ClockCircleOutlined />
                 <span>Ver Novedades</span>
-              </a>
+              </Link>
             </div>
           </Card>
         </Col>

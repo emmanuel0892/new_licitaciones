@@ -16,8 +16,8 @@ model User {
   password             String
   typeAccount          String                @map("type_account")
   departamento         String
-  firma                String?               @db.LongText
   active               String                @default("active")
+  firma                String?               @db.LongText
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
   documentosLicitacion DocumentoLicitacion[]
@@ -74,9 +74,11 @@ model Licitacion {
   contadorEdiciones    Int                   @default(0) @map("contador_ediciones")
   fechaRecepcion       DateTime?             @map("fecha_recepcion")
   inicioAnticipado     Boolean?              @default(false) @map("inicio_anticipado")
-  flujoPostPaso11      String?              @map("flujo_post_paso_11") @db.VarChar(30)
+  flujoPostPaso11      String?               @map("flujo_post_paso_11") @db.VarChar(30)
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
+  flujoPostPaso12      String?               @map("flujo_post_paso_12") @db.VarChar(30)
+  requiere_addendum    Boolean               @default(false)
   documentos           DocumentoLicitacion[]
   historial            HistorialLicitacion[]
   formatoLiquidacion   FormatoLiquidacion    @relation(fields: [formatoLiquidacionId], references: [id])
@@ -429,4 +431,46 @@ model proceso_licitacion_backup_antes_paso_1_1 {
   role_id                   String   @db.VarChar(36)
 
   @@ignore
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model proceso_licitacion_backup_antes_addendum {
+  id                        Int      @default(0)
+  fk_formato_liquidacion_id Int
+  titulo_proceso            String
+  numero_paso               Int
+  dias_sugeridos            Int      @default(5)
+  created_at                DateTime @default(now())
+  updated_at                DateTime
+  role_id                   String   @db.VarChar(36)
+
+  @@ignore
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model proceso_licitacion_backup_antes_paso_12 {
+  id                        Int      @default(0)
+  fk_formato_liquidacion_id Int
+  titulo_proceso            String
+  numero_paso               Int
+  dias_sugeridos            Int      @default(5)
+  created_at                DateTime @default(now())
+  updated_at                DateTime
+  role_id                   String   @db.VarChar(36)
+
+  @@ignore
+}
+
+model licitacion_firmas {
+  id            Int      @id @default(autoincrement())
+  licitacion_id Int
+  numero_paso   Int
+  firma_key     String   @db.VarChar(100)
+  firma_label   String   @db.VarChar(150)
+  user_id       String
+  created_at    DateTime @default(now()) @db.Timestamp(0)
+
+  @@unique([licitacion_id, numero_paso, firma_key], map: "uq_licitacion_paso_firma")
+  @@index([licitacion_id], map: "idx_licitacion_firmas_licitacion_id")
+  @@index([user_id], map: "idx_licitacion_firmas_user_id")
 }

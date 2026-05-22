@@ -48,7 +48,9 @@ const ModalWorkflow = forwardRef((props, ref) => {
       return licitacion.formatoLiquidacion.procesos?.sort((a, b) => a.numeroPaso - b.numeroPaso) || []
     }
 
-    const flujoPostPaso11 =
+    const flujoPostPaso12 =
+      licitacion?.flujoPostPaso12 ??
+      licitacion?.flujo_post_paso_12 ??
       licitacion?.flujoPostPaso11 ??
       licitacion?.flujo_post_paso_11 ??
       null
@@ -57,16 +59,21 @@ const ModalWorkflow = forwardRef((props, ref) => {
       const numeroPaso = Number(proceso.numeroPaso ?? proceso.numero_paso)
 
       // Siempre mostrar flujo normal
-      if (numeroPaso <= 15) return true
+      if (numeroPaso <= 16) return true
 
       // Mostrar inicio anticipado solo si fue elegido
-      if (numeroPaso >= 16 && numeroPaso <= 23) {
-        return flujoPostPaso11 === "inicio_anticipado"
+      if (numeroPaso >= 17 && numeroPaso <= 24) {
+        return flujoPostPaso12 === "inicio_anticipado"
       }
 
       // Mostrar contrato solo si fue elegido
-      if (numeroPaso >= 24 && numeroPaso <= 34) {
-        return flujoPostPaso11 === "contrato"
+      if (numeroPaso >= 25 && numeroPaso <= 35) {
+        return flujoPostPaso12 === "contrato"
+      }
+
+      if (numeroPaso >= 36) {
+        return licitacion?.requiereAddendum === true ||
+          licitacion?.requiere_addendum === true
       }
 
       return false
@@ -97,12 +104,12 @@ const ModalWorkflow = forwardRef((props, ref) => {
   const getUltimaDevolucionReset = (historialOrdenado, procesos) => {
     const procesosNormales = new Set(
       procesos
-        .filter((proceso) => getProcesoNumero(proceso) <= 15)
+        .filter((proceso) => getProcesoNumero(proceso) <= 16)
         .map((proceso) => normalizar(getProcesoTitulo(proceso)))
     )
     const procesosPosteriores = new Set(
       procesos
-        .filter((proceso) => getProcesoNumero(proceso) > 15 && getProcesoNumero(proceso) <= 34)
+        .filter((proceso) => getProcesoNumero(proceso) > 16 && getProcesoNumero(proceso) <= 35)
         .map((proceso) => normalizar(getProcesoTitulo(proceso)))
     )
 
@@ -135,8 +142,8 @@ const ModalWorkflow = forwardRef((props, ref) => {
   }
 
   const getFechaInicioRamaInicioAnticipado = (historialOrdenado, procesos) => {
-    const pasoDecision = procesos.find((proceso) => getProcesoNumero(proceso) === 15)
-    const primerPasoInicioAnticipado = procesos.find((proceso) => getProcesoNumero(proceso) === 16)
+    const pasoDecision = procesos.find((proceso) => getProcesoNumero(proceso) === 16)
+    const primerPasoInicioAnticipado = procesos.find((proceso) => getProcesoNumero(proceso) === 17)
     const historialInicioRama = findHistorialTransicion(
       historialOrdenado,
       pasoDecision,
@@ -147,7 +154,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
   }
 
   const isPasoInicioAnticipado = (numeroPaso) => {
-    return numeroPaso >= 16 && numeroPaso <= 23
+    return numeroPaso >= 17 && numeroPaso <= 24
   }
 
   const getAprobadoPor = (historialProceso) => {
@@ -181,12 +188,14 @@ const ModalWorkflow = forwardRef((props, ref) => {
     const ultimaDevolucionReset = getUltimaDevolucionReset(historialOrdenado, procesosBase)
     const fechaReset = ultimaDevolucionReset?.createdAt ?? null
     const pasoActual = getPasoActual()
-    const flujoPostPaso11 =
+    const flujoPostPaso12 =
+      licitacion?.flujoPostPaso12 ??
+      licitacion?.flujo_post_paso_12 ??
       licitacion?.flujoPostPaso11 ??
       licitacion?.flujo_post_paso_11 ??
       null
     const fechaInicioRamaInicioAnticipado =
-      flujoPostPaso11 === "inicio_anticipado"
+      flujoPostPaso12 === "inicio_anticipado"
         ? getFechaInicioRamaInicioAnticipado(historialOrdenado, procesosBase)
         : null
 
@@ -197,11 +206,11 @@ const ModalWorkflow = forwardRef((props, ref) => {
       const numeroVisual = getStepLabel(numeroPaso)
       const debeCortarPorReset = Boolean(
         fechaReset &&
-        !flujoPostPaso11 &&
+        !flujoPostPaso12 &&
         (
-          numeroPaso >= 15 ||
-          getProcesoNumero(procesoAnterior) > 15 ||
-          getProcesoNumero(procesoSiguiente) > 15
+          numeroPaso >= 16 ||
+          getProcesoNumero(procesoAnterior) > 16 ||
+          getProcesoNumero(procesoSiguiente) > 16
         )
       )
       const getFechaMinimaTransicion = (procesoOrigen, procesoDestino) => {
@@ -210,7 +219,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
           isPasoInicioAnticipado(getProcesoNumero(procesoDestino))
 
         if (
-          flujoPostPaso11 === "inicio_anticipado" &&
+          flujoPostPaso12 === "inicio_anticipado" &&
           fechaInicioRamaInicioAnticipado &&
           involucraInicioAnticipado
         ) {
@@ -235,8 +244,8 @@ const ModalWorkflow = forwardRef((props, ref) => {
         : null
       const esDestinoUltimaDevolucionReset = Boolean(
         ultimaDevolucionReset &&
-        pasoActual <= 15 &&
-        !flujoPostPaso11 &&
+        pasoActual <= 16 &&
+        !flujoPostPaso12 &&
         numeroPaso === pasoActual &&
         normalizar(ultimaDevolucionReset.procesoDestino ?? ultimaDevolucionReset.proceso_destino) === normalizar(getProcesoTitulo(proceso))
       )
@@ -259,13 +268,13 @@ const ModalWorkflow = forwardRef((props, ref) => {
         fechaRecepcion = devolucionAlPasoActual.createdAt
       }
 
-      if (!fechaRecepcion && numeroPaso === 15 && fechaEmision && procesoAnterior) {
-        const recepcionPaso15 = findHistorialTransicion(historialOrdenado, procesoAnterior, proceso, {
+      if (!fechaRecepcion && numeroPaso === 16 && fechaEmision && procesoAnterior) {
+        const recepcionPaso16 = findHistorialTransicion(historialOrdenado, procesoAnterior, proceso, {
           fechaMinima: getFechaMinimaTransicion(procesoAnterior, proceso)
         })
 
-        if (recepcionPaso15) {
-          fechaRecepcion = recepcionPaso15.createdAt
+        if (recepcionPaso16) {
+          fechaRecepcion = recepcionPaso16.createdAt
         }
       }
 

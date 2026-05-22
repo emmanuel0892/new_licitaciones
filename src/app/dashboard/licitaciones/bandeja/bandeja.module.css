@@ -41,3 +41,18 @@
   line-height: 1.35;
   text-overflow: ellipsis;
 }
+
+.signatureCell {
+  max-width: 220px;
+}
+
+.signatureTag {
+  white-space: normal;
+  line-height: 1.35;
+  margin-inline-end: 0;
+}
+
+.signatureUploadButton {
+  height: auto;
+  padding: 0;
+}

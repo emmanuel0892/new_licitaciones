@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { 
   Card, Form, Input, Select, DatePicker, Button, Typography, 
@@ -211,8 +211,8 @@ const CrearLicitacionPage = () => {
     return matchLicitacion || matchOC || matchItem
   })
 
-  const handleNombreChange = useCallback(
-    debounce(async (nombre) => {
+  const handleNombreChange = useMemo(() => {
+    return debounce(async (nombre) => {
       const requirente = form.getFieldValue("requirente")
       if (nombre && nombre.length >= 5) {
         setSearchingSimiles(true)
@@ -224,9 +224,8 @@ const CrearLicitacionPage = () => {
       } else {
         setLicitacionesSimilares({ internas: [], mercadoPublico: [] })
       }
-    }, 500),
-    []
-  )
+    }, 500)
+  }, [form])
 
   const handleSubmit = async (values) => {
     setLoading(true)
@@ -543,7 +542,7 @@ const CrearLicitacionPage = () => {
                     </div>
                   ) : (
                     <div className={styles.workflowContainer}>
-                      {procesosFormato.filter(p => p.numeroPaso <= 15).map((paso) => {
+                      {procesosFormato.filter(p => p.numeroPaso <= 16).map((paso) => {
                         const pasoObj = {
                           numero: getStepLabel(paso.numeroPaso),
                           nombre: paso.tituloProceso,

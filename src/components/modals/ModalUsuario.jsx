@@ -5,40 +5,9 @@ import { Modal, Form, Input, Select, Alert, Space, Typography, App, Skeleton } f
 import { CheckOutlined, CloseOutlined } from "@ant-design/icons"
 import { validateRut, formatRut } from "rutlib"
 import { createUser, updateUser, getUserById, getRoles } from "@/actions/users"
-import { DEPARTAMENTOS } from "@/lib/helpers"
+import { DEPARTAMENTOS, formatRoleLabel } from "@/lib/helpers"
 
 const { Text } = Typography
-
-const ROLE_LABELS = {
-  requirente: "Requirente",
-  coordinador_licitacion: "Coordinador Licitacion",
-  jefe_compras: "Jefe Compras",
-  jefe_adquisiciones: "Jefe Adquisiciones",
-  abogado: "Abogado",
-  jefe_unidad_legal: "Jefe Unidad Legal",
-  secretaria_legal: "Secretaria Legal",
-  secretaria_adquisiciones: "Secretaria Adquisiciones",
-  subdirector_administrativo: "Subdirector Administrativo",
-  secretaria_subdireccion: "Secretaria Subdireccion",
-  director: "Director",
-  secretaria_direccion: "Secretaria Direccion",
-  oficina_partes: "Oficina de Partes",
-  jefe_presupuesto: "Jefe Presupuesto",
-  analista_presupuesto: "Analista Presupuesto",
-  visor: "Visor"
-}
-
-const formatRoleLabel = (roleName = "") => {
-  if (ROLE_LABELS[roleName]) {
-    return ROLE_LABELS[roleName]
-  }
-
-  return roleName
-    .split("_")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ")
-}
 
 const ModalUsuario = forwardRef(({ onSuccess }, ref) => {
   const { message } = App.useApp()

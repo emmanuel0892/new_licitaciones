@@ -52,7 +52,40 @@ const ConsumoPage = () => {
   }
 
   useEffect(() => {
-    loadData()
+    let ignore = false
+
+    const loadInitialData = async () => {
+      const initialFilters = {
+        requirente: undefined,
+        codigo: "",
+        alertaActiva: false
+      }
+
+      const [licResult, reqResult] = await Promise.all([
+        getLicitacionesMP(initialFilters),
+        getRequirentesMPUnicos()
+      ])
+
+      if (ignore) {
+        return
+      }
+
+      if (licResult.data) {
+        setLicitaciones(licResult.data)
+      }
+
+      if (reqResult.data) {
+        setRequirentes(reqResult.data)
+      }
+
+      setLoading(false)
+    }
+
+    loadInitialData()
+
+    return () => {
+      ignore = true
+    }
   }, [])
 
   const handleSearch = () => {
@@ -214,7 +247,7 @@ const ConsumoPage = () => {
             <Statistic 
               title="Total Licitaciones" 
               value={stats.total} 
-              valueStyle={{ color: "#1890ff" }}
+              styles={{ content: { color: "#1890ff" } }}
             />
           </Card>
         </Col>
@@ -223,7 +256,7 @@ const ConsumoPage = () => {
             <Statistic 
               title="Alerta 50%" 
               value={stats.alerta50}
-              valueStyle={{ color: "#faad14" }}
+              styles={{ content: { color: "#faad14" } }}
               prefix={<WarningOutlined />}
             />
           </Card>
@@ -233,7 +266,7 @@ const ConsumoPage = () => {
             <Statistic 
               title="Alerta 75%" 
               value={stats.alerta75}
-              valueStyle={{ color: "#fa8c16" }}
+              styles={{ content: { color: "#fa8c16" } }}
               prefix={<AlertOutlined />}
             />
           </Card>
@@ -243,7 +276,7 @@ const ConsumoPage = () => {
             <Statistic 
               title="Crítico 90%" 
               value={stats.alerta90}
-              valueStyle={{ color: "#e53935" }}
+              styles={{ content: { color: "#e53935" } }}
               prefix={<ExclamationCircleOutlined />}
             />
           </Card>
@@ -254,7 +287,7 @@ const ConsumoPage = () => {
               title="Monto Total" 
               value={stats.montoTotal}
               formatter={(value) => formatMoney(value)}
-              valueStyle={{ fontSize: 16 }}
+              styles={{ content: { fontSize: 16 } }}
             />
           </Card>
         </Col>
@@ -264,7 +297,7 @@ const ConsumoPage = () => {
               title="Consumido" 
               value={stats.montoConsumido}
               formatter={(value) => formatMoney(value)}
-              valueStyle={{ fontSize: 16 }}
+              styles={{ content: { fontSize: 16 } }}
             />
           </Card>
         </Col>
