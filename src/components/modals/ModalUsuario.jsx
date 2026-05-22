@@ -4,10 +4,41 @@ import { useState, useImperativeHandle, forwardRef } from "react"
 import { Modal, Form, Input, Select, Alert, Space, Typography, App, Skeleton } from "antd"
 import { CheckOutlined, CloseOutlined } from "@ant-design/icons"
 import { validateRut, formatRut } from "rutlib"
-import { createUser, updateUser, getUserById } from "@/actions/users"
-import { TIPOS_CUENTA, DEPARTAMENTOS } from "@/lib/helpers"
+import { createUser, updateUser, getUserById, getRoles } from "@/actions/users"
+import { DEPARTAMENTOS } from "@/lib/helpers"
 
 const { Text } = Typography
+
+const ROLE_LABELS = {
+  requirente: "Requirente",
+  coordinador_licitacion: "Coordinador Licitacion",
+  jefe_compras: "Jefe Compras",
+  jefe_adquisiciones: "Jefe Adquisiciones",
+  abogado: "Abogado",
+  jefe_unidad_legal: "Jefe Unidad Legal",
+  secretaria_legal: "Secretaria Legal",
+  secretaria_adquisiciones: "Secretaria Adquisiciones",
+  subdirector_administrativo: "Subdirector Administrativo",
+  secretaria_subdireccion: "Secretaria Subdireccion",
+  director: "Director",
+  secretaria_direccion: "Secretaria Direccion",
+  oficina_partes: "Oficina de Partes",
+  jefe_presupuesto: "Jefe Presupuesto",
+  analista_presupuesto: "Analista Presupuesto",
+  visor: "Visor"
+}
+
+const formatRoleLabel = (roleName = "") => {
+  if (ROLE_LABELS[roleName]) {
+    return ROLE_LABELS[roleName]
+  }
+
+  return roleName
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ")
+}
 
 const ModalUsuario = forwardRef(({ onSuccess }, ref) => {
   const { message } = App.useApp()
@@ -18,6 +49,7 @@ const ModalUsuario = forwardRef(({ onSuccess }, ref) => {
   const [isEdit, setIsEdit] = useState(false)
   const [userId, setUserId] = useState(null)
   const [rutValid, setRutValid] = useState(true)
+  const [roleOptions, setRoleOptions] = useState([])
 
   const [passwordReqs, setPasswordReqs] = useState({
     length: false,
@@ -32,12 +64,23 @@ const ModalUsuario = forwardRef(({ onSuccess }, ref) => {
       form.resetFields()
       setPasswordReqs({ length: false, upperLower: false, numbers: false, symbols: false })
       setRutValid(true)
+      setLoadingData(true)
+
+      const rolesResult = await getRoles()
+      if (rolesResult.data) {
+        setRoleOptions(
+          rolesResult.data.map((role) => ({
+            label: formatRoleLabel(role.name),
+            value: role.id
+          }))
+        )
+      } else {
+        setRoleOptions([])
+      }
 
       if (action === "edit" && id) {
         setIsEdit(true)
         setUserId(id)
-        setLoadingData(true)
-
         const result = await getUserById(id)
         if (result.data) {
           form.setFieldsValue({
@@ -45,15 +88,16 @@ const ModalUsuario = forwardRef(({ onSuccess }, ref) => {
             lastname: result.data.lastname,
             rut: result.data.rut,
             email: result.data.email,
-            typeAccount: result.data.typeAccount,
+            roleId: result.data.roleId || undefined,
             departamento: result.data.departamento
           })
         }
-        setLoadingData(false)
       } else {
         setIsEdit(false)
         setUserId(null)
       }
+
+      setLoadingData(false)
     }
   }))
 
@@ -101,7 +145,7 @@ const ModalUsuario = forwardRef(({ onSuccess }, ref) => {
       result = await updateUser(userId, {
         name: values.name,
         lastname: values.lastname,
-        typeAccount: values.typeAccount,
+        roleId: values.roleId,
         departamento: values.departamento,
         password: values.password || ""
       })
@@ -219,13 +263,13 @@ const ModalUsuario = forwardRef(({ onSuccess }, ref) => {
           </Form.Item>
 
           <Form.Item
-            name="typeAccount"
-            label="Tipo de Cuenta"
-            rules={[{ required: true, message: "Seleccione un tipo de cuenta" }]}
+            name="roleId"
+            label="Rol"
+            rules={[{ required: true, message: "Debe seleccionar al menos un rol" }]}
           >
             <Select
-              placeholder="Seleccione un tipo de cuenta"
-              options={TIPOS_CUENTA}
+              placeholder="Seleccione un rol"
+              options={roleOptions}
             />
           </Form.Item>
 

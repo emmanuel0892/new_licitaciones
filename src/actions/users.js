@@ -2,7 +2,6 @@
 
 import prisma from "@/lib/prisma"
 import bcrypt from "bcryptjs"
-import { registerSchema, updateUserSchema } from "@/lib/validations/auth"
 import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
@@ -26,6 +25,82 @@ const userSignatureSchema = z.object({
 const deleteUserSignatureSchema = z.object({
   userId: z.string().min(1, "El usuario es requerido")
 })
+
+const createUserSchema = z.object({
+  name: z
+    .string()
+    .min(1, "El nombre es requerido")
+    .min(2, "El nombre debe tener al menos 2 caracteres"),
+  lastname: z
+    .string()
+    .min(1, "El apellido es requerido")
+    .min(2, "El apellido debe tener al menos 2 caracteres"),
+  rut: z
+    .string()
+    .min(8, "El RUT debe tener al menos 8 caracteres")
+    .max(12, "El RUT no puede tener mas de 12 caracteres"),
+  email: z
+    .string()
+    .min(1, "El correo electronico es requerido")
+    .email("Ingrese un correo electronico valido"),
+  password: z
+    .string()
+    .min(6, "La contrasena debe tener al menos 6 caracteres")
+    .regex(/[A-Z]/, "La contrasena debe tener al menos una mayuscula")
+    .regex(/[a-z]/, "La contrasena debe tener al menos una minuscula")
+    .regex(/[0-9]/, "La contrasena debe tener al menos un numero")
+    .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, "La contrasena debe tener al menos un simbolo"),
+  departamento: z
+    .string()
+    .min(1, "El departamento es requerido"),
+  roleId: z
+    .string()
+    .min(1, "Debe seleccionar al menos un rol")
+})
+
+const updateUserSchema = z.object({
+  name: z
+    .string()
+    .min(1, "El nombre es requerido")
+    .min(2, "El nombre debe tener al menos 2 caracteres"),
+  lastname: z
+    .string()
+    .min(1, "El apellido es requerido")
+    .min(2, "El apellido debe tener al menos 2 caracteres"),
+  departamento: z
+    .string()
+    .min(1, "El departamento es requerido"),
+  roleId: z
+    .string()
+    .min(1, "Debe seleccionar al menos un rol"),
+  password: z
+    .string()
+    .optional()
+    .refine((val) => {
+      if (!val || val === "") return true
+      return val.length >= 6
+    }, "La contrasena debe tener al menos 6 caracteres")
+})
+
+const getValidRole = async (roleId = "") => {
+  const roles = await prisma.roles.findMany({
+    where: {
+      id: {
+        in: [roleId]
+      }
+    },
+    select: {
+      id: true,
+      name: true
+    }
+  })
+
+  if (roles.length !== 1) {
+    return { error: "Se seleccionaron roles invalidos" }
+  }
+
+  return { data: roles }
+}
 
 export const getUsers = async () => {
   const session = await auth()
@@ -76,7 +151,12 @@ export const getUserById = async (id) => {
         typeAccount: true,
         departamento: true,
         firma: true,
-        active: true
+        active: true,
+        user_roles: {
+          select: {
+            role_id: true
+          }
+        }
       }
     })
 
@@ -84,7 +164,12 @@ export const getUserById = async (id) => {
       return { error: "Usuario no encontrado" }
     }
 
-    return { data: user }
+    return {
+      data: {
+        ...user,
+        roleId: user.user_roles[0]?.role_id || ""
+      }
+    }
   } catch (error) {
     return { error: "Error al obtener usuario" }
   }
@@ -97,7 +182,7 @@ export const createUser = async (data) => {
     return { error: "No autorizado" }
   }
 
-  const validatedFields = registerSchema.safeParse(data)
+  const validatedFields = createUserSchema.safeParse(data)
 
   if (!validatedFields.success) {
     const errors = validatedFields.error.flatten().fieldErrors
@@ -105,7 +190,7 @@ export const createUser = async (data) => {
     return { error: firstError || "Datos inválidos" }
   }
 
-  const { name, lastname, rut, email, password, typeAccount, departamento } = validatedFields.data
+  const { name, lastname, rut, email, password, departamento, roleId } = validatedFields.data
 
   const existingUserByEmail = await prisma.user.findUnique({
     where: { email }
@@ -124,18 +209,35 @@ export const createUser = async (data) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10)
+  const validRoles = await getValidRole(roleId)
+
+  if (validRoles.error) {
+    return { error: validRoles.error }
+  }
 
   try {
-    await prisma.user.create({
-      data: {
-        name,
-        lastname,
-        rut,
-        email,
-        password: hashedPassword,
-        typeAccount,
-        departamento
-      }
+    await prisma.$transaction(async (tx) => {
+      const primaryRole = validRoles.data[0]?.name || "visor"
+
+      const newUser = await tx.user.create({
+        data: {
+          name,
+          lastname,
+          rut,
+          email,
+          password: hashedPassword,
+          typeAccount: primaryRole,
+          departamento
+        }
+      })
+
+      await tx.user_roles.createMany({
+        data: validRoles.data.map((role) => ({
+          user_id: newUser.id,
+          role_id: role.id
+        })),
+        skipDuplicates: true
+      })
     })
 
     revalidatePath("/dashboard/usuarios")
@@ -160,13 +262,19 @@ export const updateUser = async (id, data) => {
     return { error: firstError || "Datos inválidos" }
   }
 
-  const { name, lastname, typeAccount, departamento, password } = validatedFields.data
+  const { name, lastname, departamento, password, roleId } = validatedFields.data
+  const validRoles = await getValidRole(roleId)
+
+  if (validRoles.error) {
+    return { error: validRoles.error }
+  }
 
   try {
+    const primaryRole = validRoles.data[0]?.name || "visor"
     const updateData = {
       name,
       lastname,
-      typeAccount,
+      typeAccount: primaryRole,
       departamento
     }
 
@@ -174,15 +282,55 @@ export const updateUser = async (id, data) => {
       updateData.password = await bcrypt.hash(password, 10)
     }
 
-    await prisma.user.update({
-      where: { id },
-      data: updateData
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id },
+        data: updateData
+      })
+
+      await tx.user_roles.deleteMany({
+        where: {
+          user_id: id
+        }
+      })
+
+      await tx.user_roles.createMany({
+        data: validRoles.data.map((role) => ({
+          user_id: id,
+          role_id: role.id
+        })),
+        skipDuplicates: true
+      })
     })
 
     revalidatePath("/dashboard/usuarios")
     return { success: true }
   } catch (error) {
     return { error: "Error al actualizar el usuario" }
+  }
+}
+
+export const getRoles = async () => {
+  const session = await auth()
+  
+  if (!session || session.user.typeAccount !== "Super Admin") {
+    return { error: "No autorizado" }
+  }
+
+  try {
+    const roles = await prisma.roles.findMany({
+      select: {
+        id: true,
+        name: true
+      },
+      orderBy: {
+        name: "asc"
+      }
+    })
+
+    return { data: roles }
+  } catch (error) {
+    return { error: "Error al obtener roles" }
   }
 }
 
