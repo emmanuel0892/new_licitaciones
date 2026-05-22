@@ -19,7 +19,7 @@ import {
   getProcesosByFormato
 } from "@/actions/licitaciones"
 import { getAllLicitacionesMPForTable } from "@/actions/mercadoPublico"
-import { formatMoney, FLUJO_LICITACION, esFormatoLicitacion, getProcesoActualNumero, getMainStepState, getSubStepState, getStepLabel, isSubpasoVisualLicitacion } from "@/lib/helpers"
+import { formatMoney, FLUJO_LICITACION, esFormatoLicitacion, getProcesoActualNumero, getMainStepState, getSubStepState, getStepLabel, isSubpasoVisualLicitacion, getProcesosVisibles } from "@/lib/helpers"
 import dayjs from "dayjs"
 import styles from "./crear.module.css"
 
@@ -542,7 +542,7 @@ const CrearLicitacionPage = () => {
                     </div>
                   ) : (
                     <div className={styles.workflowContainer}>
-                      {procesosFormato.filter(p => p.numeroPaso <= 16).map((paso) => {
+                      {getProcesosVisibles(procesosFormato, {}).map((paso) => {
                         const pasoObj = {
                           numero: getStepLabel(paso.numeroPaso),
                           nombre: paso.tituloProceso,

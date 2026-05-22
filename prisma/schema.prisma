@@ -78,7 +78,7 @@ model Licitacion {
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
   flujoPostPaso12      String?               @map("flujo_post_paso_12") @db.VarChar(30)
-  requiere_addendum    Boolean               @default(false)
+  requiereAddendum     Boolean               @default(false) @map("requiere_addendum")
   documentos           DocumentoLicitacion[]
   historial            HistorialLicitacion[]
   formatoLiquidacion   FormatoLiquidacion    @relation(fields: [formatoLiquidacionId], references: [id])

@@ -4,7 +4,7 @@ import { useState, useEffect, useImperativeHandle, forwardRef } from "react"
 import { Modal, Typography, Tag, Spin, Table, Button, Row, Col } from "antd"
 import { CheckCircleFilled, ClockCircleFilled, DownOutlined, RightOutlined } from "@ant-design/icons"
 import { getLicitacionById, getHistorialLicitacion, getProcesosByFormato } from "@/actions/licitaciones"
-import { formatDate, formatMoney, FLUJO_LICITACION, FLUJO_LICITACION_SECUENCIA, FLUJO_LICITACION_AVANCE, esFormatoLicitacion, getParentStep, getProcesoActualNumero, getMainStepState, getSubStepState, getFormatoLabel, getMainStepNumero, getProcesoActualLabelByNumeroPaso, MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO, getStepLabel, isSubpasoVisualLicitacion } from "@/lib/helpers"
+import { formatDate, formatMoney, FLUJO_LICITACION, FLUJO_LICITACION_SECUENCIA, FLUJO_LICITACION_AVANCE, esFormatoLicitacion, getParentStep, getProcesoActualNumero, getMainStepState, getSubStepState, getFormatoLabel, getMainStepNumero, getProcesoActualLabelByNumeroPaso, MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO, getStepLabel, isSubpasoVisualLicitacion, getProcesosVisibles as getProcesosVisiblesHelper } from "@/lib/helpers"
 import "./ModalWorkflow.css"
 
 const { Text, Title } = Typography
@@ -41,43 +41,13 @@ const ModalWorkflow = forwardRef((props, ref) => {
     })
   }
 
-  // Transformar datos jerárquicos para la tabla expandible
-  // Calcular procesos visibles para la lista de Procesos según flujoPostPaso11
   const getProcesosVisibles = () => {
     if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)) {
       return licitacion.formatoLiquidacion.procesos?.sort((a, b) => a.numeroPaso - b.numeroPaso) || []
     }
 
-    const flujoPostPaso12 =
-      licitacion?.flujoPostPaso12 ??
-      licitacion?.flujo_post_paso_12 ??
-      licitacion?.flujoPostPaso11 ??
-      licitacion?.flujo_post_paso_11 ??
-      null
-
-    return procesosFormato.filter((proceso) => {
-      const numeroPaso = Number(proceso.numeroPaso ?? proceso.numero_paso)
-
-      // Siempre mostrar flujo normal
-      if (numeroPaso <= 16) return true
-
-      // Mostrar inicio anticipado solo si fue elegido
-      if (numeroPaso >= 17 && numeroPaso <= 24) {
-        return flujoPostPaso12 === "inicio_anticipado"
-      }
-
-      // Mostrar contrato solo si fue elegido
-      if (numeroPaso >= 25 && numeroPaso <= 35) {
-        return flujoPostPaso12 === "contrato"
-      }
-
-      if (numeroPaso >= 36) {
-        return licitacion?.requiereAddendum === true ||
-          licitacion?.requiere_addendum === true
-      }
-
-      return false
-    })
+    return getProcesosVisiblesHelper(procesosFormato, licitacion)
+      .sort((a, b) => Number(a.numeroPaso ?? a.numero_paso) - Number(b.numeroPaso ?? b.numero_paso))
   }
 
   const getHistorialOrdenado = () => {
@@ -241,7 +211,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
         ? findHistorialTransicion(historialOrdenado, proceso, procesoSiguiente, {
           fechaMinima: getFechaMinimaTransicion(proceso, procesoSiguiente)
         })
-        : null
+        : findHistorialTransicion(historialOrdenado, proceso, { tituloProceso: "Finalizada" })
       const esDestinoUltimaDevolucionReset = Boolean(
         ultimaDevolucionReset &&
         pasoActual <= 16 &&
@@ -256,7 +226,8 @@ const ModalWorkflow = forwardRef((props, ref) => {
         : historialRecepcion?.createdAt ?? null
       const fechaEmision = historialEmision?.createdAt ?? null
       const esPasoActual = numeroPaso === pasoActual
-      const fechaEmisionParaDias = esPasoActual ? null : fechaEmision
+      const estaFinalizada = normalizar(licitacion.estado) === "finalizada"
+      const fechaEmisionParaDias = esPasoActual && !estaFinalizada ? null : fechaEmision
       const devolucionAlPasoActual = esPasoActual
         ? [...historialOrdenado].reverse().find((h) =>
           ["devolucion", "retroceso"].includes(normalizar(h.tipoAccion ?? h.tipo_accion)) &&
@@ -292,7 +263,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
         isSubstep: isSubpasoVisualLicitacion(numeroPaso),
         subpasos: [],
         fechaRecepcion: fechaRecepcion ? formatDate(fechaRecepcion) : "Pendiente",
-        fechaEmision: esPasoActual && fueAlcanzado
+        fechaEmision: esPasoActual && !estaFinalizada && fueAlcanzado
           ? "En curso"
           : fechaEmision
             ? formatDate(fechaEmision)

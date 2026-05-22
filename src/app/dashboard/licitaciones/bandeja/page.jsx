@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Table, Button, Space, Tag, Typography, Card, App, Popconfirm, Input, Select, Tooltip } from "antd"
+import { Table, Button, Space, Tag, Typography, Card, App, Popconfirm, Input, Select, Tooltip, Modal } from "antd"
 import {
   SearchOutlined,
   ReloadOutlined,
@@ -19,7 +19,7 @@ import {
 } from "@ant-design/icons"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { getLicitaciones, avanzarLicitacion, avanzarLicitacionConInicioAnticipado, avanzarLicitacionConContrato, getRoles } from "@/actions/licitaciones"
+import { getLicitaciones, avanzarLicitacion, avanzarLicitacionConInicioAnticipado, avanzarLicitacionConContrato, avanzarLicitacionConAddendum, finalizarLicitacionSinAddendum, getRoles } from "@/actions/licitaciones"
 import { getUsers } from "@/actions/users"
 import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel, formatRoleLabel } from "@/lib/helpers"
 import ModalDevolver from "@/components/modals/ModalDevolver"
@@ -28,6 +28,7 @@ import ModalHistorialNuevo from "@/components/modals/ModalHistorialNuevo"
 import ModalWorkflow from "@/components/modals/ModalWorkflow"
 import ModalDocumentos from "@/components/modals/ModalDocumentos"
 import ModalInicioAnticipado from "@/components/modals/ModalInicioAnticipado"
+import ModalFirmarLicitacion from "@/components/modals/ModalFirmarLicitacion"
 import * as XLSX from "xlsx"
 import styles from "./bandeja.module.css"
 
@@ -49,12 +50,14 @@ const BandejaPage = () => {
   })
   const [generatingExcel, setGeneratingExcel] = useState(false)
   const [inicioAnticipadoModalData, setInicioAnticipadoModalData] = useState({ id: null, open: false })
+  const [addendumModalData, setAddendumModalData] = useState({ id: null, open: false })
 
   const modalDevolverRef = useRef(null)
   const modalHistorialRef = useRef(null)
   const modalHistorialNuevoRef = useRef(null)
   const modalWorkflowRef = useRef(null)
   const modalDocumentosRef = useRef(null)
+  const modalFirmarRef = useRef(null)
 
   const userType = session?.user?.typeAccount
   const userId = session?.user?.id
@@ -157,6 +160,9 @@ const BandejaPage = () => {
     } else if (result.showInicioAnticipadoModal) {
       message.destroy()
       setInicioAnticipadoModalData({ id, open: true })
+    } else if (result.showAddendumModal) {
+      message.destroy()
+      setAddendumModalData({ id, open: true })
     } else {
       message.error(result.error || "Error al avanzar")
     }
@@ -192,6 +198,42 @@ const BandejaPage = () => {
 
   const handleInicioAnticipadoCancel = () => {
     setInicioAnticipadoModalData({ id: null, open: false })
+  }
+
+  const handleAddendumConfirm = async () => {
+    if (addendumModalData.id) {
+      message.loading("Iniciando flujo Addendum...")
+      const result = await avanzarLicitacionConAddendum(addendumModalData.id)
+
+      if (result.success) {
+        message.success("Flujo Addendum iniciado correctamente")
+        loadData()
+      } else {
+        message.error(result.error || "Error al iniciar flujo Addendum")
+      }
+    }
+
+    setAddendumModalData({ id: null, open: false })
+  }
+
+  const handleAddendumReject = async () => {
+    if (addendumModalData.id) {
+      message.loading("Finalizando licitación...")
+      const result = await finalizarLicitacionSinAddendum(addendumModalData.id)
+
+      if (result.success) {
+        message.success(result.message || "Licitación finalizada correctamente")
+        loadData()
+      } else {
+        message.error(result.error || "Error al finalizar licitación")
+      }
+    }
+
+    setAddendumModalData({ id: null, open: false })
+  }
+
+  const handleAddendumCancel = () => {
+    setAddendumModalData({ id: null, open: false })
   }
 
   const handleExportExcel = async () => {
@@ -340,7 +382,6 @@ const BandejaPage = () => {
       width: 230,
       render: (_, record) => {
         const requiredSignatures = record.signatureValidation?.required || []
-        const missingSignatures = record.signatureValidation?.missing || []
 
         if (requiredSignatures.length === 0) {
           return <Text type="secondary">No aplica</Text>
@@ -356,11 +397,11 @@ const BandejaPage = () => {
                 icon={signature.completed ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
                 className={styles.signatureTag}
               >
-                {signature.label}: {signature.completed ? "Completada" : "Pendiente"}
+                {signature.label}: {signature.completed ? "Firmada" : "Pendiente"}
               </Tag>
             ))}
 
-            {missingSignatures.length > 0 && (
+            <Space size={0} split={<Text type="secondary">|</Text>}>
               <Button
                 type="link"
                 size="small"
@@ -369,7 +410,15 @@ const BandejaPage = () => {
               >
                 Subir firma
               </Button>
-            )}
+              <Button
+                type="link"
+                size="small"
+                className={styles.signatureUploadButton}
+                onClick={() => modalFirmarRef.current?.open(record)}
+              >
+                Firmar
+              </Button>
+            </Space>
           </Space>
         )
       }
@@ -414,7 +463,7 @@ const BandejaPage = () => {
             {(() => {
               const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
               const currentStep = Number(record.procesoActual?.numeroPaso)
-              const isLastStep = isLicitacion && [24, 35].includes(currentStep)
+              const isLastStep = isLicitacion && currentStep === 24
               
               return canPerformAction(record) && !isPublicada && record.estado !== "Finalizada" && !isLastStep
             })() && (
@@ -432,7 +481,7 @@ const BandejaPage = () => {
             {(() => {
               const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
               const currentStep = Number(record.procesoActual?.numeroPaso)
-              const isLastStep = isLicitacion && [24, 35].includes(currentStep)
+              const isLastStep = isLicitacion && currentStep === 24
               
               return canPerformAction(record) && !isFirstStep && !isPublicada && record.estado !== "Finalizada" && !isLastStep
             })() && (
@@ -450,7 +499,7 @@ const BandejaPage = () => {
             {(() => {
               const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
               const currentStep = Number(record.procesoActual?.numeroPaso)
-              const isLastStep = isLicitacion && [24, 35].includes(currentStep)
+              const isLastStep = isLicitacion && currentStep === 24
               
               return canPerformAction(record) && record.estado !== "Finalizada" && !isLastStep
             })() && (
@@ -466,20 +515,31 @@ const BandejaPage = () => {
                   </span>
                 </Tooltip>
               ) : (
-                <Popconfirm
-                  title="¿Desea avanzar esta licitación?"
-                  okText="Avanzar"
-                  cancelText="Cancelar"
-                  onConfirm={() => handleAvanzar(record.id)}
-                >
+                [16, 35].includes(Number(record.procesoActual?.numeroPaso)) ? (
                   <Tooltip title="Avanzar">
                     <Button
                       type="text"
                       size="small"
                       icon={<ArrowUpOutlined style={{ color: "#268e00" }} />}
+                      onClick={() => handleAvanzar(record.id)}
                     />
                   </Tooltip>
-                </Popconfirm>
+                ) : (
+                  <Popconfirm
+                    title="¿Desea avanzar esta licitación?"
+                    okText="Avanzar"
+                    cancelText="Cancelar"
+                    onConfirm={() => handleAvanzar(record.id)}
+                  >
+                    <Tooltip title="Avanzar">
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<ArrowUpOutlined style={{ color: "#268e00" }} />}
+                      />
+                    </Tooltip>
+                  </Popconfirm>
+                )
               )
             )}
 
@@ -594,12 +654,28 @@ const BandejaPage = () => {
       <ModalHistorialNuevo ref={modalHistorialNuevoRef} />
       <ModalWorkflow ref={modalWorkflowRef} />
       <ModalDocumentos ref={modalDocumentosRef} onSuccess={loadData} />
+      <ModalFirmarLicitacion ref={modalFirmarRef} onSuccess={loadData} currentUserId={userId} />
       <ModalInicioAnticipado
         open={inicioAnticipadoModalData.open}
         onConfirm={handleInicioAnticipadoConfirm}
         onContrato={handleContratoConfirm}
         onCancel={handleInicioAnticipadoCancel}
       />
+      <Modal
+        title="¿Requiere Addendum?"
+        open={addendumModalData.open}
+        onCancel={handleAddendumCancel}
+        footer={[
+          <Button key="no" onClick={handleAddendumReject}>
+            No
+          </Button>,
+          <Button key="yes" type="primary" onClick={handleAddendumConfirm}>
+            Sí
+          </Button>
+        ]}
+      >
+        <p>¿Requiere Addendum?</p>
+      </Modal>
     </div>
   )
 }

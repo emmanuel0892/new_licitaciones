@@ -3,29 +3,16 @@
 import prisma from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
-import { z } from "zod"
 import { createLicitacionSchema, devolverLicitacionSchema } from "@/lib/validations/licitacion"
 import { esFormatoLicitacion, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getMainStepNumero, getNextStep, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
-import { REQUIRED_SIGNATURES_BY_STEP, assertCanAdvanceBySignature, canAdvanceBySignature, getSignatureStatusForStep, isSignatureBlocked } from "@/lib/signatures.js"
-
-const signatureStatusSchema = z.object({
-  licitacionId: z.coerce.number().int().positive()
-})
-
-const signLicitacionStepSchema = z.object({
-  licitacionId: z.coerce.number().int().positive(),
-  numeroPaso: z.coerce.number().int().positive(),
-  firmaKey: z.string().trim().min(1),
-  currentUserId: z.string().optional()
-})
+import { assertCanAdvanceBySignature, canAdvanceBySignature } from "@/lib/signatures"
 
 const getFlujoPostPaso12Update = (targetStep) => {
   if (targetStep <= 16) {
     return {
       flujoPostPaso12: null,
       flujoPostPaso11: null,
-      inicioAnticipado: false,
-      requiereAddendum: false
+      inicioAnticipado: false
     }
   }
 
@@ -33,8 +20,7 @@ const getFlujoPostPaso12Update = (targetStep) => {
     return {
       flujoPostPaso12: "inicio_anticipado",
       flujoPostPaso11: "inicio_anticipado",
-      inicioAnticipado: true,
-      requiereAddendum: false
+      inicioAnticipado: true
     }
   }
 
@@ -42,17 +28,7 @@ const getFlujoPostPaso12Update = (targetStep) => {
     return {
       flujoPostPaso12: "contrato",
       flujoPostPaso11: "contrato",
-      inicioAnticipado: false,
-      requiereAddendum: false
-    }
-  }
-
-  if (targetStep >= 36 && targetStep <= 46) {
-    return {
-      flujoPostPaso12: "contrato",
-      flujoPostPaso11: "contrato",
-      inicioAnticipado: false,
-      requiereAddendum: true
+      inicioAnticipado: false
     }
   }
 
@@ -114,44 +90,32 @@ export const getLicitaciones = async (filters = {}) => {
       orderBy: { createdAt: "desc" }
     })
 
-    const signatureValidationByStepEntries = await Promise.all(
-      licitaciones
-        .filter((licitacion) => esFormatoLicitacion(licitacion.formatoLiquidacion.titulo))
-        .map(async (licitacion) => {
-          const numeroPaso = Number(licitacion.procesoActual?.numeroPaso)
-
-          return [
-            licitacion.id,
-            await canAdvanceBySignature(licitacion.id, numeroPaso)
-          ]
-        })
-    )
-    const signatureValidationByLicitacionId = Object.fromEntries(signatureValidationByStepEntries)
-
-    const licitacionesWithSignatureValidation = licitaciones.map((licitacion) => {
-      if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)) {
-        return {
-          ...licitacion,
-          signatureValidation: {
-            canAdvance: true,
-            missing: [],
-            required: []
+    const licitacionesWithSignatureValidation = await Promise.all(
+      licitaciones.map(async (licitacion) => {
+        if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)) {
+          return {
+            ...licitacion,
+            signatureValidation: {
+              canAdvance: true,
+              missing: [],
+              required: []
+            }
           }
         }
-      }
 
-      return {
-        ...licitacion,
-        signatureValidation: signatureValidationByLicitacionId[licitacion.id] ?? {
-          canAdvance: true,
-          missing: [],
-          required: []
+        const numeroPaso = Number(licitacion.procesoActual?.numeroPaso)
+        const signatureValidation = await canAdvanceBySignature(licitacion.id, numeroPaso)
+
+        return {
+          ...licitacion,
+          signatureValidation
         }
-      }
-    })
+      })
+    )
 
     return { data: licitacionesWithSignatureValidation }
   } catch (error) {
+    console.error("Error en getLicitaciones:", error)
     return { error: "Error al obtener licitaciones" }
   }
 }
@@ -351,50 +315,19 @@ export const avanzarLicitacion = async (id) => {
 
     const formato = licitacion.formatoLiquidacion.titulo
 
-    // Si es formato Licitación, usar numeroPaso directamente de la BD
     if (esFormatoLicitacion(formato)) {
       const currentStep = Number(licitacion.procesoActual.numeroPaso)
+      const nextStep = getNextStep(currentStep)
 
       console.log("=== AVANCE LICITACION DEBUG ===")
       console.log("currentStep:", currentStep)
+      console.log("nextStep:", nextStep)
+
+      await assertCanAdvanceBySignature(licitacion.id, currentStep)
 
       if (currentStep === 16) {
         return { showInicioAnticipadoModal: true }
       }
-
-      if (currentStep === 35) {
-        return { showAddendumModal: true }
-      }
-
-      await assertCanAdvanceBySignature(licitacion.id, currentStep)
-
-      if (currentStep === 46) {
-        await prisma.licitacion.update({
-          where: { id: parseInt(id) },
-          data: {
-            estado: "Finalizada",
-            requiereAddendum: true
-          }
-        })
-
-        await prisma.historialLicitacion.create({
-          data: {
-            licitacionId: parseInt(id),
-            usuarioId: session.user.id,
-            tipoAccion: "avance",
-            procesoOrigen: licitacion.procesoActual.tituloProceso,
-            procesoDestino: "Finalizada",
-            requirente: licitacion.requirente
-          }
-        })
-
-        revalidatePath("/dashboard/licitaciones")
-        return { success: true, message: "Licitación finalizada" }
-      }
-
-      const nextStep = getNextStep(currentStep)
-
-      console.log("nextStep:", nextStep)
 
       if (!nextStep) {
         return { error: "La licitación ya se encuentra en el último paso del flujo." }
@@ -418,7 +351,7 @@ export const avanzarLicitacion = async (id) => {
         return { error: "No se encontraron los procesos necesarios" }
       }
 
-      const isLastStep = nextStep === 24
+      const isLastStep = nextStep === 24 || nextStep === 35
 
       await prisma.licitacion.update({
         where: { id: parseInt(id) },
@@ -449,7 +382,6 @@ export const avanzarLicitacion = async (id) => {
       return { success: true }
     }
 
-    // Para otros formatos, usar la lógica original
     const procesos = licitacion.formatoLiquidacion.procesos
     const procesoActualIndex = procesos.findIndex(p => p.id === licitacion.procesoActualId)
     
@@ -544,7 +476,6 @@ export const devolverLicitacion = async (data) => {
       const currentStep = Number(licitacion.procesoActual.numeroPaso)
       const prevStep = getPasoAnteriorLicitacion(currentStep)
       const reiniciaFlujoPostPaso12 = prevStep <= 16
-      const reiniciaAddendum = prevStep <= 35
 
       if (currentStep <= 1) {
         return { error: "No se puede devolver, está en el primer proceso" }
@@ -589,11 +520,9 @@ export const devolverLicitacion = async (data) => {
           tipoAccion: "devolucion",
           procesoOrigen: procesoActual.tituloProceso,
           procesoDestino: procesoAnterior.tituloProceso,
-          observacion: [
-            observacion,
-            reiniciaFlujoPostPaso12 ? "Devolucion y reinicio de flujo posterior al paso 12" : null,
-            reiniciaAddendum && currentStep >= 36 ? "Devolucion y reinicio de flujo Addendum" : null
-          ].filter(Boolean).join("\n"),
+          observacion: reiniciaFlujoPostPaso12
+            ? `${observacion}\nDevolucion y reinicio de flujo posterior al paso 12`
+            : observacion,
           requirente: licitacion.requirente,
           createdAt: new Date()
         }
@@ -603,7 +532,6 @@ export const devolverLicitacion = async (data) => {
       return { success: true }
     }
 
-    // Para otros formatos, usar la lógica original
     const procesos = licitacion.formatoLiquidacion.procesos
     const procesoActualIndex = procesos.findIndex(p => p.id === licitacion.procesoActualId)
     
@@ -747,7 +675,6 @@ export const updateLicitacion = async (data) => {
   }
 }
 
-// Función para migrar licitaciones en paso 11 a estado Finalizada
 export const migrarLicitacionesPaso11AFinalizada = async () => {
   const session = await auth()
   
@@ -760,7 +687,6 @@ export const migrarLicitacionesPaso11AFinalizada = async () => {
   }
 
   try {
-    // Buscar licitaciones en formato Licitación que estén en paso 11 y con estado Pendiente
     const licitaciones = await prisma.licitacion.findMany({
       where: {
         estado: "Pendiente"
@@ -780,7 +706,6 @@ export const migrarLicitacionesPaso11AFinalizada = async () => {
     for (const licitacion of licitaciones) {
       const formato = licitacion.formatoLiquidacion.titulo
       
-      // Solo procesar formato Licitación
       if (!esFormatoLicitacion(formato)) {
         continue
       }
@@ -789,7 +714,6 @@ export const migrarLicitacionesPaso11AFinalizada = async () => {
       const currentNumero = getProcesoActualNumero(currentTitulo)
       const currentMainNumero = getMainStepNumero(currentNumero)
 
-      // Si está en paso 11, actualizar estado a Finalizada
       if (currentMainNumero === "11") {
         await prisma.licitacion.update({
           where: { id: licitacion.id },
@@ -828,7 +752,6 @@ export const getHistorialLicitacion = async (id) => {
   }
 }
 
-// Obtener estadísticas para el dashboard de crear licitación
 export const getDashboardStats = async () => {
   const session = await auth()
   
@@ -841,12 +764,10 @@ export const getDashboardStats = async () => {
     const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
     const startOfYear = new Date(now.getFullYear(), 0, 1)
 
-    // Licitaciones activas (no finalizadas)
     const licitacionesActivas = await prisma.licitacion.count({
       where: { estado: { not: "Finalizada" } }
     })
 
-    // Licitaciones próximas a vencer (vigencia en los próximos 30 días)
     const proximasVencer = await prisma.licitacion.count({
       where: {
         estado: { not: "Finalizada" },
@@ -857,7 +778,6 @@ export const getDashboardStats = async () => {
       }
     })
 
-    // Presupuesto total del año (suma de montos presupuestados)
     const licitacionesAno = await prisma.licitacion.findMany({
       where: {
         createdAt: { gte: startOfYear }
@@ -870,7 +790,6 @@ export const getDashboardStats = async () => {
       return acc + monto
     }, 0)
 
-    // Licitaciones finalizadas este año (comprometido/ejecutado)
     const licitacionesFinalizadas = await prisma.licitacion.findMany({
       where: {
         createdAt: { gte: startOfYear },
@@ -884,7 +803,6 @@ export const getDashboardStats = async () => {
       return acc + monto
     }, 0)
 
-    // Consumo de licitaciones MP
     const licitacionesMP = await prisma.licitacionMP.findMany({
       select: {
         montoAdjudicado: true,
@@ -899,7 +817,6 @@ export const getDashboardStats = async () => {
       ? (totalConsumidoMP / totalAdjudicadoMP) * 100 
       : 0
 
-    // Alertas activas (licitaciones MP con consumo >= 50%)
     const alertasActivas = await prisma.licitacionMP.count({
       where: { porcentajeConsumo: { gte: 50 } }
     })
@@ -926,7 +843,6 @@ export const getDashboardStats = async () => {
   }
 }
 
-// Buscar licitaciones similares por nombre
 export const buscarLicitacionesSimilares = async (nombre, requirente) => {
   const session = await auth()
   
@@ -945,7 +861,6 @@ export const buscarLicitacionesSimilares = async (nombre, requirente) => {
       return { data: [] }
     }
 
-    // Buscar en licitaciones internas
     const licitacionesInternas = await prisma.licitacion.findMany({
       where: {
         OR: palabras.map(palabra => ({
@@ -960,7 +875,6 @@ export const buscarLicitacionesSimilares = async (nombre, requirente) => {
       orderBy: { createdAt: "desc" }
     })
 
-    // Buscar en licitaciones de Mercado Público
     const licitacionesMP = await prisma.licitacionMP.findMany({
       where: {
         OR: [
@@ -989,7 +903,6 @@ export const buscarLicitacionesSimilares = async (nombre, requirente) => {
   }
 }
 
-// Obtener licitaciones MP por requirente con alertas
 export const getLicitacionesMPByRequirenteConAlerta = async (requirente) => {
   const session = await auth()
   
@@ -1204,143 +1117,6 @@ export const avanzarLicitacionConContrato = async (id) => {
   }
 }
 
-export const avanzarLicitacionConAddendum = async (id) => {
-  const session = await auth()
-
-  if (!session) {
-    return { error: "No autorizado" }
-  }
-
-  try {
-    const licitacion = await prisma.licitacion.findUnique({
-      where: { id: parseInt(id) },
-      include: {
-        procesoActual: true,
-        formatoLiquidacion: true
-      }
-    })
-
-    if (!licitacion) {
-      return { error: "Licitación no encontrada" }
-    }
-
-    const formato = licitacion.formatoLiquidacion.titulo
-
-    if (!esFormatoLicitacion(formato)) {
-      return { error: "Esta función solo es para licitaciones" }
-    }
-
-    const currentStep = Number(licitacion.procesoActual.numeroPaso)
-
-    if (currentStep !== 35) {
-      return { error: "Solo se puede iniciar Addendum desde el paso 35" }
-    }
-
-    const nextStep = getNextStep(currentStep, "addendum_si")
-
-    const procesoActual = await prisma.procesoLicitacion.findFirst({
-      where: {
-        formatoLiquidacionId: licitacion.formatoLiquidacionId,
-        numeroPaso: currentStep
-      }
-    })
-
-    const procesoSiguiente = await prisma.procesoLicitacion.findFirst({
-      where: {
-        formatoLiquidacionId: licitacion.formatoLiquidacionId,
-        numeroPaso: nextStep
-      }
-    })
-
-    if (!procesoActual || !procesoSiguiente) {
-      return { error: "No se encontraron los procesos necesarios" }
-    }
-
-    await prisma.licitacion.update({
-      where: { id: parseInt(id) },
-      data: {
-        procesoActual: {
-          connect: {
-            id: procesoSiguiente.id
-          }
-        },
-        fechaRecepcion: new Date(),
-        estado: "Pendiente",
-        inicioAnticipado: false,
-        flujoPostPaso12: "contrato",
-        flujoPostPaso11: "contrato",
-        requiereAddendum: true
-      }
-    })
-
-    await prisma.historialLicitacion.create({
-      data: {
-        licitacionId: parseInt(id),
-        usuarioId: session.user.id,
-        tipoAccion: "avance",
-        procesoOrigen: procesoActual.tituloProceso,
-        procesoDestino: procesoSiguiente.tituloProceso,
-        requirente: licitacion.requirente,
-        createdAt: new Date()
-      }
-    })
-
-    revalidatePath("/dashboard/licitaciones")
-    return { success: true }
-  } catch (error) {
-    console.error("Error en avanzarLicitacionConAddendum:", error)
-    return { error: "Error al avanzar al flujo Addendum" }
-  }
-}
-
-export const finalizarLicitacionSinAddendum = async (id) => {
-  const session = await auth()
-
-  if (!session) {
-    return { error: "No autorizado" }
-  }
-
-  try {
-    const licitacion = await prisma.licitacion.findUnique({
-      where: { id: parseInt(id) },
-      include: {
-        procesoActual: true,
-        formatoLiquidacion: true
-      }
-    })
-
-    if (!licitacion) {
-      return { error: "Licitación no encontrada" }
-    }
-
-    const formato = licitacion.formatoLiquidacion.titulo
-
-    if (!esFormatoLicitacion(formato)) {
-      return { error: "Esta función solo es para licitaciones" }
-    }
-
-    const currentStep = Number(licitacion.procesoActual.numeroPaso)
-
-    if (currentStep !== 35) {
-      return { error: "Solo se puede finalizar sin Addendum desde el paso 35" }
-    }
-
-    await prisma.licitacion.update({
-      where: { id: parseInt(id) },
-      data: {
-        estado: "Finalizada",
-        requiereAddendum: false
-      }
-    })
-
-    revalidatePath("/dashboard/licitaciones")
-    return { success: true, message: "Licitación finalizada" }
-  } catch (error) {
-    console.error("Error en finalizarLicitacionSinAddendum:", error)
-    return { error: "Error al finalizar sin Addendum" }
-  }
-}
-
 export const finalizarLicitacionSinInicioAnticipado = async (id) => {
   const session = await auth()
 
@@ -1405,17 +1181,14 @@ export const deleteLicitacion = async (id) => {
       return { error: "Licitación no encontrada" }
     }
 
-    // Eliminar documentos asociados primero
     await prisma.documentoLicitacion.deleteMany({
       where: { licitacionId: parseInt(id) }
     })
 
-    // Eliminar historial asociado
     await prisma.historialLicitacion.deleteMany({
       where: { licitacionId: parseInt(id) }
     })
 
-    // Eliminar la licitación
     await prisma.licitacion.delete({
       where: { id: parseInt(id) }
     })
@@ -1428,7 +1201,6 @@ export const deleteLicitacion = async (id) => {
   }
 }
 
-// Obtener procesos por formato de liquidación desde la base de datos
 export const getProcesosByFormato = async (formatoId) => {
   const session = await auth()
 
@@ -1461,256 +1233,6 @@ export const getProcesosByFormato = async (formatoId) => {
   }
 }
 
-const getCurrentUserSignatureContext = async (userId) => {
-  const currentUser = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      user_roles: {
-        include: {
-          roles: true
-        }
-      }
-    }
-  })
-
-  if (!currentUser) {
-    return null
-  }
-
-  const roleIds = currentUser.user_roles.map((userRole) => userRole.role_id)
-  const roleNames = currentUser.user_roles.map((userRole) => userRole.roles?.name).filter(Boolean)
-
-  return {
-    user: currentUser,
-    roleIds,
-    roleNames,
-    hasStoredSignature: Boolean(currentUser.firma && currentUser.firma.trim() !== "")
-  }
-}
-
-const hasAllowedSignatureRole = (requirement, userContext) => {
-  return requirement.roles.some((role) =>
-    userContext.roleIds.includes(role) || userContext.roleNames.includes(role)
-  )
-}
-
-const buildSignatureActionStatus = (signatureStatus, userContext) => {
-  return signatureStatus.map((signature) => {
-    if (signature.status === "firmada") {
-      return {
-        ...signature,
-        canSign: false,
-        actionMessage: "Firma registrada"
-      }
-    }
-
-    if (isSignatureBlocked(signature, signatureStatus)) {
-      const dependency = signatureStatus.find((item) => item.key === signature.dependsOn)
-
-      return {
-        ...signature,
-        status: "bloqueada",
-        canSign: false,
-        actionMessage: `Primero debe firmar ${dependency?.label ?? "la firma anterior"}.`
-      }
-    }
-
-    if (!userContext.hasStoredSignature) {
-      return {
-        ...signature,
-        canSign: false,
-        actionMessage: "Debe subir su firma antes de firmar."
-      }
-    }
-
-    if (!hasAllowedSignatureRole(signature, userContext)) {
-      return {
-        ...signature,
-        canSign: false,
-        actionMessage: "No tiene permisos para firmar esta sección."
-      }
-    }
-
-    return {
-      ...signature,
-      canSign: true,
-      actionMessage: null
-    }
-  })
-}
-
-export const getLicitacionSignatureStatus = async (data) => {
-  const session = await auth()
-
-  if (!session) {
-    return { error: "No autorizado" }
-  }
-
-  const validatedFields = signatureStatusSchema.safeParse(data)
-
-  if (!validatedFields.success) {
-    return { error: "Datos inválidos" }
-  }
-
-  const { licitacionId } = validatedFields.data
-
-  try {
-    const licitacion = await prisma.licitacion.findUnique({
-      where: { id: licitacionId },
-      include: {
-        procesoActual: true,
-        formatoLiquidacion: true
-      }
-    })
-
-    if (!licitacion) {
-      return { error: "Licitación no encontrada" }
-    }
-
-    if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)) {
-      return { error: "Esta función solo es para licitaciones" }
-    }
-
-    const numeroPaso = Number(licitacion.procesoActual.numeroPaso)
-    const userContext = await getCurrentUserSignatureContext(session.user.id)
-
-    if (!userContext) {
-      return { error: "Usuario no encontrado." }
-    }
-
-    const signatureStatus = await getSignatureStatusForStep(licitacion.id, numeroPaso)
-
-    return {
-      data: {
-        licitacion: {
-          id: licitacion.id,
-          nombreLicitacion: licitacion.nombreLicitacion,
-          numeroLicitacion: licitacion.numeroLicitacion,
-          numeroPaso,
-          procesoActual: licitacion.procesoActual.tituloProceso
-        },
-        currentUser: {
-          id: userContext.user.id,
-          hasStoredSignature: userContext.hasStoredSignature
-        },
-        signatures: buildSignatureActionStatus(signatureStatus, userContext)
-      }
-    }
-  } catch (error) {
-    console.error("Error en getLicitacionSignatureStatus:", error)
-    return { error: "Error al obtener estado de firmas" }
-  }
-}
-
-export const signLicitacionStep = async (data) => {
-  const session = await auth()
-
-  if (!session) {
-    return { error: "No autorizado" }
-  }
-
-  const validatedFields = signLicitacionStepSchema.safeParse(data)
-
-  if (!validatedFields.success) {
-    const errors = validatedFields.error.flatten().fieldErrors
-    const firstError = Object.values(errors)[0]?.[0]
-    return { error: firstError || "Datos inválidos" }
-  }
-
-  const { licitacionId, numeroPaso, firmaKey, currentUserId } = validatedFields.data
-
-  if (currentUserId && currentUserId !== session.user.id) {
-    return { error: "No autorizado para firmar con otro usuario." }
-  }
-
-  try {
-    const licitacion = await prisma.licitacion.findUnique({
-      where: { id: licitacionId },
-      include: {
-        procesoActual: true,
-        formatoLiquidacion: true
-      }
-    })
-
-    if (!licitacion) {
-      return { error: "Licitación no encontrada" }
-    }
-
-    if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)) {
-      return { error: "Esta función solo es para licitaciones" }
-    }
-
-    const currentStep = Number(licitacion.procesoActual.numeroPaso)
-
-    if (currentStep !== Number(numeroPaso)) {
-      return { error: "Esta firma no corresponde al paso actual." }
-    }
-
-    const required = REQUIRED_SIGNATURES_BY_STEP[currentStep] ?? []
-    const requirement = required.find((item) => item.key === firmaKey)
-
-    if (!requirement) {
-      return { error: "Esta firma no corresponde al paso actual." }
-    }
-
-    const userContext = await getCurrentUserSignatureContext(session.user.id)
-
-    if (!userContext) {
-      return { error: "Usuario no encontrado." }
-    }
-
-    if (!userContext.hasStoredSignature) {
-      return { error: "Debe subir su firma antes de firmar." }
-    }
-
-    if (!hasAllowedSignatureRole(requirement, userContext)) {
-      return { error: `No tiene permisos para firmar como ${requirement.label}.` }
-    }
-
-    const appliedSignatures = await prisma.licitacion_firmas.findMany({
-      where: {
-        licitacion_id: licitacionId,
-        numero_paso: currentStep
-      }
-    })
-
-    const alreadySigned = appliedSignatures.some(
-      (signature) => signature.firma_key === requirement.key
-    )
-
-    if (alreadySigned) {
-      return { error: "Esta firma ya fue registrada." }
-    }
-
-    if (requirement.dependsOn) {
-      const dependencySigned = appliedSignatures.some(
-        (signature) => signature.firma_key === requirement.dependsOn
-      )
-
-      if (!dependencySigned) {
-        const dependency = required.find((item) => item.key === requirement.dependsOn)
-        return { error: `Primero debe firmar ${dependency?.label ?? "la firma anterior"}.` }
-      }
-    }
-
-    await prisma.licitacion_firmas.create({
-      data: {
-        licitacion_id: licitacionId,
-        numero_paso: currentStep,
-        firma_key: requirement.key,
-        firma_label: requirement.label,
-        user_id: userContext.user.id
-      }
-    })
-
-    revalidatePath("/dashboard/licitaciones")
-    return { success: true }
-  } catch (error) {
-    console.error("Error en signLicitacionStep:", error)
-    return { error: error.message || "Error al firmar" }
-  }
-}
-
 export const getRoles = async () => {
   try {
     const roles = await prisma.roles.findMany({
@@ -1726,5 +1248,96 @@ export const getRoles = async () => {
   } catch (error) {
     console.error(error)
     return { error: "Error al obtener roles" }
+  }
+}
+
+export const signLicitacionStep = async ({ licitacionId, numeroPaso, firmaKey }) => {
+  const session = await auth()
+
+  if (!session) {
+    return { error: "No autorizado" }
+  }
+
+  try {
+    const { REQUIRED_SIGNATURES_BY_STEP } = await import("@/lib/signatures")
+
+    const required = REQUIRED_SIGNATURES_BY_STEP[Number(numeroPaso)] ?? []
+    const requirement = required.find((item) => item.key === firmaKey)
+
+    if (!requirement) {
+      return { error: "Esta firma no corresponde al paso actual." }
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: {
+        user_roles: {
+          include: {
+            roles: true
+          }
+        }
+      }
+    })
+
+    if (!currentUser) {
+      return { error: "Usuario no encontrado." }
+    }
+
+    if (!currentUser.firma || currentUser.firma.trim() === "") {
+      return { error: "Debe subir su firma antes de firmar." }
+    }
+
+    const userRoleIds = currentUser.user_roles.map((ur) => ur.role_id)
+    const userRoleNames = currentUser.user_roles.map((ur) => ur.roles?.name)
+
+    const hasAllowedRole = requirement.roles.some((role) =>
+      userRoleIds.includes(role) || userRoleNames.includes(role)
+    )
+
+    if (!hasAllowedRole) {
+      return { error: `No tiene permisos para firmar como ${requirement.label}.` }
+    }
+
+    const appliedSignatures = await prisma.licitacion_firmas.findMany({
+      where: {
+        licitacion_id: Number(licitacionId),
+        numero_paso: Number(numeroPaso)
+      }
+    })
+
+    const alreadySigned = appliedSignatures.some(
+      (sig) => sig.firma_key === requirement.key
+    )
+
+    if (alreadySigned) {
+      return { error: "Esta firma ya fue registrada." }
+    }
+
+    if (requirement.dependsOn) {
+      const dependencySigned = appliedSignatures.some(
+        (sig) => sig.firma_key === requirement.dependsOn
+      )
+
+      if (!dependencySigned) {
+        const dependency = required.find((item) => item.key === requirement.dependsOn)
+        return { error: `Primero debe firmar ${dependency?.label ?? "la firma anterior"}.` }
+      }
+    }
+
+    await prisma.licitacion_firmas.create({
+      data: {
+        licitacion_id: Number(licitacionId),
+        numero_paso: Number(numeroPaso),
+        firma_key: requirement.key,
+        firma_label: requirement.label,
+        user_id: currentUser.id
+      }
+    })
+
+    revalidatePath("/dashboard/licitaciones")
+    return { success: true }
+  } catch (error) {
+    console.error("Error en signLicitacionStep:", error)
+    return { error: error.message || "Error al firmar" }
   }
 }

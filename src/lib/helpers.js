@@ -278,8 +278,25 @@ export const getStepIndex = (numero) => {
   return FLUJO_LICITACION_SECUENCIA.indexOf(String(numero))
 }
 
-export const isSubStep = (numero) => {
-  return String(numero).includes(".")
+export const isSubStep = (numeroPaso) => {
+  return [
+    2,
+    4,
+    11,
+    13,
+    18,
+    20,
+    22,
+    23,
+    29,
+    31,
+    33,
+    34,
+    40,
+    42,
+    44,
+    45
+  ].includes(Number(numeroPaso))
 }
 
 export const getLastStepNumberOfGroup = (mainStep) => {
@@ -554,49 +571,65 @@ export const getNextStep = (currentStep, decision = null) => {
     return null
   }
 
-  if (current >= 36) return current + 1
+  if (current >= 36 && current < 46) return current + 1
+  if (current === 46) return null
 
   return null
 }
 
 export const WORKFLOW_STEP_LABELS = {
-    1: "1",
-    2: "1.1",
-    3: "2",
-    4: "2.1",
-    5: "3",
-    6: "4",
-    7: "5",
-    8: "6",
-    9: "7",
-    10: "8",
-    11: "8.1",
-    12: "9",
-    13: "9.1",
-    14: "10",
-    15: "11",
-    16: "12",
-    // Inicio anticipado
-    17: "13",
-    18: "13.1",
-    19: "14",
-    20: "14.1",
-    21: "15",
-    22: "15.1",
-    23: "15.2",
-    24: "16",
-    // Contrato
-    25: "13",
-    26: "14",
-    27: "15",
-    28: "16",
-    29: "16.1",
-    30: "17",
-    31: "17.1",
-    32: "18",
-    33: "18.1",
-    34: "18.2",
-    35: "19"
+  1: "1",
+  2: "1.1",
+  3: "2",
+  4: "2.1",
+  5: "3",
+  6: "4",
+  7: "5",
+  8: "6",
+  9: "7",
+  10: "8",
+  11: "8.1",
+  12: "9",
+  13: "9.1",
+  14: "10",
+  15: "11",
+  16: "12",
+
+  // Inicio anticipado
+  17: "13",
+  18: "13.1",
+  19: "14",
+  20: "14.1",
+  21: "15",
+  22: "15.1",
+  23: "15.2",
+  24: "16",
+
+  // Contrato
+  25: "13",
+  26: "14",
+  27: "15",
+  28: "16",
+  29: "16.1",
+  30: "17",
+  31: "17.1",
+  32: "18",
+  33: "18.1",
+  34: "18.2",
+  35: "19",
+
+  // Addendum
+  36: "24",
+  37: "25",
+  38: "26",
+  39: "27",
+  40: "27.1",
+  41: "28",
+  42: "28.1",
+  43: "29",
+  44: "29.1",
+  45: "29.2",
+  46: "30"
 }
 
 export const getStepLabel = (numeroPaso) => {
@@ -609,5 +642,39 @@ export const getNumeroVisualLicitacion = (numeroPaso) => {
 
 // Helper para identificar si es un subpaso visual en Licitación
 export const isSubpasoVisualLicitacion = (numeroPaso) => {
-  return [2, 4, 11, 13, 18, 20, 22, 23, 29, 31, 33, 34].includes(Number(numeroPaso))
+  return isSubStep(numeroPaso)
+}
+
+export const getProcesosVisibles = (procesos, licitacion) => {
+  const procesosBase = Array.isArray(procesos) ? procesos : []
+  const flujoPostPaso12 =
+    licitacion?.flujoPostPaso12 ??
+    licitacion?.flujo_post_paso_12 ??
+    licitacion?.flujoPostPaso11 ??
+    licitacion?.flujo_post_paso_11 ??
+    null
+
+  const requiereAddendum =
+    licitacion?.requiereAddendum === true ||
+    licitacion?.requiere_addendum === true
+
+  return procesosBase.filter((proceso) => {
+    const numeroPaso = Number(proceso.numeroPaso ?? proceso.numero_paso)
+
+    if (numeroPaso <= 16) return true
+
+    if (numeroPaso >= 17 && numeroPaso <= 24) {
+      return flujoPostPaso12 === "inicio_anticipado"
+    }
+
+    if (numeroPaso >= 25 && numeroPaso <= 35) {
+      return flujoPostPaso12 === "contrato"
+    }
+
+    if (numeroPaso >= 36 && numeroPaso <= 46) {
+      return flujoPostPaso12 === "contrato" && requiereAddendum === true
+    }
+
+    return false
+  })
 }
