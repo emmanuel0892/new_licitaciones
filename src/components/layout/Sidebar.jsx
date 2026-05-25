@@ -38,7 +38,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
 
   const user = session?.user
   const userType = user?.typeAccount
-  const hasPermission = (permissionCode) => {
+  const can = (permissionCode) => {
     return isSuperAdmin || permissions.includes(permissionCode)
   }
 
@@ -50,8 +50,22 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
 
   const getMenuItems = () => {
     const items = []
+    const canShowCrearNuevoProceso =
+      can("sidebar.licitaciones.crear") &&
+      can("licitacion.crear")
+    const canShowGestionNovedades =
+      can("sidebar.gestion_novedades") &&
+      can("novedades.ver")
+    const canShowGestionPermisos =
+      can("sidebar.gestion_permisos") &&
+      can("roles.gestionar")
+    const canShowLicitacionesGroup =
+      can("sidebar.licitaciones") ||
+      canShowCrearNuevoProceso ||
+      can("sidebar.licitaciones.mis_licitaciones") ||
+      can("sidebar.licitaciones.todas")
 
-    if (hasPermission("sidebar.inicio")) {
+    if (can("sidebar.inicio")) {
       items.push({
         key: "/dashboard",
         icon: <DashboardOutlined />,
@@ -59,7 +73,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       })
     }
 
-    if (hasPermission("sidebar.novedades")) {
+    if (can("sidebar.novedades")) {
       items.push({
         key: "/dashboard/novedades",
         icon: <BellOutlined />,
@@ -67,32 +81,23 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       })
     }
 
-    const licitacionesPermissions = [
-      "sidebar.licitaciones.crear",
-      "sidebar.licitaciones.mis_licitaciones",
-      "sidebar.licitaciones.todas"
-    ]
-
-    if (
-      hasPermission("sidebar.licitaciones") ||
-      licitacionesPermissions.some((permissionCode) => hasPermission(permissionCode))
-    ) {
+    if (canShowLicitacionesGroup) {
       items.push({
         key: "licitaciones",
         icon: <FileTextOutlined />,
         label: "Licitaciones",
         children: [
-          ...(hasPermission("sidebar.licitaciones.crear") ? [{
+          ...(canShowCrearNuevoProceso ? [{
             key: "/dashboard/licitaciones/crear",
             icon: <PlusCircleOutlined />,
             label: "Crear Nuevo Proceso"
           }] : []),
-          ...(hasPermission("sidebar.licitaciones.mis_licitaciones") ? [{
+          ...(can("sidebar.licitaciones.mis_licitaciones") ? [{
             key: "/dashboard/licitaciones/mis-licitaciones",
             icon: <FolderOutlined />,
             label: "Mis Licitaciones"
           }] : []),
-          ...(hasPermission("sidebar.licitaciones.todas") ? [{
+          ...(can("sidebar.licitaciones.todas") ? [{
             key: "/dashboard/licitaciones/todas",
             icon: <FileSearchOutlined />,
             label: "Todas las Licitaciones"
@@ -101,7 +106,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       })
     }
 
-    if (hasPermission("sidebar.bandeja")) {
+    if (can("sidebar.bandeja")) {
       items.push({
         key: "/dashboard/licitaciones/bandeja",
         icon: <InboxOutlined />,
@@ -109,7 +114,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       })
     }
 
-    if (hasPermission("sidebar.seguimiento_consumo")) {
+    if (can("sidebar.seguimiento_consumo")) {
       items.push({
         key: "/dashboard/consumo",
         icon: <PieChartOutlined />,
@@ -117,7 +122,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       })
     }
 
-    if (hasPermission("sidebar.formato_bases")) {
+    if (can("sidebar.formato_bases")) {
       items.push({
         key: "/dashboard/formato-bases",
         icon: <FolderOutlined />,
@@ -125,7 +130,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       })
     }
 
-    if (hasPermission("sidebar.usuarios")) {
+    if (can("sidebar.usuarios")) {
       items.push(
         {
           key: "/dashboard/usuarios",
@@ -135,10 +140,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       )
     }
 
-    if (
-      hasPermission("sidebar.gestion_novedades") ||
-      hasPermission("novedades.ver")
-    ) {
+    if (canShowGestionNovedades) {
       items.push(
         {
           key: "/dashboard/novedades/gestion",
@@ -148,7 +150,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       )
     }
 
-    if (hasPermission("sidebar.gestion_permisos")) {
+    if (canShowGestionPermisos) {
       items.push({
         key: "/dashboard/permisos",
         icon: <SafetyCertificateOutlined />,
