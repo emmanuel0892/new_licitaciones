@@ -42,6 +42,7 @@ const BandejaPage = () => {
   const [licitaciones, setLicitaciones] = useState([])
   const [users, setUsers] = useState([])
   const [roles, setRoles] = useState([])
+  const [currentUserIsSuperAdmin, setCurrentUserIsSuperAdmin] = useState(false)
   const [filters, setFilters] = useState({
     numeroLicitacion: "",
     usuarioId: undefined,
@@ -72,6 +73,7 @@ const BandejaPage = () => {
 
     if (licResult.data) {
       setLicitaciones(licResult.data.map((l) => ({ ...l, key: l.id })))
+      setCurrentUserIsSuperAdmin(Boolean(licResult.currentUser?.isSuperAdmin))
     }
 
     if (usersResult.data) {
@@ -108,6 +110,7 @@ const BandejaPage = () => {
 
       if (licResult.data) {
         setLicitaciones(licResult.data.map((l) => ({ ...l, key: l.id })))
+        setCurrentUserIsSuperAdmin(Boolean(licResult.currentUser?.isSuperAdmin))
       }
 
       if (usersResult.data) {
@@ -148,6 +151,7 @@ const BandejaPage = () => {
     const result = await getLicitaciones(emptyFilters)
     if (result.data) {
       setLicitaciones(result.data.map((l) => ({ ...l, key: l.id })))
+      setCurrentUserIsSuperAdmin(Boolean(result.currentUser?.isSuperAdmin))
     }
   }
 
@@ -263,7 +267,7 @@ const BandejaPage = () => {
   }
 
   const canPerformAction = (record) => {
-    if (userType === "Super Admin") return true
+    if (currentUserIsSuperAdmin) return true
     return record.procesoActual.roleId === userType
   }
 

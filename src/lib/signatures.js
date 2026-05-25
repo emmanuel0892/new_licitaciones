@@ -16,6 +16,14 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
       dependsOn: "jefatura_unidad"
     }
   ],
+  4: [
+    {
+      key: "jefatura_unidad_legal",
+      label: "Jefatura Unidad Administrativo Legal",
+      roles: ["jefe_unidad_legal"],
+      order: 1
+    }
+  ],
   5: [
     {
       key: "subdirector_administrativo",
@@ -46,6 +54,22 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
       dependsOn: "jefatura_unidad"
     }
   ],
+  13: [
+    {
+      key: "jefatura_unidad_legal",
+      label: "Jefatura Unidad Administrativo Legal",
+      roles: ["jefe_unidad_legal"],
+      order: 1
+    }
+  ],
+  14: [
+    {
+      key: "subdirector_administrativo",
+      label: "Subdirector Administrativo",
+      roles: ["subdirector_administrativo"],
+      order: 1
+    }
+  ],
   18: [
     {
       key: "jefatura_unidad",
@@ -59,6 +83,14 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
       roles: ["jefe_adquisiciones", "jefe_compras"],
       order: 2,
       dependsOn: "jefatura_unidad"
+    }
+  ],
+  20: [
+    {
+      key: "jefatura_unidad_legal",
+      label: "Jefatura Unidad Administrativo Legal",
+      roles: ["jefe_unidad_legal"],
+      order: 1
     }
   ],
   22: [
@@ -99,6 +131,14 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
       dependsOn: "jefatura_unidad"
     }
   ],
+  31: [
+    {
+      key: "jefatura_unidad_legal",
+      label: "Jefatura Unidad Administrativo Legal",
+      roles: ["jefe_unidad_legal"],
+      order: 1
+    }
+  ],
   33: [
     {
       key: "subdirector_administrativo",
@@ -135,6 +175,14 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
       roles: ["jefe_adquisiciones", "jefe_compras"],
       order: 2,
       dependsOn: "jefatura_unidad"
+    }
+  ],
+  42: [
+    {
+      key: "jefatura_unidad_legal",
+      label: "Jefatura Unidad Administrativo Legal",
+      roles: ["jefe_unidad_legal"],
+      order: 1
     }
   ],
   44: [
