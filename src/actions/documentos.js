@@ -5,6 +5,11 @@ import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { writeFile, mkdir, unlink } from "fs/promises"
 import path from "path"
+import { z } from "zod"
+import { PERMISSION_CODES, userHasPermission } from "@/lib/permissions"
+
+const licitacionIdSchema = z.coerce.number().int().positive()
+const documentoIdSchema = z.coerce.number().int().positive()
 
 export const getDocumentosLicitacion = async (licitacionId) => {
   const session = await auth()
@@ -13,9 +18,21 @@ export const getDocumentosLicitacion = async (licitacionId) => {
     return { error: "No autorizado" }
   }
 
+  const parsedLicitacionId = licitacionIdSchema.safeParse(licitacionId)
+
+  if (!parsedLicitacionId.success) {
+    return { error: "Datos inválidos" }
+  }
+
+  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_VIEW_DOCUMENTS)
+
+  if (!allowed) {
+    return { error: "No tienes permisos para realizar esta acción." }
+  }
+
   try {
     const documentos = await prisma.documentoLicitacion.findMany({
-      where: { licitacionId: parseInt(licitacionId) },
+      where: { licitacionId: parsedLicitacionId.data },
       include: {
         usuario: { select: { name: true, lastname: true } }
       },
@@ -36,18 +53,25 @@ export const uploadDocumento = async (formData) => {
     return { error: "No autorizado" }
   }
 
+  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_UPLOAD_DOCUMENT)
+
+  if (!allowed) {
+    return { error: "No tienes permisos para realizar esta acción." }
+  }
+
   try {
     const file = formData.get("file")
     const licitacionId = formData.get("licitacionId")
+    const parsedLicitacionId = licitacionIdSchema.safeParse(licitacionId)
 
-    if (!file || !licitacionId) {
+    if (!file || !parsedLicitacionId.success) {
       return { error: "Datos incompletos" }
     }
 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "licitaciones", licitacionId)
+    const uploadDir = path.join(process.cwd(), "public", "uploads", "licitaciones", String(parsedLicitacionId.data))
     await mkdir(uploadDir, { recursive: true })
 
     const timestamp = Date.now()
@@ -56,11 +80,11 @@ export const uploadDocumento = async (formData) => {
 
     await writeFile(filePath, buffer)
 
-    const rutaArchivo = `/uploads/licitaciones/${licitacionId}/${fileName}`
+    const rutaArchivo = `/uploads/licitaciones/${parsedLicitacionId.data}/${fileName}`
 
     await prisma.documentoLicitacion.create({
       data: {
-        licitacionId: parseInt(licitacionId),
+        licitacionId: parsedLicitacionId.data,
         usuarioId: session.user.id,
         nombreArchivo: file.name,
         rutaArchivo
@@ -82,9 +106,21 @@ export const deleteDocumento = async (documentoId) => {
     return { error: "No autorizado" }
   }
 
+  const parsedDocumentoId = documentoIdSchema.safeParse(documentoId)
+
+  if (!parsedDocumentoId.success) {
+    return { error: "Datos inválidos" }
+  }
+
+  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_UPLOAD_DOCUMENT)
+
+  if (!allowed) {
+    return { error: "No tienes permisos para realizar esta acción." }
+  }
+
   try {
     const documento = await prisma.documentoLicitacion.findUnique({
-      where: { id: parseInt(documentoId) }
+      where: { id: parsedDocumentoId.data }
     })
 
     if (!documento) {
@@ -105,7 +141,7 @@ export const deleteDocumento = async (documentoId) => {
     }
 
     await prisma.documentoLicitacion.delete({
-      where: { id: parseInt(documentoId) }
+      where: { id: parsedDocumentoId.data }
     })
 
     revalidatePath("/dashboard/licitaciones")

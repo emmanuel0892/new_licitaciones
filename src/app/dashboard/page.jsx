@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import DashboardContent from "@/components/dashboard/DashboardContent"
+import { PERMISSION_CODES, userHasPermission } from "@/lib/permissions"
 
 const getStats = async (userId, userType) => {
   const isSuperAdmin = userType === "Super Admin"
@@ -42,7 +43,9 @@ const DashboardPage = async () => {
     console.log("Error al obtener estadísticas:", error)
   }
 
-  return <DashboardContent user={user} stats={stats} />
+  const canCreateLicitacion = await userHasPermission(user?.id, PERMISSION_CODES.LICITACION_CREATE)
+
+  return <DashboardContent user={user} stats={stats} canCreateLicitacion={canCreateLicitacion} />
 }
 
 export default DashboardPage

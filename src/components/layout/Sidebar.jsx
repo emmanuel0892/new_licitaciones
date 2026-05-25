@@ -20,7 +20,8 @@ import {
   FileSearchOutlined,
   PieChartOutlined,
   EditOutlined,
-  FormOutlined
+  FormOutlined,
+  SafetyCertificateOutlined
 } from "@ant-design/icons"
 import { useSession } from "next-auth/react"
 import { logoutAction } from "@/actions/auth"
@@ -30,7 +31,7 @@ import styles from "./Sidebar.module.css"
 const { Sider, Header, Content } = Layout
 const { Text } = Typography
 
-const Sidebar = ({ children }) => {
+const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
   const [collapsed, setCollapsed] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
@@ -38,6 +39,9 @@ const Sidebar = ({ children }) => {
 
   const user = session?.user
   const userType = user?.typeAccount
+  const hasPermission = (permissionCode) => {
+    return isSuperAdmin || permissions.includes(permissionCode)
+  }
 
   const handleLogout = async () => {
     await logoutAction()
@@ -61,17 +65,17 @@ const Sidebar = ({ children }) => {
       }
     ]
 
-    if (userType === ROLES.SUPER_ADMIN || userType === ROLES.LICITADOR) {
+    if (userType === ROLES.SUPER_ADMIN || userType === ROLES.LICITADOR || hasPermission("licitacion.crear")) {
       items.push({
         key: "licitaciones",
         icon: <FileTextOutlined />,
         label: "Licitaciones",
         children: [
-          {
+          ...(hasPermission("licitacion.crear") ? [{
             key: "/dashboard/licitaciones/crear",
             icon: <PlusCircleOutlined />,
             label: "Crear Nuevo Proceso"
-          },
+          }] : []),
           {
             key: "/dashboard/licitaciones/mis-licitaciones",
             icon: <FolderOutlined />,
@@ -93,7 +97,8 @@ const Sidebar = ({ children }) => {
       userType === ROLES.LICITADOR ||
       userType === ROLES.SECRETARIO_JURIDICO ||
       userType === ROLES.PRESUPUESTO ||
-      userType === ROLES.SUBDIRECCION_ADMINISTRATIVA
+      userType === ROLES.SUBDIRECCION_ADMINISTRATIVA ||
+      permissions.some((permission) => permission.startsWith("workflow."))
     ) {
       items.push({
         key: "/dashboard/licitaciones/bandeja",
@@ -145,19 +150,32 @@ const Sidebar = ({ children }) => {
       roles: "all"
     })
 
-    if (userType === ROLES.SUPER_ADMIN) {
+    if (hasPermission("usuarios.gestionar")) {
       items.push(
         {
           key: "/dashboard/usuarios",
           icon: <UserOutlined />,
           label: "Usuarios"
-        },
+        }
+      )
+    }
+
+    if (userType === ROLES.SUPER_ADMIN) {
+      items.push(
         {
           key: "/dashboard/novedades/gestion",
           icon: <SettingOutlined />,
           label: "Gestión Novedades"
         }
       )
+    }
+
+    if (hasPermission("roles.gestionar")) {
+      items.push({
+        key: "/dashboard/permisos",
+        icon: <SafetyCertificateOutlined />,
+        label: "Gestión de Permisos"
+      })
     }
 
     return items

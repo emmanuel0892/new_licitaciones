@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { Table, Button, Space, Tag, Typography, Card, App, Input, Select, Tooltip, Popconfirm } from "antd"
 import { SearchOutlined, ReloadOutlined, EyeOutlined, HistoryOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons"
 import { getLicitaciones, deleteLicitacion } from "@/actions/licitaciones"
+import { getCurrentAuthorization } from "@/actions/permisos"
 import { getUsers } from "@/actions/users"
 import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel } from "@/lib/helpers"
 import ModalHistorial from "@/components/modals/ModalHistorial"
@@ -19,6 +20,7 @@ const TodasLicitacionesPage = () => {
   const [loading, setLoading] = useState(true)
   const [licitaciones, setLicitaciones] = useState([])
   const [users, setUsers] = useState([])
+  const [authorization, setAuthorization] = useState({ isSuperAdmin: false, permissions: [] })
   const [filters, setFilters] = useState({
     numeroLicitacion: "",
     usuarioId: undefined,
@@ -31,10 +33,10 @@ const TodasLicitacionesPage = () => {
   const modalEditarRef = useRef(null)
 
   const loadData = useCallback(async () => {
-    setLoading(true)
-    const [licResult, usersResult] = await Promise.all([
+    const [licResult, usersResult, authResult] = await Promise.all([
       getLicitaciones(filters),
-      getUsers()
+      getUsers(),
+      getCurrentAuthorization()
     ])
 
     if (licResult.data) {
@@ -45,14 +47,45 @@ const TodasLicitacionesPage = () => {
       setUsers(usersResult.data)
     }
 
+    if (authResult.data) {
+      setAuthorization(authResult.data)
+    }
+
     setLoading(false)
   }, [filters])
 
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    let active = true
+
+    Promise.all([
+      getLicitaciones(filters),
+      getUsers(),
+      getCurrentAuthorization()
+    ]).then(([licResult, usersResult, authResult]) => {
+      if (!active) return
+
+      if (licResult.data) {
+        setLicitaciones(licResult.data.map((l) => ({ ...l, key: l.id })))
+      }
+
+      if (usersResult.data) {
+        setUsers(usersResult.data)
+      }
+
+      if (authResult.data) {
+        setAuthorization(authResult.data)
+      }
+
+      setLoading(false)
+    })
+
+    return () => {
+      active = false
+    }
+  }, [filters])
 
   const handleSearch = () => {
+    setLoading(true)
     loadData()
   }
 
@@ -92,11 +125,16 @@ const TodasLicitacionesPage = () => {
   const handleDelete = async (id) => {
     const result = await deleteLicitacion(id)
     if (result.success) {
+      setLoading(true)
       message.success("Licitación eliminada correctamente")
       loadData()
     } else {
       message.error(result.error || "Error al eliminar la licitación")
     }
+  }
+
+  const hasPermission = (permissionCode) => {
+    return authorization.isSuperAdmin || authorization.permissions.includes(permissionCode)
   }
 
   const columns = [
@@ -174,6 +212,7 @@ const TodasLicitacionesPage = () => {
       width: 180,
       render: (_, record) => (
         <Space size="small">
+          {hasPermission("licitacion.ver_historial") && (
           <Tooltip title="Ver historial">
             <Button
               type="text"
@@ -182,7 +221,9 @@ const TodasLicitacionesPage = () => {
               onClick={() => modalHistorialRef.current?.open(record.id, record)}
             />
           </Tooltip>
+          )}
 
+          {hasPermission("licitacion.ver_flujo") && (
           <Tooltip title="Ver workflow">
             <Button
               type="text"
@@ -191,6 +232,7 @@ const TodasLicitacionesPage = () => {
               onClick={() => modalWorkflowRef.current?.open(record.id)}
             />
           </Tooltip>
+          )}
 
           <Tooltip title="Editar">
             <Button

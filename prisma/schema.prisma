@@ -22,6 +22,7 @@ model User {
   updatedAt            DateTime              @updatedAt @map("updated_at")
   documentosLicitacion DocumentoLicitacion[]
   historialLicitacion  HistorialLicitacion[]
+  licitacion_firmas    licitacion_firmas[]
   licitaciones         Licitacion[]
   user_roles           user_roles[]
 
@@ -81,6 +82,7 @@ model Licitacion {
   requiereAddendum     Boolean               @default(false) @map("requiere_addendum")
   documentos           DocumentoLicitacion[]
   historial            HistorialLicitacion[]
+  licitacion_firmas    licitacion_firmas[]
   formatoLiquidacion   FormatoLiquidacion    @relation(fields: [formatoLiquidacionId], references: [id])
   procesoActual        ProcesoLicitacion     @relation(fields: [procesoActualId], references: [id])
   usuario              User                  @relation(fields: [usuarioId], references: [id])
@@ -399,13 +401,14 @@ model AlertaConsumo {
 }
 
 model roles {
-  id          String              @id @db.VarChar(36)
-  name        String              @unique(map: "name") @db.VarChar(100)
-  permissions String              @db.LongText
-  created_at  DateTime            @default(now()) @db.Timestamp(0)
-  updated_at  DateTime            @default(now()) @db.Timestamp(0)
-  procesos    ProcesoLicitacion[]
-  user_roles  user_roles[]
+  id             String              @id @db.VarChar(36)
+  name           String              @unique(map: "name") @db.VarChar(100)
+  permissions    String              @db.LongText
+  created_at     DateTime            @default(now()) @db.Timestamp(0)
+  updated_at     DateTime            @default(now()) @db.Timestamp(0)
+  procesos       ProcesoLicitacion[]
+  roles_permisos roles_permisos[]
+  user_roles     user_roles[]
 }
 
 model user_roles {
@@ -462,15 +465,40 @@ model proceso_licitacion_backup_antes_paso_12 {
 }
 
 model licitacion_firmas {
-  id            Int      @id @default(autoincrement())
+  id            Int        @id @default(autoincrement())
   licitacion_id Int
   numero_paso   Int
-  firma_key     String   @db.VarChar(100)
-  firma_label   String   @db.VarChar(150)
-  user_id       String
-  created_at    DateTime @default(now()) @db.Timestamp(0)
+  firma_key     String     @db.VarChar(100)
+  firma_label   String     @db.VarChar(150)
+  user_id       String     @db.VarChar(30)
+  created_at    DateTime   @default(now()) @db.Timestamp(0)
+  licitaciones  Licitacion @relation(fields: [licitacion_id], references: [id], onDelete: Cascade, map: "fk_licitacion_firmas_licitacion")
+  users         User       @relation(fields: [user_id], references: [id], map: "fk_licitacion_firmas_user")
 
   @@unique([licitacion_id, numero_paso, firma_key], map: "uq_licitacion_paso_firma")
   @@index([licitacion_id], map: "idx_licitacion_firmas_licitacion_id")
   @@index([user_id], map: "idx_licitacion_firmas_user_id")
+}
+
+model permisos {
+  id             Int              @id @default(autoincrement())
+  codigo         String           @unique(map: "codigo") @db.VarChar(100)
+  nombre         String           @db.VarChar(150)
+  descripcion    String?          @db.Text
+  categoria      String           @db.VarChar(100)
+  created_at     DateTime         @default(now()) @db.Timestamp(0)
+  updated_at     DateTime         @default(now()) @db.Timestamp(0)
+  roles_permisos roles_permisos[]
+}
+
+model roles_permisos {
+  role_id    String   @db.VarChar(30)
+  permiso_id Int
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  permisos   permisos @relation(fields: [permiso_id], references: [id], onDelete: Cascade, map: "fk_roles_permisos_permiso")
+  roles      roles    @relation(fields: [role_id], references: [id], onDelete: Cascade, map: "fk_roles_permisos_role")
+
+  @@id([role_id, permiso_id])
+  @@index([permiso_id], map: "idx_roles_permisos_permiso_id")
+  @@index([role_id], map: "idx_roles_permisos_role_id")
 }

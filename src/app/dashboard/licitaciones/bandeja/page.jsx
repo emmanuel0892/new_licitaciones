@@ -43,6 +43,7 @@ const BandejaPage = () => {
   const [users, setUsers] = useState([])
   const [roles, setRoles] = useState([])
   const [currentUserIsSuperAdmin, setCurrentUserIsSuperAdmin] = useState(false)
+  const [currentUserPermissions, setCurrentUserPermissions] = useState([])
   const [filters, setFilters] = useState({
     numeroLicitacion: "",
     usuarioId: undefined,
@@ -74,6 +75,7 @@ const BandejaPage = () => {
     if (licResult.data) {
       setLicitaciones(licResult.data.map((l) => ({ ...l, key: l.id })))
       setCurrentUserIsSuperAdmin(Boolean(licResult.currentUser?.isSuperAdmin))
+      setCurrentUserPermissions(licResult.currentUser?.permissions ?? [])
     }
 
     if (usersResult.data) {
@@ -111,6 +113,7 @@ const BandejaPage = () => {
       if (licResult.data) {
         setLicitaciones(licResult.data.map((l) => ({ ...l, key: l.id })))
         setCurrentUserIsSuperAdmin(Boolean(licResult.currentUser?.isSuperAdmin))
+        setCurrentUserPermissions(licResult.currentUser?.permissions ?? [])
       }
 
       if (usersResult.data) {
@@ -152,6 +155,7 @@ const BandejaPage = () => {
     if (result.data) {
       setLicitaciones(result.data.map((l) => ({ ...l, key: l.id })))
       setCurrentUserIsSuperAdmin(Boolean(result.currentUser?.isSuperAdmin))
+      setCurrentUserPermissions(result.currentUser?.permissions ?? [])
     }
   }
 
@@ -266,9 +270,13 @@ const BandejaPage = () => {
     message.success("Informe generado correctamente")
   }
 
-  const canPerformAction = (record) => {
-    if (currentUserIsSuperAdmin) return true
-    return record.procesoActual.roleId === userType
+  const hasPermission = (permissionCode) => {
+    return currentUserIsSuperAdmin || currentUserPermissions.includes(permissionCode)
+  }
+
+  const hasWorkflowPermission = (action, record) => {
+    const currentStep = Number(record.procesoActual?.numeroPaso)
+    return hasPermission(`workflow.${action}.${currentStep}`)
   }
 
   const getMissingSignaturesMessage = (missingSignatures = []) => {
@@ -441,18 +449,20 @@ const BandejaPage = () => {
 
         return (
           <Space size="small">
-            {/* 0. Ver Historial - Siempre visible */}
-            <Tooltip title="Ver historial">
+            {/* 0. Ver Historial */}
+            {hasPermission("licitacion.ver_historial") && (
+              <Tooltip title="Ver historial">
               <Button
                 type="text"
                 size="small"
                 icon={<HistoryOutlined style={{ color: "#722ed1" }} />}
                 onClick={() => modalHistorialNuevoRef.current?.open(record.id, record)}
               />
-            </Tooltip>
+              </Tooltip>
+            )}
 
             {/* 1. Ver Documentos - Solo si tiene documentos */}
-            {record._count.documentos > 0 && (
+            {hasPermission("licitacion.ver_documentos") && record._count.documentos > 0 && (
               <Tooltip title="Ver documentos">
                 <Button
                   type="text"
@@ -469,7 +479,7 @@ const BandejaPage = () => {
               const currentStep = Number(record.procesoActual?.numeroPaso)
               const isLastStep = isLicitacion && currentStep === 24
               
-              return canPerformAction(record) && !isPublicada && record.estado !== "Finalizada" && !isLastStep
+              return hasPermission("licitacion.subir_documento") && !isPublicada && record.estado !== "Finalizada" && !isLastStep
             })() && (
               <Tooltip title="Subir documento">
                 <Button
@@ -487,7 +497,7 @@ const BandejaPage = () => {
               const currentStep = Number(record.procesoActual?.numeroPaso)
               const isLastStep = isLicitacion && currentStep === 24
               
-              return canPerformAction(record) && !isFirstStep && !isPublicada && record.estado !== "Finalizada" && !isLastStep
+              return hasWorkflowPermission("devolver", record) && !isFirstStep && !isPublicada && record.estado !== "Finalizada" && !isLastStep
             })() && (
               <Tooltip title="Devolver">
                 <Button
@@ -505,7 +515,7 @@ const BandejaPage = () => {
               const currentStep = Number(record.procesoActual?.numeroPaso)
               const isLastStep = isLicitacion && currentStep === 24
               
-              return canPerformAction(record) && record.estado !== "Finalizada" && !isLastStep
+              return hasWorkflowPermission("avanzar", record) && record.estado !== "Finalizada" && !isLastStep
             })() && (
               hasMissingSignatures ? (
                 <Tooltip title={missingSignaturesMessage}>
@@ -547,18 +557,20 @@ const BandejaPage = () => {
               )
             )}
 
-            {/* 6. Ver WorkFlow - Disponible para todos */}
-            <Tooltip title="Ver workflow">
+            {/* 6. Ver WorkFlow */}
+            {hasPermission("licitacion.ver_flujo") && (
+              <Tooltip title="Ver workflow">
               <Button
                 type="text"
                 size="small"
                 icon={<TableOutlined style={{ color: "#1890ff" }} />}
                 onClick={() => modalWorkflowRef.current?.open(record.id)}
               />
-            </Tooltip>
+              </Tooltip>
+            )}
 
             {/* 7. Ver WorkFlow Super Admin - Solo para Super Admin */}
-            {userType === "Super Admin" && (
+            {currentUserIsSuperAdmin && hasPermission("licitacion.ver_flujo") && (
               <Tooltip title="Workflow extendido">
                 <Button
                   type="text"

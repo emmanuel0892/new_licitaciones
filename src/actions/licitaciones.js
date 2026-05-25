@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { createLicitacionSchema, devolverLicitacionSchema } from "@/lib/validations/licitacion"
 import { esFormatoLicitacion, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getMainStepNumero, getNextStep, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
+import { getUserPermissionContext, getWorkflowPermissionCode, isSuperAdmin, PERMISSION_CODES, userHasPermission } from "@/lib/permissions"
 import { REQUIRED_SIGNATURES_BY_STEP, assertCanAdvanceBySignature, canAdvanceBySignature, getSignatureStatusForStep, isSignatureBlocked } from "@/lib/signatures.js"
 
 const signatureStatusSchema = z.object({
@@ -20,26 +21,6 @@ const signLicitacionStepSchema = z.object({
   firmaKey: z.string().trim().min(1),
   currentUserId: z.string().optional()
 })
-
-const isSuperAdmin = (user) => {
-  const typeAccount = user?.type_account ?? user?.typeAccount ?? ""
-
-  const roles = user?.user_roles?.flatMap((userRole) => {
-    return [
-      userRole?.role_id,
-      userRole?.roles?.id,
-      userRole?.roles?.name
-    ].filter(Boolean)
-  }) ?? []
-
-  return (
-    typeAccount === "Super Admin" ||
-    typeAccount === "superadmin" ||
-    roles.includes("superadmin") ||
-    roles.includes("Super Admin")
-  )
-}
-
 
 const getFlujoPostPaso12Update = (targetStep) => {
   if (targetStep <= 16) {
@@ -169,23 +150,7 @@ export const getLicitaciones = async (filters = {}) => {
 
 
 
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        typeAccount: true,
-        user_roles: {
-          select: {
-            role_id: true,
-            roles: {
-              select: {
-                id: true,
-                name: true
-              }
-            }
-          }
-        }
-      }
-    })
+    const authorization = await getUserPermissionContext(session.user.id)
 
     const licitaciones = await prisma.licitacion.findMany({
       where,
@@ -237,7 +202,8 @@ export const getLicitaciones = async (filters = {}) => {
     return {
       data: licitacionesWithSignatureValidation,
       currentUser: {
-        isSuperAdmin: isSuperAdmin(currentUser)
+        isSuperAdmin: authorization.isSuperAdmin,
+        permissions: authorization.permissions
       }
     }
   } catch (error) {
@@ -366,6 +332,24 @@ export const getLicitacionById = async (id) => {
 
 
 
+export const getLicitacionWorkflowById = async (id) => {
+  const session = await auth()
+
+  if (!session) {
+    return { error: "No autorizado" }
+  }
+
+  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_VIEW_WORKFLOW)
+
+  if (!allowed) {
+    return { error: "No tienes permisos para realizar esta acción." }
+  }
+
+  return getLicitacionById(id)
+}
+
+
+
 export const getRequirentes = async () => {
 
   try {
@@ -454,11 +438,11 @@ export const createLicitacion = async (data) => {
 
 
 
-  const userType = session.user.typeAccount
+  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_CREATE)
 
-  if (userType !== "Super Admin" && userType !== "Licitador") {
+  if (!allowed) {
 
-    return { error: "No tiene permisos para crear licitaciones" }
+    return { error: "No tienes permisos para realizar esta acción." }
 
   }
 
@@ -636,14 +620,22 @@ export const avanzarLicitacion = async (id) => {
 
 
 
+    const currentStep = Number(licitacion.procesoActual.numeroPaso)
+    const canAdvance = await userHasPermission(
+      session.user.id,
+      getWorkflowPermissionCode("avanzar", currentStep)
+    )
+
+    if (!canAdvance) {
+      return { error: "No tienes permisos para realizar esta acción." }
+    }
+
     const formato = licitacion.formatoLiquidacion.titulo
 
 
 
     // Si es formato Licitación, usar numeroPaso directamente de la BD
     if (esFormatoLicitacion(formato)) {
-      const currentStep = Number(licitacion.procesoActual.numeroPaso)
-
       console.log("=== AVANCE LICITACION DEBUG ===")
       console.log("currentStep:", currentStep)
 
@@ -953,13 +945,22 @@ export const devolverLicitacion = async (data) => {
 
 
 
+    const currentStep = Number(licitacion.procesoActual.numeroPaso)
+    const canReturn = await userHasPermission(
+      session.user.id,
+      getWorkflowPermissionCode("devolver", currentStep)
+    )
+
+    if (!canReturn) {
+      return { error: "No tienes permisos para realizar esta acción." }
+    }
+
     const formato = licitacion.formatoLiquidacion.titulo
 
 
 
     if (esFormatoLicitacion(formato)) {
 
-      const currentStep = Number(licitacion.procesoActual.numeroPaso)
       const prevStep = getPasoAnteriorLicitacion(currentStep)
       const reiniciaFlujoPostPaso12 = prevStep <= 16
       const reiniciaAddendum = prevStep <= 35
@@ -1489,6 +1490,12 @@ export const getHistorialLicitacion = async (id) => {
 
   }
 
+  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_VIEW_HISTORY)
+
+  if (!allowed) {
+    return { error: "No tienes permisos para realizar esta acción." }
+  }
+
 
 
   try {
@@ -1953,6 +1960,15 @@ export const avanzarLicitacionConInicioAnticipado = async (id) => {
 
     const currentStep = Number(licitacion.procesoActual.numeroPaso)
 
+    const canAdvance = await userHasPermission(
+      session.user.id,
+      getWorkflowPermissionCode("avanzar", currentStep)
+    )
+
+    if (!canAdvance) {
+      return { error: "No tienes permisos para realizar esta acción." }
+    }
+
 
 
     if (currentStep !== 16) {
@@ -2126,6 +2142,15 @@ export const avanzarLicitacionConContrato = async (id) => {
 
     const currentStep = Number(licitacion.procesoActual.numeroPaso)
 
+    const canAdvance = await userHasPermission(
+      session.user.id,
+      getWorkflowPermissionCode("avanzar", currentStep)
+    )
+
+    if (!canAdvance) {
+      return { error: "No tienes permisos para realizar esta acción." }
+    }
+
     console.log("currentStep:", currentStep)
 
 
@@ -2269,6 +2294,15 @@ export const avanzarLicitacionConAddendum = async (id) => {
 
     const currentStep = Number(licitacion.procesoActual.numeroPaso)
 
+    const canAdvance = await userHasPermission(
+      session.user.id,
+      getWorkflowPermissionCode("avanzar", currentStep)
+    )
+
+    if (!canAdvance) {
+      return { error: "No tienes permisos para realizar esta acción." }
+    }
+
     if (currentStep !== 35) {
       return { error: "Solo se puede iniciar Addendum desde el paso 35" }
     }
@@ -2358,6 +2392,15 @@ export const finalizarLicitacionSinAddendum = async (id) => {
 
     const currentStep = Number(licitacion.procesoActual.numeroPaso)
 
+    const canAdvance = await userHasPermission(
+      session.user.id,
+      getWorkflowPermissionCode("avanzar", currentStep)
+    )
+
+    if (!canAdvance) {
+      return { error: "No tienes permisos para realizar esta acción." }
+    }
+
     if (currentStep !== 35) {
       return { error: "Solo se puede finalizar sin Addendum desde el paso 35" }
     }
@@ -2430,6 +2473,15 @@ export const finalizarLicitacionSinInicioAnticipado = async (id) => {
 
 
     const currentStep = Number(licitacion.procesoActual.numeroPaso)
+
+    const canAdvance = await userHasPermission(
+      session.user.id,
+      getWorkflowPermissionCode("avanzar", currentStep)
+    )
+
+    if (!canAdvance) {
+      return { error: "No tienes permisos para realizar esta acción." }
+    }
 
 
 
@@ -2608,6 +2660,22 @@ export const getProcesosByFormato = async (formatoId) => {
     return { error: "Error al obtener procesos" }
 
   }
+}
+
+export const getWorkflowProcessesByFormato = async (formatoId) => {
+  const session = await auth()
+
+  if (!session) {
+    return { error: "No autorizado" }
+  }
+
+  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_VIEW_WORKFLOW)
+
+  if (!allowed) {
+    return { error: "No tienes permisos para realizar esta acción." }
+  }
+
+  return getProcesosByFormato(formatoId)
 }
 
 const getCurrentUserSignatureContext = async (userId) => {

@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs"
 import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
+import { PERMISSION_CODES, userHasPermission } from "@/lib/permissions"
 
 const ALLOWED_SIGNATURE_MIME_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
 const MAX_SIGNATURE_SIZE_BYTES = 2 * 1024 * 1024
@@ -102,11 +103,19 @@ const getValidRole = async (roleId = "") => {
   return { data: roles }
 }
 
+const canManageUsers = async (userId) => {
+  return userHasPermission(userId, PERMISSION_CODES.USERS_MANAGE)
+}
+
 export const getUsers = async () => {
   const session = await auth()
   
-  if (!session || session.user.typeAccount !== "Super Admin") {
+  if (!session) {
     return { error: "No autorizado" }
+  }
+
+  if (!await canManageUsers(session.user.id)) {
+    return { error: "No tienes permisos para realizar esta acción." }
   }
 
   try {
@@ -135,8 +144,12 @@ export const getUsers = async () => {
 export const getUserById = async (id) => {
   const session = await auth()
   
-  if (!session || session.user.typeAccount !== "Super Admin") {
+  if (!session) {
     return { error: "No autorizado" }
+  }
+
+  if (!await canManageUsers(session.user.id)) {
+    return { error: "No tienes permisos para realizar esta acción." }
   }
 
   try {
@@ -178,8 +191,12 @@ export const getUserById = async (id) => {
 export const createUser = async (data) => {
   const session = await auth()
   
-  if (!session || session.user.typeAccount !== "Super Admin") {
+  if (!session) {
     return { error: "No autorizado" }
+  }
+
+  if (!await canManageUsers(session.user.id)) {
+    return { error: "No tienes permisos para realizar esta acción." }
   }
 
   const validatedFields = createUserSchema.safeParse(data)
@@ -250,8 +267,12 @@ export const createUser = async (data) => {
 export const updateUser = async (id, data) => {
   const session = await auth()
   
-  if (!session || session.user.typeAccount !== "Super Admin") {
+  if (!session) {
     return { error: "No autorizado" }
+  }
+
+  if (!await canManageUsers(session.user.id)) {
+    return { error: "No tienes permisos para realizar esta acción." }
   }
 
   const validatedFields = updateUserSchema.safeParse(data)
@@ -313,8 +334,12 @@ export const updateUser = async (id, data) => {
 export const getRoles = async () => {
   const session = await auth()
   
-  if (!session || session.user.typeAccount !== "Super Admin") {
+  if (!session) {
     return { error: "No autorizado" }
+  }
+
+  if (!await canManageUsers(session.user.id)) {
+    return { error: "No tienes permisos para realizar esta acción." }
   }
 
   try {
@@ -337,8 +362,12 @@ export const getRoles = async () => {
 export const changeUserStatus = async (id) => {
   const session = await auth()
   
-  if (!session || session.user.typeAccount !== "Super Admin") {
+  if (!session) {
     return { error: "No autorizado" }
+  }
+
+  if (!await canManageUsers(session.user.id)) {
+    return { error: "No tienes permisos para realizar esta acción." }
   }
 
   try {
@@ -368,8 +397,12 @@ export const changeUserStatus = async (id) => {
 export const updateUserSignature = async (data) => {
   const session = await auth()
   
-  if (!session || session.user.typeAccount !== "Super Admin") {
+  if (!session) {
     return { error: "No autorizado" }
+  }
+
+  if (!await canManageUsers(session.user.id)) {
+    return { error: "No tienes permisos para realizar esta acción." }
   }
 
   const validatedFields = userSignatureSchema.safeParse(data)
@@ -401,8 +434,12 @@ export const updateUserSignature = async (data) => {
 export const deleteUserSignature = async (userId) => {
   const session = await auth()
   
-  if (!session || session.user.typeAccount !== "Super Admin") {
+  if (!session) {
     return { error: "No autorizado" }
+  }
+
+  if (!await canManageUsers(session.user.id)) {
+    return { error: "No tienes permisos para realizar esta acción." }
   }
 
   const validatedFields = deleteUserSignatureSchema.safeParse({ userId })

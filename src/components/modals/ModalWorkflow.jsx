@@ -3,7 +3,7 @@
 import { useState, useEffect, useImperativeHandle, forwardRef } from "react"
 import { Modal, Typography, Tag, Spin, Table, Button, Row, Col } from "antd"
 import { CheckCircleFilled, ClockCircleFilled, DownOutlined, RightOutlined } from "@ant-design/icons"
-import { getLicitacionById, getHistorialLicitacion, getProcesosByFormato } from "@/actions/licitaciones"
+import { getHistorialLicitacion, getLicitacionWorkflowById, getWorkflowProcessesByFormato } from "@/actions/licitaciones"
 import { formatDate, formatMoney, FLUJO_LICITACION, FLUJO_LICITACION_SECUENCIA, FLUJO_LICITACION_AVANCE, esFormatoLicitacion, getParentStep, getProcesoActualNumero, getMainStepState, getSubStepState, getFormatoLabel, getMainStepNumero, getProcesoActualLabelByNumeroPaso, MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO, getStepLabel, isSubpasoVisualLicitacion, getProcesosVisibles as getProcesosVisiblesHelper } from "@/lib/helpers"
 import "./ModalWorkflow.css"
 
@@ -169,6 +169,52 @@ const ModalWorkflow = forwardRef((props, ref) => {
         ? getFechaInicioRamaInicioAnticipado(historialOrdenado, procesosBase)
         : null
 
+    // Estado finalizada (distintas variantes posibles)
+    const estadoNormalizado = normalizar(
+      licitacion?.estado ?? licitacion?.status ?? ""
+    )
+    const estaFinalizada = [
+      "finalizada",
+      "finalizado",
+      "terminada",
+      "terminado"
+    ].includes(estadoNormalizado)
+
+    // Último proceso visible del flujo actual
+    const ultimoProcesoVisible =
+      procesosVisiblesOrdenados[procesosVisiblesOrdenados.length - 1] ?? null
+
+    const nombreUltimoProcesoVisibleNormalizado =
+      ultimoProcesoVisible ? normalizar(getProcesoTitulo(ultimoProcesoVisible)) : ""
+
+    // Historial que representa la finalización del flujo
+    const historialFinalizacion =
+      estaFinalizada && ultimoProcesoVisible
+        ? [...historialOrdenado]
+            .filter((h) => {
+              const tipo = normalizar(h.tipoAccion ?? h.tipo_accion)
+              const origen = normalizar(h.procesoOrigen ?? h.proceso_origen)
+              const destino = normalizar(h.procesoDestino ?? h.proceso_destino)
+
+              if (
+                !["finalizacion", "finalizado", "terminado", "terminar", "avance"].includes(tipo)
+              ) {
+                return false
+              }
+
+              return (
+                origen === nombreUltimoProcesoVisibleNormalizado ||
+                destino === nombreUltimoProcesoVisibleNormalizado
+              )
+            })
+            .at(-1) ?? null
+        : null
+
+    const ultimoMovimiento =
+      historialOrdenado.length > 0
+        ? historialOrdenado[historialOrdenado.length - 1]
+        : null
+
     return procesosVisiblesOrdenados.map((proceso, index) => {
       const procesoAnterior = procesosVisiblesOrdenados[index - 1]
       const procesoSiguiente = procesosVisiblesOrdenados[index + 1]
@@ -224,10 +270,9 @@ const ModalWorkflow = forwardRef((props, ref) => {
         : index === 0
         ? licitacion.createdAt
         : historialRecepcion?.createdAt ?? null
-      const fechaEmision = historialEmision?.createdAt ?? null
+      let fechaEmision = historialEmision?.createdAt ?? historialEmision?.created_at ?? null
       const esPasoActual = numeroPaso === pasoActual
-      const estaFinalizada = normalizar(licitacion.estado) === "finalizada"
-      const fechaEmisionParaDias = esPasoActual && !estaFinalizada ? null : fechaEmision
+      let fechaEmisionParaDias = esPasoActual && !estaFinalizada ? null : fechaEmision
       const devolucionAlPasoActual = esPasoActual
         ? [...historialOrdenado].reverse().find((h) =>
           ["devolucion", "retroceso"].includes(normalizar(h.tipoAccion ?? h.tipo_accion)) &&
@@ -251,6 +296,67 @@ const ModalWorkflow = forwardRef((props, ref) => {
 
       const fueAlcanzado = Boolean(fechaRecepcion)
 
+      const esUltimoProcesoVisible =
+        ultimoProcesoVisible &&
+        getProcesoNumero(proceso) === getProcesoNumero(ultimoProcesoVisible)
+
+      // Si la licitación está finalizada y este es el último proceso visible,
+      // forzamos fecha de emisión y aprobado por usando historial de finalización
+      let aprobadoPorFinal = null
+
+      if (estaFinalizada && esUltimoProcesoVisible) {
+        const fechaFinalizacion =
+          historialFinalizacion?.createdAt ??
+          historialFinalizacion?.created_at ??
+          licitacion.updatedAt ??
+          licitacion.updated_at ??
+          fechaRecepcion
+
+        if (fechaFinalizacion) {
+          fechaEmision = fechaFinalizacion
+          fechaEmisionParaDias = fechaFinalizacion
+        }
+
+        const usuarioFinal = historialFinalizacion?.usuario
+        if (usuarioFinal) {
+          aprobadoPorFinal = `${usuarioFinal.name ?? ""} ${
+            usuarioFinal.lastname ?? ""
+          }`.trim()
+        } else if (historialFinalizacion) {
+          aprobadoPorFinal =
+            historialFinalizacion.aprobadoPor ??
+            historialFinalizacion.aprobado_por ??
+            null
+        }
+
+        if (!aprobadoPorFinal && ultimoMovimiento) {
+          if (ultimoMovimiento.usuario) {
+            aprobadoPorFinal = `${ultimoMovimiento.usuario.name ?? ""} ${
+              ultimoMovimiento.usuario.lastname ?? ""
+            }`.trim()
+          } else {
+            aprobadoPorFinal =
+              ultimoMovimiento.aprobadoPor ??
+              ultimoMovimiento.aprobado_por ??
+              null
+          }
+        }
+      }
+
+      const aprobadoPorBase = esPasoActual ? "Pendiente" : getAprobadoPor(historialEmision) ?? "Pendiente"
+
+      let aprobadoPorMostrar = esPasoActual
+        ? "Pendiente"
+        : (aprobadoPorFinal ?? aprobadoPorBase)
+
+      if (
+        estaFinalizada &&
+        esUltimoProcesoVisible &&
+        (!aprobadoPorMostrar || aprobadoPorMostrar === "Pendiente")
+      ) {
+        aprobadoPorMostrar = "No figura en paso final"
+      }
+
       return {
         ...proceso,
         key: proceso.id || `proceso-${index}`,
@@ -269,7 +375,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
             ? formatDate(fechaEmision)
             : "Pendiente",
         diasDemorados: calcularDiasDemorados(fechaRecepcion, fechaEmisionParaDias, esPasoActual),
-        aprobadoPor: esPasoActual ? "Pendiente" : getAprobadoPor(historialEmision) ?? "Pendiente"
+        aprobadoPor: aprobadoPorMostrar
       }
     })
   }
@@ -281,7 +387,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
       setIsExtended(extended)
 
       const [licResult, histResult] = await Promise.all([
-        getLicitacionById(id),
+        getLicitacionWorkflowById(id),
         getHistorialLicitacion(id)
       ])
 
@@ -290,7 +396,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
 
         // Si es formato Licitación, cargar procesos desde BD
         if (esFormatoLicitacion(licResult.data.formatoLiquidacion.titulo)) {
-          const procesosResult = await getProcesosByFormato(licResult.data.formatoLiquidacionId)
+          const procesosResult = await getWorkflowProcessesByFormato(licResult.data.formatoLiquidacionId)
           if (procesosResult.data) {
             setProcesosFormato(procesosResult.data)
           }

@@ -12,7 +12,7 @@ import styles from "@/app/dashboard/dashboard.module.css"
 
 const { Title, Text } = Typography
 
-const DashboardContent = ({ user, stats }) => {
+const DashboardContent = ({ user, stats, canCreateLicitacion }) => {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -81,10 +81,12 @@ const DashboardContent = ({ user, stats }) => {
         <Col xs={24} lg={8}>
           <Card title="Accesos Rápidos" className={styles.card}>
             <div className={styles.quickLinks}>
+              {canCreateLicitacion && (
               <Link href="/dashboard/licitaciones/crear" className={styles.quickLink}>
                 <FileTextOutlined />
                 <span>Crear Licitación</span>
               </Link>
+              )}
               <Link href="/dashboard/licitaciones/bandeja" className={styles.quickLink}>
                 <InboxOutlined />
                 <span>Bandeja de Entrada</span>

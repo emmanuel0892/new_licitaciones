@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 
 import { auth } from "@/lib/auth"
+import { getUserPermissionContext } from "@/lib/permissions"
 
 import Sidebar from "@/components/layout/Sidebar"
 
@@ -20,7 +21,15 @@ export default async function DashboardLayout({ children }) {
 
 
 
-  return <Sidebar>{children}</Sidebar>
+  const authorization = await getUserPermissionContext(session.user.id)
+
+  return (
+    <Sidebar
+      permissions={authorization.permissions}
+      isSuperAdmin={authorization.isSuperAdmin}
+    >
+      {children}
+    </Sidebar>
+  )
 
 }
-

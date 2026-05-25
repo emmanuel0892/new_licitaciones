@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Table, Button, Space, Tag, Typography, Card, App, Tooltip } from "antd"
 import { EyeOutlined, EditOutlined, FileTextOutlined, HistoryOutlined } from "@ant-design/icons"
 import { getMisLicitaciones } from "@/actions/licitaciones"
+import { getCurrentAuthorization } from "@/actions/permisos"
 import { formatDate, formatMoney, getEstadoColor, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel } from "@/lib/helpers"
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalWorkflow from "@/components/modals/ModalWorkflow"
@@ -16,23 +17,39 @@ const MisLicitacionesPage = () => {
   const { message } = App.useApp()
   const [loading, setLoading] = useState(true)
   const [licitaciones, setLicitaciones] = useState([])
+  const [authorization, setAuthorization] = useState({ isSuperAdmin: false, permissions: [] })
 
   const modalHistorialRef = useRef(null)
   const modalWorkflowRef = useRef(null)
   const modalEditarRef = useRef(null)
 
-  const loadData = async () => {
-    setLoading(true)
-    const result = await getMisLicitaciones()
-    if (result.data) {
-      setLicitaciones(result.data.map((l) => ({ ...l, key: l.id })))
-    }
-    setLoading(false)
-  }
-
   useEffect(() => {
-    loadData()
+    let active = true
+
+    Promise.all([getMisLicitaciones(), getCurrentAuthorization()]).then(
+      ([result, authResult]) => {
+        if (!active) return
+
+        if (result.data) {
+          setLicitaciones(result.data.map((l) => ({ ...l, key: l.id })))
+        }
+
+        if (authResult.data) {
+          setAuthorization(authResult.data)
+        }
+
+        setLoading(false)
+      }
+    )
+
+    return () => {
+      active = false
+    }
   }, [])
+
+  const hasPermission = (permissionCode) => {
+    return authorization.isSuperAdmin || authorization.permissions.includes(permissionCode)
+  }
 
   const columns = [
     {
@@ -112,6 +129,7 @@ const MisLicitacionesPage = () => {
       width: 150,
       render: (_, record) => (
         <Space size="small">
+          {hasPermission("licitacion.ver_historial") && (
           <Tooltip title="Ver historial">
             <Button
               type="text"
@@ -120,8 +138,9 @@ const MisLicitacionesPage = () => {
               onClick={() => modalHistorialRef.current?.open(record.id, record)}
             />
           </Tooltip>
+          )}
 
-          {record._count.documentos > 0 && (
+          {hasPermission("licitacion.ver_documentos") && record._count.documentos > 0 && (
             <Tooltip title="Ver documentos">
               <Button
                 type="text"
@@ -131,6 +150,7 @@ const MisLicitacionesPage = () => {
             </Tooltip>
           )}
 
+          {hasPermission("licitacion.ver_flujo") && (
           <Tooltip title="Ver workflow">
             <Button
               type="text"
@@ -139,6 +159,7 @@ const MisLicitacionesPage = () => {
               onClick={() => modalWorkflowRef.current?.open(record.id)}
             />
           </Tooltip>
+          )}
 
           <Tooltip title="Editar">
             <Button
@@ -158,9 +179,11 @@ const MisLicitacionesPage = () => {
       <Card className={styles.card}>
         <div className={styles.header}>
           <Title level={3} style={{ margin: 0 }}>Mis Licitaciones</Title>
+          {hasPermission("licitacion.crear") && (
           <Button type="primary" href="/dashboard/licitaciones/crear">
             Crear Licitación
           </Button>
+          )}
         </div>
 
         <Table
