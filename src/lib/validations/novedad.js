@@ -8,5 +8,6 @@ export const novedadSchema = z.object({
   descripcion: z
     .string()
     .min(1, "La descripción es requerida")
-    .min(10, "La descripción debe tener al menos 10 caracteres")
+    .min(10, "La descripción debe tener al menos 10 caracteres"),
+  imagen: z.string().optional().nullable()
 })

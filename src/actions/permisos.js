@@ -63,6 +63,30 @@ const BASE_PERMISSIONS = [
     categoria: "Administración"
   },
   {
+    codigo: "novedades.ver",
+    nombre: "Ver novedades",
+    descripcion: "Permite visualizar el módulo de gestión de novedades",
+    categoria: "Gestión Novedades"
+  },
+  {
+    codigo: "novedades.crear",
+    nombre: "Crear novedades",
+    descripcion: "Permite crear nuevas novedades",
+    categoria: "Gestión Novedades"
+  },
+  {
+    codigo: "novedades.editar",
+    nombre: "Editar novedades",
+    descripcion: "Permite editar novedades existentes",
+    categoria: "Gestión Novedades"
+  },
+  {
+    codigo: "novedades.eliminar",
+    nombre: "Eliminar novedades",
+    descripcion: "Permite eliminar novedades existentes",
+    categoria: "Gestión Novedades"
+  },
+  {
     codigo: "firma.jefatura_unidad",
     nombre: "Firmar como Jefatura de Unidad",
     descripcion: "Permite aplicar firma como Jefatura de Unidad en pasos del workflow",
@@ -192,6 +216,7 @@ const revalidatePermissionConsumers = () => {
   revalidatePath("/dashboard", "layout")
   revalidatePath("/dashboard/licitaciones")
   revalidatePath("/dashboard/licitaciones/bandeja")
+  revalidatePath("/dashboard/novedades/gestion")
 }
 
 const formatWorkflowPermissionName = (permission, processByStep) => {

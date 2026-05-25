@@ -2,7 +2,7 @@
 
 import { useState, useImperativeHandle, forwardRef } from "react"
 import { Modal, Form, Input, App, Skeleton } from "antd"
-import { createNovedad, updateNovedad, getNovedadById } from "@/actions/novedades"
+import { createNovedad, updateNovedad, getNovedadGestionById } from "@/actions/novedades"
 
 const { TextArea } = Input
 
@@ -25,12 +25,15 @@ const ModalNovedad = forwardRef(({ onSuccess }, ref) => {
         setNovedadId(id)
         setLoadingData(true)
 
-        const result = await getNovedadById(id)
+        const result = await getNovedadGestionById(id)
         if (result.data) {
           form.setFieldsValue({
             titular: result.data.titular,
             descripcion: result.data.descripcion
           })
+        } else {
+          message.error(result.error || "Error al obtener la novedad")
+          setOpen(false)
         }
         setLoadingData(false)
       } else {

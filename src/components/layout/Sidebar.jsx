@@ -135,7 +135,10 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       )
     }
 
-    if (hasPermission("sidebar.gestion_novedades")) {
+    if (
+      hasPermission("sidebar.gestion_novedades") ||
+      hasPermission("novedades.ver")
+    ) {
       items.push(
         {
           key: "/dashboard/novedades/gestion",

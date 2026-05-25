@@ -31,6 +31,12 @@ import {
 const { Text, Title } = Typography
 
 const WORKFLOW_CATEGORIES = new Set(["Workflow - Avanzar", "Workflow - Devolver"])
+const NOVEDADES_PERMISSION_ORDER = new Map([
+  ["novedades.ver", 0],
+  ["novedades.crear", 1],
+  ["novedades.editar", 2],
+  ["novedades.eliminar", 3]
+])
 const CATEGORY_ORDER = [
   "Administración",
   "Sidebar",
@@ -39,7 +45,8 @@ const CATEGORY_ORDER = [
   "Workflow - Avanzar",
   "Workflow - Devolver",
   "Documentos",
-  "Usuarios"
+  "Usuarios",
+  "Gestión Novedades"
 ]
 
 const getStepNumberFromPermissionCode = (codigo) => {
@@ -164,6 +171,13 @@ const PermissionsManagement = () => {
 
     groups.forEach((categoryPermissions, category) => {
       const orderedPermissions = [...categoryPermissions].sort((a, b) => {
+        if (category === "Gestión Novedades") {
+          return (
+            (NOVEDADES_PERMISSION_ORDER.get(a.codigo) ?? 999999) -
+            (NOVEDADES_PERMISSION_ORDER.get(b.codigo) ?? 999999)
+          )
+        }
+
         if (WORKFLOW_CATEGORIES.has(category)) {
           const aStep = getStepNumberFromPermissionCode(a.codigo)
           const bStep = getStepNumberFromPermissionCode(b.codigo)
