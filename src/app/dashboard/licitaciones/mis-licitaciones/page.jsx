@@ -23,28 +23,31 @@ const MisLicitacionesPage = () => {
   const modalWorkflowRef = useRef(null)
   const modalEditarRef = useRef(null)
 
-  useEffect(() => {
-    let active = true
+  const loadData = async () => {
+    try {
+      setLoading(true)
 
-    Promise.all([getMisLicitaciones(), getCurrentAuthorization()]).then(
-      ([result, authResult]) => {
-        if (!active) return
+      const [result, authResult] = await Promise.all([
+        getMisLicitaciones(),
+        getCurrentAuthorization()
+      ])
 
-        if (result.data) {
-          setLicitaciones(result.data.map((l) => ({ ...l, key: l.id })))
-        }
-
-        if (authResult.data) {
-          setAuthorization(authResult.data)
-        }
-
-        setLoading(false)
+      if (result.data) {
+        setLicitaciones(result.data.map((l) => ({ ...l, key: l.id })))
       }
-    )
 
-    return () => {
-      active = false
+      if (authResult.data) {
+        setAuthorization(authResult.data)
+      }
+    } catch (error) {
+      message.error("Error al obtener mis licitaciones")
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
+    loadData()
   }, [])
 
   const hasPermission = (permissionCode) => {

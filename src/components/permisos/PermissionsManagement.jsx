@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   App,
   Button,
@@ -22,6 +22,7 @@ import {
 import { EditOutlined, ReloadOutlined, SafetyCertificateOutlined, TeamOutlined } from "@ant-design/icons"
 import {
   getPermissionManagementData,
+  getRolePermissions,
   syncPermissionCatalog,
   updateRolePermissions,
   updateUserRoles
@@ -30,6 +31,16 @@ import {
 const { Text, Title } = Typography
 
 const WORKFLOW_CATEGORIES = new Set(["Workflow - Avanzar", "Workflow - Devolver"])
+const CATEGORY_ORDER = [
+  "Administración",
+  "Sidebar",
+  "Firmas",
+  "Licitaciones",
+  "Workflow - Avanzar",
+  "Workflow - Devolver",
+  "Documentos",
+  "Usuarios"
+]
 
 const getStepNumberFromPermissionCode = (codigo) => {
   const parts = String(codigo).split(".")
@@ -61,6 +72,21 @@ const getWorkflowSectionColor = (section) => {
   return colors[section] ?? "default"
 }
 
+const formatRoleName = (roleName = "") => {
+  return String(roleName)
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/^\w/, (c) => c.toUpperCase())
+}
+
+const normalizePermissionIds = (permissionIds = []) => {
+  return permissionIds
+    .map((permissionId) => Number(
+      permissionId?.permiso_id ?? permissionId?.permisoId ?? permissionId?.id ?? permissionId
+    ))
+    .filter((permissionId) => Number.isInteger(permissionId) && permissionId > 0)
+}
+
 const PermissionsManagement = () => {
   const { message } = App.useApp()
   const [loading, setLoading] = useState(true)
@@ -69,10 +95,13 @@ const PermissionsManagement = () => {
   const [roles, setRoles] = useState([])
   const [permissions, setPermissions] = useState([])
   const [selectedRoleId, setSelectedRoleId] = useState(null)
+  const [selectedRoleName, setSelectedRoleName] = useState("")
   const [selectedPermissionIds, setSelectedPermissionIds] = useState([])
+  const [loadingRolePermissions, setLoadingRolePermissions] = useState(false)
   const [rolesModalOpen, setRolesModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
   const [selectedUserRoleIds, setSelectedUserRoleIds] = useState([])
+  const rolePermissionRequestRef = useRef(0)
 
   const loadData = async () => {
     const result = await getPermissionManagementData()
@@ -86,7 +115,8 @@ const PermissionsManagement = () => {
       const currentRole = result.data.roles.find((role) => role.id === currentRoleId)
 
       setSelectedRoleId(currentRoleId)
-      setSelectedPermissionIds(currentRole?.permissionIds ?? [])
+      setSelectedRoleName(currentRole?.name ?? "")
+      setSelectedPermissionIds(normalizePermissionIds(currentRole?.permissionIds))
     } else {
       message.error(result.error || "Error al obtener permisos")
     }
@@ -109,7 +139,8 @@ const PermissionsManagement = () => {
         const currentRole = result.data.roles.find((role) => role.id === currentRoleId)
 
         setSelectedRoleId(currentRoleId)
-        setSelectedPermissionIds(currentRole?.permissionIds ?? [])
+        setSelectedRoleName(currentRole?.name ?? "")
+        setSelectedPermissionIds(normalizePermissionIds(currentRole?.permissionIds))
       } else {
         message.error(result.error || "Error al obtener permisos")
       }
@@ -146,48 +177,79 @@ const PermissionsManagement = () => {
       groups.set(category, orderedPermissions)
     })
 
-    return groups
+    return [...groups.entries()].sort(([firstCategory], [secondCategory]) => {
+      const firstIndex = CATEGORY_ORDER.indexOf(firstCategory)
+      const secondIndex = CATEGORY_ORDER.indexOf(secondCategory)
+      const firstOrder = firstIndex === -1 ? CATEGORY_ORDER.length : firstIndex
+      const secondOrder = secondIndex === -1 ? CATEGORY_ORDER.length : secondIndex
+
+      if (firstOrder !== secondOrder) return firstOrder - secondOrder
+
+      return firstCategory.localeCompare(secondCategory, "es")
+    })
   }, [permissions])
 
-  const handleSelectRole = (roleId) => {
-    const role = roles.find((item) => item.id === roleId)
-    setSelectedRoleId(roleId)
-    setSelectedPermissionIds(role?.permissionIds ?? [])
+  const loadRolePermissions = async (roleId) => {
+    const requestId = rolePermissionRequestRef.current + 1
+    rolePermissionRequestRef.current = requestId
+    setLoadingRolePermissions(true)
+    const result = await getRolePermissions(roleId)
+
+    if (rolePermissionRequestRef.current !== requestId) return
+
+    if (result.data) {
+      setSelectedPermissionIds(normalizePermissionIds(result.data))
+    } else {
+      message.error(result.error || "Error al obtener permisos del rol")
+    }
+
+    setLoadingRolePermissions(false)
+  }
+
+  const handleSelectRole = async (role) => {
+    setSelectedRoleId(role.id)
+    setSelectedRoleName(role.name)
+    await loadRolePermissions(role.id)
   }
 
   const handleTogglePermission = (permissionId, checked) => {
+    const id = Number(permissionId)
+
     setSelectedPermissionIds((current) => {
       if (checked) {
-        return [...new Set([...current, permissionId])]
+        return [...new Set([...current, id])]
       }
 
-      return current.filter((id) => id !== permissionId)
+      return current.filter((currentId) => currentId !== id)
     })
   }
 
   const handleSelectCategory = (categoryPermissions) => {
     setSelectedPermissionIds((current) => [
-      ...new Set([...current, ...categoryPermissions.map((permission) => permission.id)])
+      ...new Set([...current, ...categoryPermissions.map((permission) => Number(permission.id))])
     ])
   }
 
   const handleClearCategory = (categoryPermissions) => {
-    const categoryIds = new Set(categoryPermissions.map((permission) => permission.id))
+    const categoryIds = new Set(categoryPermissions.map((permission) => Number(permission.id)))
     setSelectedPermissionIds((current) => current.filter((id) => !categoryIds.has(id)))
   }
 
   const handleSavePermissions = async () => {
     if (!selectedRoleId) return
 
+    const roleIdToSave = selectedRoleId
+    const permissionIdsToSave = normalizePermissionIds(selectedPermissionIds)
+
     setSaving(true)
     const result = await updateRolePermissions({
-      roleId: selectedRoleId,
-      permissionIds: selectedPermissionIds
+      roleId: roleIdToSave,
+      permissionIds: permissionIdsToSave
     })
 
     if (result.success) {
+      await loadRolePermissions(roleIdToSave)
       message.success("Permisos actualizados correctamente")
-      await loadData()
     } else {
       message.error(result.error || "Error al actualizar permisos")
     }
@@ -252,7 +314,9 @@ const PermissionsManagement = () => {
       render: (_, user) => (
         <Space wrap>
           {user.roleNames.length > 0
-            ? user.roleNames.map((roleName) => <Tag key={roleName}>{roleName}</Tag>)
+            ? user.roleNames.map((roleName) => (
+              <Tag key={roleName}>{formatRoleName(roleName)}</Tag>
+            ))
             : <Text type="secondary">Sin roles</Text>}
         </Space>
       )
@@ -288,7 +352,7 @@ const PermissionsManagement = () => {
             locale={{ emptyText: "No hay roles registrados" }}
             renderItem={(role) => (
               <List.Item
-                onClick={() => handleSelectRole(role.id)}
+                onClick={() => handleSelectRole(role)}
                 style={{
                   cursor: "pointer",
                   padding: "12px",
@@ -296,7 +360,7 @@ const PermissionsManagement = () => {
                   background: selectedRoleId === role.id ? "#e6f4ff" : "transparent"
                 }}
               >
-                <Text strong={selectedRoleId === role.id}>{role.name}</Text>
+                <Text strong={selectedRoleId === role.id}>{formatRoleName(role.name)}</Text>
               </List.Item>
             )}
           />
@@ -304,9 +368,14 @@ const PermissionsManagement = () => {
       </Col>
       <Col xs={24} lg={17}>
         <Card
-          title="Permisos del rol"
+          title={selectedRoleName ? `Permisos del rol: ${formatRoleName(selectedRoleName)}` : "Permisos del rol"}
           extra={
-            <Button type="primary" loading={saving} onClick={handleSavePermissions} disabled={!selectedRoleId}>
+            <Button
+              type="primary"
+              loading={saving}
+              onClick={handleSavePermissions}
+              disabled={!selectedRoleId || loadingRolePermissions}
+            >
               Guardar cambios
             </Button>
           }
@@ -316,53 +385,61 @@ const PermissionsManagement = () => {
           ) : permissions.length === 0 ? (
             <Empty description="No hay permisos registrados" />
           ) : (
-            <Space direction="vertical" size={16} style={{ width: "100%" }}>
-              {[...groupedPermissions.entries()].map(([category, categoryPermissions]) => (
-                <Card
-                  key={category}
-                  size="small"
-                  title={category}
-                  extra={
-                    <Space>
-                      <Button size="small" onClick={() => handleSelectCategory(categoryPermissions)}>
-                        Seleccionar todos
-                      </Button>
-                      <Button size="small" onClick={() => handleClearCategory(categoryPermissions)}>
-                        Limpiar categoría
-                      </Button>
-                    </Space>
-                  }
-                >
-                  <Space direction="vertical">
-                    {categoryPermissions.map((permission) => {
-                      const workflowPermission = WORKFLOW_CATEGORIES.has(category)
-                      const stepNumber = getStepNumberFromPermissionCode(permission.codigo)
-                      const workflowSection = getWorkflowSectionByStep(stepNumber)
-
-                      return (
-                        <Checkbox
-                          key={permission.id}
-                          checked={selectedPermissionIds.includes(permission.id)}
-                          onChange={(event) => handleTogglePermission(permission.id, event.target.checked)}
+            <Spin spinning={loadingRolePermissions}>
+              <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                {groupedPermissions.map(([category, categoryPermissions]) => (
+                  <Card
+                    key={category}
+                    size="small"
+                    title={category}
+                    extra={
+                      <Space>
+                        <Button
+                          size="small"
+                          disabled={loadingRolePermissions}
+                          onClick={() => handleSelectCategory(categoryPermissions)}
                         >
-                          <Space size={8} wrap>
-                            <Text>{permission.nombre}</Text>
-                            {workflowPermission && (
-                              <Tag color={getWorkflowSectionColor(workflowSection)}>
-                                {workflowSection}
-                              </Tag>
-                            )}
-                            <Text type="secondary">
-                              {permission.codigo}
-                            </Text>
-                          </Space>
-                        </Checkbox>
-                      )
-                    })}
-                  </Space>
-                </Card>
-              ))}
-            </Space>
+                          Seleccionar todos
+                        </Button>
+                        <Button
+                          size="small"
+                          disabled={loadingRolePermissions}
+                          onClick={() => handleClearCategory(categoryPermissions)}
+                        >
+                          Limpiar categoría
+                        </Button>
+                      </Space>
+                    }
+                  >
+                    <Space direction="vertical">
+                      {categoryPermissions.map((permission) => {
+                        const workflowPermission = WORKFLOW_CATEGORIES.has(category)
+                        const stepNumber = getStepNumberFromPermissionCode(permission.codigo)
+                        const workflowSection = getWorkflowSectionByStep(stepNumber)
+
+                        return (
+                          <Checkbox
+                            key={permission.id}
+                            checked={selectedPermissionIds.includes(Number(permission.id))}
+                            disabled={loadingRolePermissions}
+                            onChange={(event) => handleTogglePermission(permission.id, event.target.checked)}
+                          >
+                            <Space size={8} wrap>
+                              <Text>{permission.nombre}</Text>
+                              {workflowPermission && (
+                                <Tag color={getWorkflowSectionColor(workflowSection)}>
+                                  {workflowSection}
+                                </Tag>
+                              )}
+                            </Space>
+                          </Checkbox>
+                        )
+                      })}
+                    </Space>
+                  </Card>
+                ))}
+              </Space>
+            </Spin>
           )}
         </Card>
       </Col>
@@ -426,7 +503,7 @@ const PermissionsManagement = () => {
           onChange={setSelectedUserRoleIds}
           options={roles.map((role) => ({
             value: role.id,
-            label: role.name
+            label: formatRoleName(role.name)
           }))}
         />
       </Modal>

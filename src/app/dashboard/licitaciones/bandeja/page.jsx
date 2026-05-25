@@ -15,7 +15,8 @@ import {
   DownloadOutlined,
   HistoryOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  LockOutlined
 } from "@ant-design/icons"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -394,6 +395,10 @@ const BandejaPage = () => {
       width: 230,
       render: (_, record) => {
         const requiredSignatures = record.signatureValidation?.required || []
+        const hasPendingSignatures = requiredSignatures.some((signature) => !signature.completed)
+        const canOpenSignatureModal = requiredSignatures.some((signature) => (
+          !signature.completed && hasPermission(signature.permissionCode)
+        ))
 
         if (requiredSignatures.length === 0) {
           return <Text type="secondary">No aplica</Text>
@@ -402,16 +407,27 @@ const BandejaPage = () => {
         return (
           <Space direction="vertical" size={4} className={styles.signatureCell}>
             <Text strong>Firmas requeridas</Text>
-            {requiredSignatures.map((signature) => (
-              <Tag
-                key={signature.label}
-                color={signature.completed ? "success" : "warning"}
-                icon={signature.completed ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
-                className={styles.signatureTag}
-              >
-                {signature.label}: {signature.completed ? "Firmada" : "Pendiente"}
-              </Tag>
-            ))}
+            {requiredSignatures.map((signature) => {
+              const blocked = signature.status === "bloqueada"
+              const statusLabel = signature.completed ? "Firmada" : blocked ? "Bloqueada" : "Pendiente"
+              const statusColor = signature.completed ? "success" : blocked ? "default" : "warning"
+              const statusIcon = signature.completed
+                ? <CheckCircleOutlined />
+                : blocked
+                  ? <LockOutlined />
+                  : <ExclamationCircleOutlined />
+
+              return (
+                <Tag
+                  key={signature.label}
+                  color={statusColor}
+                  icon={statusIcon}
+                  className={styles.signatureTag}
+                >
+                  {signature.label}: {statusLabel}
+                </Tag>
+              )
+            })}
 
             <Space size={0} split={<Text type="secondary">|</Text>}>
               <Button
@@ -422,14 +438,29 @@ const BandejaPage = () => {
               >
                 Subir firma
               </Button>
-              <Button
-                type="link"
-                size="small"
-                className={styles.signatureUploadButton}
-                onClick={() => modalFirmarRef.current?.open(record)}
-              >
-                Firmar
-              </Button>
+              {!hasPendingSignatures ? null : canOpenSignatureModal ? (
+                <Button
+                  type="link"
+                  size="small"
+                  className={styles.signatureUploadButton}
+                  onClick={() => modalFirmarRef.current?.open(record)}
+                >
+                  Firmar
+                </Button>
+              ) : (
+                <Tooltip title="No tienes permisos para firmar en esta etapa.">
+                  <span>
+                    <Button
+                      type="link"
+                      size="small"
+                      disabled
+                      className={styles.signatureUploadButton}
+                    >
+                      Firmar
+                    </Button>
+                  </span>
+                </Tooltip>
+              )}
             </Space>
           </Space>
         )
@@ -491,33 +522,57 @@ const BandejaPage = () => {
               </Tooltip>
             )}
 
-            {/* 4. Devolver - Solo si no es primer paso ni Publicada y tiene permisos */}
+            {/* 4. Devolver - Visible durante el flujo y deshabilitado sin permiso */}
             {(() => {
               const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
               const currentStep = Number(record.procesoActual?.numeroPaso)
               const isLastStep = isLicitacion && currentStep === 24
               
-              return hasWorkflowPermission("devolver", record) && !isFirstStep && !isPublicada && record.estado !== "Finalizada" && !isLastStep
+              return !isFirstStep && !isPublicada && record.estado !== "Finalizada" && !isLastStep
             })() && (
-              <Tooltip title="Devolver">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<ArrowDownOutlined style={{ color: "#e53935" }} />}
-                  onClick={() => modalDevolverRef.current?.open(record.id)}
-                />
-              </Tooltip>
+              hasWorkflowPermission("devolver", record) ? (
+                <Tooltip title="Devolver">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<ArrowDownOutlined style={{ color: "#e53935" }} />}
+                    onClick={() => modalDevolverRef.current?.open(record.id)}
+                  />
+                </Tooltip>
+              ) : (
+                <Tooltip title="No tienes permisos para devolver este paso.">
+                  <span>
+                    <Button
+                      type="text"
+                      size="small"
+                      disabled
+                      icon={<ArrowDownOutlined />}
+                    />
+                  </span>
+                </Tooltip>
+              )
             )}
 
-            {/* 5. Avanzar - Solo si tiene permisos y no está finalizada */}
+            {/* 5. Avanzar - Visible durante el flujo y deshabilitado sin permiso */}
             {(() => {
               const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
               const currentStep = Number(record.procesoActual?.numeroPaso)
               const isLastStep = isLicitacion && currentStep === 24
               
-              return hasWorkflowPermission("avanzar", record) && record.estado !== "Finalizada" && !isLastStep
+              return record.estado !== "Finalizada" && !isLastStep
             })() && (
-              hasMissingSignatures ? (
+              !hasWorkflowPermission("avanzar", record) ? (
+                <Tooltip title="No tienes permisos para avanzar este paso.">
+                  <span>
+                    <Button
+                      type="text"
+                      size="small"
+                      disabled
+                      icon={<ArrowUpOutlined />}
+                    />
+                  </span>
+                </Tooltip>
+              ) : hasMissingSignatures ? (
                 <Tooltip title={missingSignaturesMessage}>
                   <span>
                     <Button

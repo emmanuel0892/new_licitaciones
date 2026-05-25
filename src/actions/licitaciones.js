@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { createLicitacionSchema, devolverLicitacionSchema } from "@/lib/validations/licitacion"
 import { esFormatoLicitacion, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getMainStepNumero, getNextStep, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
-import { getUserPermissionContext, getWorkflowPermissionCode, isSuperAdmin, PERMISSION_CODES, userHasPermission } from "@/lib/permissions"
+import { getUserPermissionContext, getWorkflowPermissionCode, PERMISSION_CODES, userHasPermission } from "@/lib/permissions"
 import { REQUIRED_SIGNATURES_BY_STEP, assertCanAdvanceBySignature, canAdvanceBySignature, getSignatureStatusForStep, isSignatureBlocked } from "@/lib/signatures.js"
 
 const signatureStatusSchema = z.object({
@@ -442,7 +442,7 @@ export const createLicitacion = async (data) => {
 
   if (!allowed) {
 
-    return { error: "No tienes permisos para realizar esta acción." }
+    return { error: "No tienes permisos para crear licitaciones." }
 
   }
 
@@ -530,18 +530,24 @@ export const createLicitacion = async (data) => {
 
       data: {
 
-        formatoLiquidacionId: parseInt(formatoLiquidacionId),
+        usuario: {
+  connect: {
+    id: session.user.id
+  }
+},
 
-        usuarioId: session.user.id,
-
-        procesoActual: {
-
+        // Conectar el formato por relación
+        formatoLiquidacion: {
           connect: {
-
-            id: primerProceso.id
-
+            id: parseInt(formatoLiquidacionId)
           }
+        },
 
+        // Conectar el proceso actual (paso 1)
+        procesoActual: {
+          connect: {
+            id: primerProceso.id
+          }
         },
 
         requirente,
@@ -627,7 +633,7 @@ export const avanzarLicitacion = async (id) => {
     )
 
     if (!canAdvance) {
-      return { error: "No tienes permisos para realizar esta acción." }
+      return { error: "No tienes permisos para avanzar este paso." }
     }
 
     const formato = licitacion.formatoLiquidacion.titulo
@@ -952,7 +958,7 @@ export const devolverLicitacion = async (data) => {
     )
 
     if (!canReturn) {
-      return { error: "No tienes permisos para realizar esta acción." }
+      return { error: "No tienes permisos para devolver este paso." }
     }
 
     const formato = licitacion.formatoLiquidacion.titulo
@@ -1966,7 +1972,7 @@ export const avanzarLicitacionConInicioAnticipado = async (id) => {
     )
 
     if (!canAdvance) {
-      return { error: "No tienes permisos para realizar esta acción." }
+      return { error: "No tienes permisos para avanzar este paso." }
     }
 
 
@@ -2148,7 +2154,7 @@ export const avanzarLicitacionConContrato = async (id) => {
     )
 
     if (!canAdvance) {
-      return { error: "No tienes permisos para realizar esta acción." }
+      return { error: "No tienes permisos para avanzar este paso." }
     }
 
     console.log("currentStep:", currentStep)
@@ -2300,7 +2306,7 @@ export const avanzarLicitacionConAddendum = async (id) => {
     )
 
     if (!canAdvance) {
-      return { error: "No tienes permisos para realizar esta acción." }
+      return { error: "No tienes permisos para avanzar este paso." }
     }
 
     if (currentStep !== 35) {
@@ -2398,7 +2404,7 @@ export const finalizarLicitacionSinAddendum = async (id) => {
     )
 
     if (!canAdvance) {
-      return { error: "No tienes permisos para realizar esta acción." }
+      return { error: "No tienes permisos para avanzar este paso." }
     }
 
     if (currentStep !== 35) {
@@ -2480,7 +2486,7 @@ export const finalizarLicitacionSinInicioAnticipado = async (id) => {
     )
 
     if (!canAdvance) {
-      return { error: "No tienes permisos para realizar esta acción." }
+      return { error: "No tienes permisos para avanzar este paso." }
     }
 
 
@@ -2679,41 +2685,22 @@ export const getWorkflowProcessesByFormato = async (formatoId) => {
 }
 
 const getCurrentUserSignatureContext = async (userId) => {
-  const currentUser = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      user_roles: {
-        include: {
-          roles: true
-        }
-      }
-    }
-  })
+  const authorization = await getUserPermissionContext(userId)
+  const currentUser = authorization.user
 
   if (!currentUser) {
     return null
   }
 
-  const roleIds = currentUser.user_roles.map((userRole) => userRole.role_id)
-  const roleNames = currentUser.user_roles.map((userRole) => userRole.roles?.name).filter(Boolean)
-
   return {
     user: currentUser,
-    roleIds,
-    roleNames,
+    isSuperAdmin: authorization.isSuperAdmin,
+    permissions: authorization.permissions,
     hasStoredSignature: Boolean(currentUser.firma && currentUser.firma.trim() !== "")
   }
 }
 
-const hasAllowedSignatureRole = (requirement, userContext) => {
-  return requirement.roles.some((role) =>
-    userContext.roleIds.includes(role) || userContext.roleNames.includes(role)
-  )
-}
-
 const buildSignatureActionStatus = (signatureStatus, userContext) => {
-  const superAdmin = isSuperAdmin(userContext.user)
-
   return signatureStatus.map((signature) => {
     if (signature.status === "firmada") {
       return {
@@ -2742,11 +2729,11 @@ const buildSignatureActionStatus = (signatureStatus, userContext) => {
       }
     }
 
-    if (!superAdmin && !hasAllowedSignatureRole(signature, userContext)) {
+    if (!userContext.isSuperAdmin && !userContext.permissions.includes(signature.permissionCode)) {
       return {
         ...signature,
         canSign: false,
-        actionMessage: "No tiene permisos para firmar esta sección."
+        actionMessage: `No tienes permisos para firmar como ${signature.label}.`
       }
     }
 
@@ -2882,10 +2869,8 @@ export const signLicitacionStep = async (data) => {
       return { error: "Debe subir su firma antes de firmar." }
     }
 
-    const superAdmin = isSuperAdmin(userContext.user)
-
-    if (!superAdmin && !hasAllowedSignatureRole(requirement, userContext)) {
-      return { error: `No tiene permisos para firmar como ${requirement.label}.` }
+    if (!userContext.isSuperAdmin && !userContext.permissions.includes(requirement.permissionCode)) {
+      return { error: `No tienes permisos para firmar como ${requirement.label}.` }
     }
 
     const appliedSignatures = await prisma.licitacion_firmas.findMany({

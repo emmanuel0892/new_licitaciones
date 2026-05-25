@@ -1,17 +1,18 @@
 import prisma from "@/lib/prisma"
+import { PERMISSION_CODES } from "@/lib/permissions"
 
 export const REQUIRED_SIGNATURES_BY_STEP = {
   2: [
     {
       key: "jefatura_unidad",
       label: "Jefatura de Unidad",
-      roles: ["jefe_compras", "jefe_adquisiciones", "jefe_unidad_legal", "jefe_presupuesto"],
+      permissionCode: PERMISSION_CODES.SIGN_UNIT_HEAD,
       order: 1
     },
     {
       key: "jefatura_dpto",
       label: "Jefatura de Dpto",
-      roles: ["jefe_adquisiciones", "jefe_compras"],
+      permissionCode: PERMISSION_CODES.SIGN_DEPARTMENT_HEAD,
       order: 2,
       dependsOn: "jefatura_unidad"
     }
@@ -20,7 +21,7 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "jefatura_unidad_legal",
       label: "Jefatura Unidad Administrativo Legal",
-      roles: ["jefe_unidad_legal"],
+      permissionCode: PERMISSION_CODES.SIGN_LEGAL_UNIT_HEAD,
       order: 1
     }
   ],
@@ -28,13 +29,13 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "subdirector_administrativo",
       label: "Subdirector Administrativo",
-      roles: ["subdirector_administrativo"],
+      permissionCode: PERMISSION_CODES.SIGN_ADMINISTRATIVE_SUBDIRECTOR,
       order: 1
     },
     {
       key: "director",
       label: "Director",
-      roles: ["director"],
+      permissionCode: PERMISSION_CODES.SIGN_DIRECTOR,
       order: 2,
       dependsOn: "subdirector_administrativo"
     }
@@ -43,13 +44,13 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "jefatura_unidad",
       label: "Jefatura de Unidad",
-      roles: ["jefe_compras", "jefe_adquisiciones", "jefe_unidad_legal", "jefe_presupuesto"],
+      permissionCode: PERMISSION_CODES.SIGN_UNIT_HEAD,
       order: 1
     },
     {
       key: "jefatura_dpto",
       label: "Jefatura de Dpto",
-      roles: ["jefe_adquisiciones", "jefe_compras"],
+      permissionCode: PERMISSION_CODES.SIGN_DEPARTMENT_HEAD,
       order: 2,
       dependsOn: "jefatura_unidad"
     }
@@ -58,7 +59,7 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "jefatura_unidad_legal",
       label: "Jefatura Unidad Administrativo Legal",
-      roles: ["jefe_unidad_legal"],
+      permissionCode: PERMISSION_CODES.SIGN_LEGAL_UNIT_HEAD,
       order: 1
     }
   ],
@@ -66,7 +67,7 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "subdirector_administrativo",
       label: "Subdirector Administrativo",
-      roles: ["subdirector_administrativo"],
+      permissionCode: PERMISSION_CODES.SIGN_ADMINISTRATIVE_SUBDIRECTOR,
       order: 1
     }
   ],
@@ -74,13 +75,13 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "jefatura_unidad",
       label: "Jefatura de Unidad",
-      roles: ["jefe_compras", "jefe_adquisiciones", "jefe_unidad_legal", "jefe_presupuesto"],
+      permissionCode: PERMISSION_CODES.SIGN_UNIT_HEAD,
       order: 1
     },
     {
       key: "jefatura_dpto",
       label: "Jefatura de Dpto",
-      roles: ["jefe_adquisiciones", "jefe_compras"],
+      permissionCode: PERMISSION_CODES.SIGN_DEPARTMENT_HEAD,
       order: 2,
       dependsOn: "jefatura_unidad"
     }
@@ -89,7 +90,7 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "jefatura_unidad_legal",
       label: "Jefatura Unidad Administrativo Legal",
-      roles: ["jefe_unidad_legal"],
+      permissionCode: PERMISSION_CODES.SIGN_LEGAL_UNIT_HEAD,
       order: 1
     }
   ],
@@ -97,13 +98,13 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "subdirector_administrativo",
       label: "Subdirector Administrativo",
-      roles: ["subdirector_administrativo"],
+      permissionCode: PERMISSION_CODES.SIGN_ADMINISTRATIVE_SUBDIRECTOR,
       order: 1
     },
     {
       key: "director",
       label: "Director",
-      roles: ["director"],
+      permissionCode: PERMISSION_CODES.SIGN_DIRECTOR,
       order: 2,
       dependsOn: "subdirector_administrativo"
     }
@@ -112,7 +113,7 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "oficina_partes",
       label: "Oficina de Partes",
-      roles: ["oficina_partes"],
+      permissionCode: PERMISSION_CODES.SIGN_RECORDS_OFFICE,
       order: 1
     }
   ],
@@ -120,13 +121,13 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "jefatura_unidad",
       label: "Jefatura de Unidad",
-      roles: ["jefe_compras", "jefe_adquisiciones", "jefe_unidad_legal", "jefe_presupuesto"],
+      permissionCode: PERMISSION_CODES.SIGN_UNIT_HEAD,
       order: 1
     },
     {
       key: "jefatura_dpto",
       label: "Jefatura de Dpto",
-      roles: ["jefe_adquisiciones", "jefe_compras"],
+      permissionCode: PERMISSION_CODES.SIGN_DEPARTMENT_HEAD,
       order: 2,
       dependsOn: "jefatura_unidad"
     }
@@ -135,7 +136,7 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "jefatura_unidad_legal",
       label: "Jefatura Unidad Administrativo Legal",
-      roles: ["jefe_unidad_legal"],
+      permissionCode: PERMISSION_CODES.SIGN_LEGAL_UNIT_HEAD,
       order: 1
     }
   ],
@@ -143,13 +144,13 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "subdirector_administrativo",
       label: "Subdirector Administrativo",
-      roles: ["subdirector_administrativo"],
+      permissionCode: PERMISSION_CODES.SIGN_ADMINISTRATIVE_SUBDIRECTOR,
       order: 1
     },
     {
       key: "director",
       label: "Director",
-      roles: ["director"],
+      permissionCode: PERMISSION_CODES.SIGN_DIRECTOR,
       order: 2,
       dependsOn: "subdirector_administrativo"
     }
@@ -158,7 +159,7 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "oficina_partes",
       label: "Oficina de Partes",
-      roles: ["oficina_partes"],
+      permissionCode: PERMISSION_CODES.SIGN_RECORDS_OFFICE,
       order: 1
     }
   ],
@@ -166,13 +167,13 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "jefatura_unidad",
       label: "Jefatura de Unidad",
-      roles: ["jefe_compras", "jefe_adquisiciones", "jefe_unidad_legal", "jefe_presupuesto"],
+      permissionCode: PERMISSION_CODES.SIGN_UNIT_HEAD,
       order: 1
     },
     {
       key: "jefatura_dpto",
       label: "Jefatura de Dpto",
-      roles: ["jefe_adquisiciones", "jefe_compras"],
+      permissionCode: PERMISSION_CODES.SIGN_DEPARTMENT_HEAD,
       order: 2,
       dependsOn: "jefatura_unidad"
     }
@@ -181,7 +182,7 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "jefatura_unidad_legal",
       label: "Jefatura Unidad Administrativo Legal",
-      roles: ["jefe_unidad_legal"],
+      permissionCode: PERMISSION_CODES.SIGN_LEGAL_UNIT_HEAD,
       order: 1
     }
   ],
@@ -189,13 +190,13 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "subdirector_administrativo",
       label: "Subdirector Administrador",
-      roles: ["subdirector_administrativo"],
+      permissionCode: PERMISSION_CODES.SIGN_ADMINISTRATIVE_SUBDIRECTOR,
       order: 1
     },
     {
       key: "director",
       label: "Director",
-      roles: ["director"],
+      permissionCode: PERMISSION_CODES.SIGN_DIRECTOR,
       order: 2,
       dependsOn: "subdirector_administrativo"
     }
@@ -204,7 +205,7 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
     {
       key: "oficina_partes",
       label: "Oficina de Partes",
-      roles: ["oficina_partes"],
+      permissionCode: PERMISSION_CODES.SIGN_RECORDS_OFFICE,
       order: 1
     }
   ]

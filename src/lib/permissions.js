@@ -7,25 +7,43 @@ export const PERMISSION_CODES = {
   LICITACION_VIEW_DOCUMENTS: "licitacion.ver_documentos",
   LICITACION_UPLOAD_DOCUMENT: "licitacion.subir_documento",
   USERS_MANAGE: "usuarios.gestionar",
-  ROLES_MANAGE: "roles.gestionar"
+  ROLES_MANAGE: "roles.gestionar",
+  SIGN_UNIT_HEAD: "firma.jefatura_unidad",
+  SIGN_DEPARTMENT_HEAD: "firma.jefatura_dpto",
+  SIGN_LEGAL_UNIT_HEAD: "firma.jefatura_unidad_legal",
+  SIGN_ADMINISTRATIVE_SUBDIRECTOR: "firma.subdirector_administrativo",
+  SIGN_DIRECTOR: "firma.director",
+  SIGN_RECORDS_OFFICE: "firma.oficina_partes",
+  SIDEBAR_HOME: "sidebar.inicio",
+  SIDEBAR_NEWS: "sidebar.novedades",
+  SIDEBAR_TENDERS: "sidebar.licitaciones",
+  SIDEBAR_TENDERS_CREATE: "sidebar.licitaciones.crear",
+  SIDEBAR_TENDERS_MINE: "sidebar.licitaciones.mis_licitaciones",
+  SIDEBAR_TENDERS_ALL: "sidebar.licitaciones.todas",
+  SIDEBAR_INBOX: "sidebar.bandeja",
+  SIDEBAR_CONSUMPTION: "sidebar.seguimiento_consumo",
+  SIDEBAR_BASE_FORMATS: "sidebar.formato_bases",
+  SIDEBAR_USERS: "sidebar.usuarios",
+  SIDEBAR_NEWS_MANAGEMENT: "sidebar.gestion_novedades",
+  SIDEBAR_PERMISSIONS_MANAGEMENT: "sidebar.gestion_permisos"
 }
 
 export const isSuperAdmin = (user) => {
   const typeAccount = user?.type_account ?? user?.typeAccount ?? ""
 
-  const roles = user?.user_roles?.flatMap((userRole) => {
-    return [
-      userRole?.role_id,
-      userRole?.roles?.id,
-      userRole?.roles?.name
-    ].filter(Boolean)
-  }) ?? []
+  const roleNames = user?.user_roles
+    ?.map((userRole) => userRole?.roles?.name)
+    .filter(Boolean) ?? []
+  const legacyRoleIds = user?.user_roles
+    ?.map((userRole) => userRole?.role_id)
+    .filter(Boolean) ?? []
 
   return (
     typeAccount === "Super Admin" ||
     typeAccount === "superadmin" ||
-    roles.includes("superadmin") ||
-    roles.includes("Super Admin")
+    roleNames.includes("superadmin") ||
+    roleNames.includes("Super Admin") ||
+    legacyRoleIds.includes("superadmin")
   )
 }
 

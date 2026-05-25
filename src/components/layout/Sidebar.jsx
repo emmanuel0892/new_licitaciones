@@ -25,7 +25,6 @@ import {
 } from "@ant-design/icons"
 import { useSession } from "next-auth/react"
 import { logoutAction } from "@/actions/auth"
-import { ROLES } from "@/lib/helpers"
 import styles from "./Sidebar.module.css"
 
 const { Sider, Header, Content } = Layout
@@ -50,56 +49,59 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
   }
 
   const getMenuItems = () => {
-    const items = [
-      {
+    const items = []
+
+    if (hasPermission("sidebar.inicio")) {
+      items.push({
         key: "/dashboard",
         icon: <DashboardOutlined />,
-        label: "Inicio",
-        roles: "all"
-      },
-      {
+        label: "Inicio"
+      })
+    }
+
+    if (hasPermission("sidebar.novedades")) {
+      items.push({
         key: "/dashboard/novedades",
         icon: <BellOutlined />,
-        label: "Novedades",
-        roles: "all"
-      }
+        label: "Novedades"
+      })
+    }
+
+    const licitacionesPermissions = [
+      "sidebar.licitaciones.crear",
+      "sidebar.licitaciones.mis_licitaciones",
+      "sidebar.licitaciones.todas"
     ]
 
-    if (userType === ROLES.SUPER_ADMIN || userType === ROLES.LICITADOR || hasPermission("licitacion.crear")) {
+    if (
+      hasPermission("sidebar.licitaciones") ||
+      licitacionesPermissions.some((permissionCode) => hasPermission(permissionCode))
+    ) {
       items.push({
         key: "licitaciones",
         icon: <FileTextOutlined />,
         label: "Licitaciones",
         children: [
-          ...(hasPermission("licitacion.crear") ? [{
+          ...(hasPermission("sidebar.licitaciones.crear") ? [{
             key: "/dashboard/licitaciones/crear",
             icon: <PlusCircleOutlined />,
             label: "Crear Nuevo Proceso"
           }] : []),
-          {
+          ...(hasPermission("sidebar.licitaciones.mis_licitaciones") ? [{
             key: "/dashboard/licitaciones/mis-licitaciones",
             icon: <FolderOutlined />,
             label: "Mis Licitaciones"
-          },
-          ...(userType === ROLES.SUPER_ADMIN ? [
-            {
-              key: "/dashboard/licitaciones/todas",
-              icon: <FileSearchOutlined />,
-              label: "Todas las Licitaciones"
-            }
-          ] : [])
+          }] : []),
+          ...(hasPermission("sidebar.licitaciones.todas") ? [{
+            key: "/dashboard/licitaciones/todas",
+            icon: <FileSearchOutlined />,
+            label: "Todas las Licitaciones"
+          }] : [])
         ]
       })
     }
 
-    if (
-      userType === ROLES.SUPER_ADMIN ||
-      userType === ROLES.LICITADOR ||
-      userType === ROLES.SECRETARIO_JURIDICO ||
-      userType === ROLES.PRESUPUESTO ||
-      userType === ROLES.SUBDIRECCION_ADMINISTRATIVA ||
-      permissions.some((permission) => permission.startsWith("workflow."))
-    ) {
+    if (hasPermission("sidebar.bandeja")) {
       items.push({
         key: "/dashboard/licitaciones/bandeja",
         icon: <InboxOutlined />,
@@ -107,7 +109,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       })
     }
 
-    if (userType === ROLES.SUPER_ADMIN || userType === ROLES.LICITADOR) {
+    if (hasPermission("sidebar.seguimiento_consumo")) {
       items.push({
         key: "/dashboard/consumo",
         icon: <PieChartOutlined />,
@@ -115,42 +117,15 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       })
     }
 
-    // Plan de Compras y Requerimientos ocultados por seguridad
-    // if (userType === ROLES.SUPER_ADMIN || userType === ROLES.SECRETARIA_ABASTECIMIENTO) {
-    //   items.push(
-    //     {
-    //       key: "pac",
-    //       icon: <CalendarOutlined />,
-    //       label: "Plan de Compras",
-    //       children: [
-    //         {
-    //           key: "/dashboard/pac",
-    //           icon: <CalendarOutlined />,
-    //           label: "PAC"
-    //         },
-    //         {
-    //           key: "/dashboard/pac/consolidado",
-    //           icon: <FileSearchOutlined />,
-    //           label: "Consolidado PAC"
-    //         }
-    //       ]
-    //     },
-    //     {
-    //       key: "/dashboard/requerimientos",
-    //       icon: <ShoppingCartOutlined />,
-    //       label: "Requerimientos"
-    //     }
-    //   )
-    // }
+    if (hasPermission("sidebar.formato_bases")) {
+      items.push({
+        key: "/dashboard/formato-bases",
+        icon: <FolderOutlined />,
+        label: "Formato Bases"
+      })
+    }
 
-    items.push({
-      key: "/dashboard/formato-bases",
-      icon: <FolderOutlined />,
-      label: "Formato Bases",
-      roles: "all"
-    })
-
-    if (hasPermission("usuarios.gestionar")) {
+    if (hasPermission("sidebar.usuarios")) {
       items.push(
         {
           key: "/dashboard/usuarios",
@@ -160,7 +135,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       )
     }
 
-    if (userType === ROLES.SUPER_ADMIN) {
+    if (hasPermission("sidebar.gestion_novedades")) {
       items.push(
         {
           key: "/dashboard/novedades/gestion",
@@ -170,7 +145,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       )
     }
 
-    if (hasPermission("roles.gestionar")) {
+    if (hasPermission("sidebar.gestion_permisos")) {
       items.push({
         key: "/dashboard/permisos",
         icon: <SafetyCertificateOutlined />,

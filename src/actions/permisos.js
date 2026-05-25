@@ -17,6 +17,8 @@ const permissionAssignmentSchema = z.object({
   permissionIds: z.array(z.coerce.number().int().positive())
 })
 
+const roleIdSchema = z.string().min(1, "El rol es requerido")
+
 const BASE_PERMISSIONS = [
   {
     codigo: "licitacion.crear",
@@ -59,6 +61,114 @@ const BASE_PERMISSIONS = [
     nombre: "Gestionar roles y permisos",
     descripcion: "Permite asignar roles y permisos",
     categoria: "Administración"
+  },
+  {
+    codigo: "firma.jefatura_unidad",
+    nombre: "Firmar como Jefatura de Unidad",
+    descripcion: "Permite aplicar firma como Jefatura de Unidad en pasos del workflow",
+    categoria: "Firmas"
+  },
+  {
+    codigo: "firma.jefatura_dpto",
+    nombre: "Firmar como Jefatura de Dpto",
+    descripcion: "Permite aplicar firma como Jefatura de Dpto en pasos del workflow",
+    categoria: "Firmas"
+  },
+  {
+    codigo: "firma.jefatura_unidad_legal",
+    nombre: "Firmar como Jefatura Unidad Administrativo Legal",
+    descripcion: "Permite aplicar firma como Jefatura Unidad Administrativo Legal en pasos del workflow",
+    categoria: "Firmas"
+  },
+  {
+    codigo: "firma.subdirector_administrativo",
+    nombre: "Firmar como Subdirector Administrativo",
+    descripcion: "Permite aplicar firma como Subdirector Administrativo en pasos del workflow",
+    categoria: "Firmas"
+  },
+  {
+    codigo: "firma.director",
+    nombre: "Firmar como Director",
+    descripcion: "Permite aplicar firma como Director en pasos del workflow",
+    categoria: "Firmas"
+  },
+  {
+    codigo: "firma.oficina_partes",
+    nombre: "Firmar como Oficina de Partes",
+    descripcion: "Permite aplicar firma como Oficina de Partes en pasos del workflow",
+    categoria: "Firmas"
+  },
+  {
+    codigo: "sidebar.inicio",
+    nombre: "Ver menú Inicio",
+    descripcion: "Permite visualizar el menú Inicio en el sidebar",
+    categoria: "Sidebar"
+  },
+  {
+    codigo: "sidebar.novedades",
+    nombre: "Ver menú Novedades",
+    descripcion: "Permite visualizar el menú Novedades en el sidebar",
+    categoria: "Sidebar"
+  },
+  {
+    codigo: "sidebar.licitaciones",
+    nombre: "Ver menú Licitaciones",
+    descripcion: "Permite visualizar el grupo Licitaciones en el sidebar",
+    categoria: "Sidebar"
+  },
+  {
+    codigo: "sidebar.licitaciones.crear",
+    nombre: "Ver menú Crear Nuevo Proceso",
+    descripcion: "Permite visualizar Crear Nuevo Proceso dentro de Licitaciones",
+    categoria: "Sidebar"
+  },
+  {
+    codigo: "sidebar.licitaciones.mis_licitaciones",
+    nombre: "Ver menú Mis Licitaciones",
+    descripcion: "Permite visualizar Mis Licitaciones dentro de Licitaciones",
+    categoria: "Sidebar"
+  },
+  {
+    codigo: "sidebar.licitaciones.todas",
+    nombre: "Ver menú Todas las Licitaciones",
+    descripcion: "Permite visualizar Todas las Licitaciones dentro de Licitaciones",
+    categoria: "Sidebar"
+  },
+  {
+    codigo: "sidebar.bandeja",
+    nombre: "Ver menú Bandeja de Entrada",
+    descripcion: "Permite visualizar Bandeja de Entrada en el sidebar",
+    categoria: "Sidebar"
+  },
+  {
+    codigo: "sidebar.seguimiento_consumo",
+    nombre: "Ver menú Seguimiento Consumo",
+    descripcion: "Permite visualizar Seguimiento Consumo en el sidebar",
+    categoria: "Sidebar"
+  },
+  {
+    codigo: "sidebar.formato_bases",
+    nombre: "Ver menú Formato Bases",
+    descripcion: "Permite visualizar Formato Bases en el sidebar",
+    categoria: "Sidebar"
+  },
+  {
+    codigo: "sidebar.usuarios",
+    nombre: "Ver menú Usuarios",
+    descripcion: "Permite visualizar Usuarios en el sidebar",
+    categoria: "Sidebar"
+  },
+  {
+    codigo: "sidebar.gestion_novedades",
+    nombre: "Ver menú Gestión Novedades",
+    descripcion: "Permite visualizar Gestión Novedades en el sidebar",
+    categoria: "Sidebar"
+  },
+  {
+    codigo: "sidebar.gestion_permisos",
+    nombre: "Ver menú Gestión de Permisos",
+    descripcion: "Permite visualizar Gestión de Permisos en el sidebar",
+    categoria: "Sidebar"
   }
 ]
 
@@ -76,6 +186,12 @@ const getAuthorizedSession = async () => {
   }
 
   return { session }
+}
+
+const revalidatePermissionConsumers = () => {
+  revalidatePath("/dashboard", "layout")
+  revalidatePath("/dashboard/licitaciones")
+  revalidatePath("/dashboard/licitaciones/bandeja")
 }
 
 const formatWorkflowPermissionName = (permission, processByStep) => {
@@ -190,7 +306,7 @@ export const getPermissionManagementData = async () => {
         roles: roles.map((role) => ({
           id: role.id,
           name: role.name,
-          permissionIds: role.roles_permisos.map((assignment) => assignment.permiso_id)
+          permissionIds: role.roles_permisos.map((assignment) => Number(assignment.permiso_id))
         })),
         permissions: permissions.map((permission) => ({
           id: permission.id,
@@ -270,11 +386,76 @@ export const syncPermissionCatalog = async () => {
       )
     )
 
-    revalidatePath("/dashboard/permisos")
+    const superAdminRole = await prisma.roles.findUnique({
+      where: { name: "superadmin" },
+      select: { id: true }
+    })
+
+    if (superAdminRole) {
+      const sidebarPermissions = await prisma.permisos.findMany({
+        where: {
+          codigo: {
+            startsWith: "sidebar."
+          }
+        },
+        select: { id: true }
+      })
+
+      await prisma.roles_permisos.createMany({
+        data: sidebarPermissions.map((permission) => ({
+          role_id: superAdminRole.id,
+          permiso_id: permission.id
+        })),
+        skipDuplicates: true
+      })
+    }
+
+    revalidatePermissionConsumers()
     return { success: true }
   } catch (error) {
     console.error("Error en syncPermissionCatalog:", error)
     return { error: "Error al actualizar el catálogo de permisos" }
+  }
+}
+
+export const getRolePermissions = async (roleId) => {
+  const authorization = await getAuthorizedSession()
+
+  if (authorization.error) {
+    return authorization
+  }
+
+  const validatedRoleId = roleIdSchema.safeParse(roleId)
+
+  if (!validatedRoleId.success) {
+    return { error: validatedRoleId.error.issues[0]?.message || "Rol inválido" }
+  }
+
+  try {
+    const role = await prisma.roles.findUnique({
+      where: { id: validatedRoleId.data },
+      select: { id: true }
+    })
+
+    if (!role) {
+      return { error: "Rol no encontrado" }
+    }
+
+    const rolePermissions = await prisma.roles_permisos.findMany({
+      where: {
+        role_id: validatedRoleId.data
+      },
+      select: {
+        permiso_id: true
+      }
+    })
+
+    return {
+      data: rolePermissions.map((rolePermission) => Number(rolePermission.permiso_id))
+    }
+  } catch (error) {
+    console.error("Error en getRolePermissions:", error)
+    return { error: "Error al obtener permisos del rol" }
   }
 }
 
@@ -322,7 +503,7 @@ export const updateUserRoles = async (data) => {
       })
     })
 
-    revalidatePath("/dashboard/permisos")
+    revalidatePermissionConsumers()
     return { success: true }
   } catch (error) {
     console.error("Error en updateUserRoles:", error)
@@ -345,7 +526,7 @@ export const updateRolePermissions = async (data) => {
   }
 
   const { roleId, permissionIds } = validatedFields.data
-  const uniquePermissionIds = [...new Set(permissionIds)]
+  const uniquePermissionIds = [...new Set(permissionIds.map(Number))]
 
   try {
     const role = await prisma.roles.findUnique({
@@ -385,7 +566,7 @@ export const updateRolePermissions = async (data) => {
       }
     })
 
-    revalidatePath("/dashboard/permisos")
+    revalidatePermissionConsumers()
     return { success: true }
   } catch (error) {
     console.error("Error en updateRolePermissions:", error)

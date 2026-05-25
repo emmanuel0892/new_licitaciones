@@ -1,13 +1,12 @@
 import RequirePermissions from "@/components/auth/RequirePermissions"
-import NovedadesContent from "@/components/novedades/NovedadesContent"
 import { PERMISSION_CODES } from "@/lib/permissions"
 
-const NovedadesPage = () => {
+const VerNovedadLayout = ({ children }) => {
   return (
     <RequirePermissions allOf={[PERMISSION_CODES.SIDEBAR_NEWS]}>
-      <NovedadesContent />
+      {children}
     </RequirePermissions>
   )
 }
 
-export default NovedadesPage
+export default VerNovedadLayout

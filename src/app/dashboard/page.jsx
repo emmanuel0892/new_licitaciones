@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import DashboardContent from "@/components/dashboard/DashboardContent"
+import { UnauthorizedAccess } from "@/components/auth/RequirePermissions"
 import { PERMISSION_CODES, userHasPermission } from "@/lib/permissions"
 
 const getStats = async (userId, userType) => {
@@ -34,6 +35,12 @@ const getStats = async (userId, userType) => {
 const DashboardPage = async () => {
   const session = await auth()
   const user = session?.user
+
+  const canViewDashboard = await userHasPermission(user?.id, PERMISSION_CODES.SIDEBAR_HOME)
+
+  if (!canViewDashboard) {
+    return <UnauthorizedAccess />
+  }
 
   let stats = { totalLicitaciones: 0, pendientes: 0, finalizadas: 0, enProceso: 0 }
 
