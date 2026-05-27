@@ -6,8 +6,6 @@ import { revalidatePath } from "next/cache"
 
 const API_BASE_URL = process.env.MERCADO_PUBLICO_API_URL || "https://api.mercadopublico.cl/servicios/v1/publico"
 const API_TICKET = process.env.MERCADO_PUBLICO_TICKET
-const isPersistentMercadoPublicoSyncDisabled = () => true
-const PERSISTENCE_DISABLED_ERROR = "La persistencia de datos Mercado Publico fue deshabilitada. Consulte los datos en linea desde la Bandeja de Entrada."
 
 // Obtener licitaciones por requirente/servicio
 export const getLicitacionesMPByRequirente = async (requirente) => {
@@ -151,10 +149,6 @@ export const syncLicitacionMP = async (codigoLicitacion, requirente) => {
   const session = await auth()
   if (!session) return { error: "No autorizado" }
 
-  if (isPersistentMercadoPublicoSyncDisabled()) {
-    return { error: PERSISTENCE_DISABLED_ERROR }
-  }
-
   if (!API_TICKET) {
     return { error: "API de Mercado Público no configurada" }
   }
@@ -270,10 +264,6 @@ export const syncOrdenesCompraMP = async (licitacionMPId) => {
   const session = await auth()
   if (!session) return { error: "No autorizado" }
 
-  if (isPersistentMercadoPublicoSyncDisabled()) {
-    return { error: PERSISTENCE_DISABLED_ERROR }
-  }
-
   if (!API_TICKET) {
     return { error: "API de Mercado Público no configurada" }
   }
@@ -363,12 +353,15 @@ export const syncOrdenesCompraMP = async (licitacionMPId) => {
                 categoria: item.Categoria,
                 codigoProducto: item.CodigoProducto,
                 producto: item.Producto,
-                especificacion: item.EspecificacionComprador,
+                especificacionComprador: item.EspecificacionComprador,
+                especificacionProveedor: item.EspecificacionProveedor,
                 cantidad: item.Cantidad,
                 unidad: item.Unidad,
+                moneda: item.Moneda || "CLP",
                 precioNeto: item.PrecioNeto,
                 totalDescuentos: item.TotalDescuentos || 0,
                 totalCargos: item.TotalCargos || 0,
+                totalImpuestos: item.TotalImpuestos || 0,
                 total: item.Total
               }
             })
@@ -508,10 +501,6 @@ export const marcarAlertaLeida = async (alertaId) => {
 export const createLicitacionMPManual = async (data) => {
   const session = await auth()
   if (!session) return { error: "No autorizado" }
-
-  if (isPersistentMercadoPublicoSyncDisabled()) {
-    return { error: PERSISTENCE_DISABLED_ERROR }
-  }
 
   try {
     const licitacion = await prisma.licitacionMP.create({

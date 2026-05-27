@@ -24,6 +24,7 @@ import {
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { getLicitaciones, avanzarLicitacion, avanzarLicitacionConInicioAnticipado, avanzarLicitacionConContrato, avanzarLicitacionConAddendum, finalizarLicitacionSinAddendum, getRoles } from "@/actions/licitaciones"
+import { getLicitacionMercadoPublicoBandeja } from "@/actions/mercadoPublicoBandeja"
 import { getUsers } from "@/actions/users"
 import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel, formatRoleLabel } from "@/lib/helpers"
 import ModalDevolver from "@/components/modals/ModalDevolver"
@@ -318,13 +319,9 @@ const BandejaPage = () => {
     setMercadoPublicoErrors((current) => ({ ...current, [record.id]: null }))
 
     try {
-      const response = await fetch(
-        `/api/mercado-publico/licitacion?codigo=${encodeURIComponent(codigoMercadoPublico)}`,
-        { cache: "no-store" }
-      )
-      const result = await response.json()
+      const result = await getLicitacionMercadoPublicoBandeja(codigoMercadoPublico)
 
-      if (!response.ok) {
+      if (result.error) {
         throw new Error(result.error || "No se pudo consultar Mercado Publico.")
       }
 
@@ -864,6 +861,7 @@ const BandejaPage = () => {
               .map(([id]) => Number(id)),
             rowExpandable: canViewMercadoPublico,
             showExpandColumn: false,
+            expandedRowClassName: () => styles.mercadoPublicoExpandedRow,
             expandedRowRender: (record) => (
               <MercadoPublicoDetalle
                 data={mercadoPublicoData[record.id]?.data}

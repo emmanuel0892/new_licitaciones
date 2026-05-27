@@ -78,6 +78,7 @@
 }
 
 .bandejaTable {
+  --actions-column-width: 220px;
   position: relative;
 }
 
@@ -87,6 +88,7 @@
   min-width: 220px;
   width: 220px;
   background: #f8fafc !important;
+  border-left: 1px solid #e2e8f0;
   z-index: 30 !important;
   box-shadow: -8px 0 12px rgba(15, 23, 42, 0.08);
 }
@@ -97,6 +99,7 @@
   min-width: 220px;
   width: 220px;
   background: #ffffff !important;
+  border-left: 1px solid #e2e8f0;
   z-index: 20 !important;
   box-shadow: -8px 0 12px rgba(15, 23, 42, 0.06);
 }
@@ -117,7 +120,28 @@
   white-space: nowrap;
 }
 
-.bandejaTable :global(.ant-table-expanded-row > td) {
+.mercadoPublicoExpandedRow > td {
   background: #f8f9fa !important;
   padding: 12px 16px !important;
+  position: relative;
+  z-index: 0;
+}
+
+.mercadoPublicoExpandedRow :global(.ant-table-expanded-row-fixed) {
+  box-sizing: border-box;
+  padding-inline-end: calc(var(--actions-column-width) + 16px) !important;
+}
+
+.mercadoPublicoExpandedRow :global(.ant-table-expanded-row-fixed)::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--actions-column-width);
+  background: #ffffff;
+  border-left: 1px solid #e2e8f0;
+  box-shadow: -8px 0 12px rgba(15, 23, 42, 0.06);
+  z-index: 1;
+  pointer-events: none;
 }

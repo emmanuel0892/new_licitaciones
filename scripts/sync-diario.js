@@ -11,13 +11,6 @@
  * Diseñado para ejecutarse via cronjob cada 5-15 minutos
  */
 
-const isPersistentMercadoPublicoSyncDisabled = () => true
-
-if (isPersistentMercadoPublicoSyncDisabled()) {
-  console.error("Sincronizacion deshabilitada: los datos de Mercado Publico se consultan en linea y no se almacenan.")
-  process.exit(1)
-}
-
 require("dotenv").config()
 const https = require("https")
 const { PrismaClient } = require("@prisma/client")

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import prisma from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { getUserPermissionContext, PERMISSION_CODES } from "@/lib/permissions"
-import { fetchLicitacionMercadoPublico } from "@/lib/mercadoPublico"
+import { getOrCreateLicitacionMercadoPublico } from "@/lib/mercadoPublicoCache"
 import { updateCodigoMercadoPublicoSchema } from "@/lib/validations/licitacion"
 
 export const updateCodigoMercadoPublico = async (data) => {
@@ -57,7 +57,7 @@ export const updateCodigoMercadoPublico = async (data) => {
       return { error: "El codigo Mercado Publico solo se puede editar en el primer paso." }
     }
 
-    const datosMercadoPublico = await fetchLicitacionMercadoPublico(codigoMercadoPublico)
+    const datosMercadoPublico = await getOrCreateLicitacionMercadoPublico(codigoMercadoPublico)
     const montoAdjudicado = Number(datosMercadoPublico?.montoAdjudicado)
     const hasMontoAdjudicado = Number.isFinite(montoAdjudicado) && montoAdjudicado > 0
     const montoPresupuestado = hasMontoAdjudicado
