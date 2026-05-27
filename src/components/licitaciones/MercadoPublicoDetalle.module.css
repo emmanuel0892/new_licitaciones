@@ -67,15 +67,15 @@
   color: #334155;
 }
 
-.partialWarning {
-  margin-bottom: 10px;
-}
-
 .tableContainer {
   overflow: hidden;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: #ffffff;
+}
+
+.itemsTableContainer {
+  overflow-x: auto;
 }
 
 .compactTable :global(.ant-table-thead > tr > th) {
@@ -89,6 +89,16 @@
   padding-top: 7px !important;
   padding-bottom: 7px !important;
   font-size: 12px;
+}
+
+.compactTable :global(.ant-table-cell).moneyCell {
+  white-space: nowrap;
+}
+
+.moneyValue {
+  display: inline-block;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .compactTable :global(.ant-table-expanded-row > td) {

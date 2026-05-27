@@ -49,6 +49,10 @@ const renderTruncatedText = (value) => {
   )
 }
 
+const renderMoney = (value) => (
+  <Text strong className={styles.moneyValue}>{formatCLP(value)}</Text>
+)
+
 const ExpandButton = ({ expanded, onExpand, record, label }) => (
   <Button
     type="text"
@@ -63,7 +67,6 @@ const ExpandButton = ({ expanded, onExpand, record, label }) => (
 const MercadoPublicoResumen = ({ data }) => {
   const porcentaje = Math.round(data.porcentajeConsumo ?? 0)
   const proveedorVisible = data.proveedoresAdjudicados?.join(", ") || "Sin adjudicacion"
-  const consumoLabel = data.consumoParcial ? `${porcentaje}% parcial` : `${porcentaje}%`
 
   return (
     <div className={styles.summaryRow}>
@@ -91,10 +94,10 @@ const MercadoPublicoResumen = ({ data }) => {
       <div className={styles.consumo}>
         <div className={styles.consumoHeader}>
           <Text type="secondary">Consumo</Text>
-          <Text strong>{data.consumoDisponible || data.consumoParcial ? consumoLabel : "-"}</Text>
+          <Text strong>{data.consumoDisponible ? `${porcentaje}%` : "-"}</Text>
         </div>
         <Tooltip
-          title={data.consumoDisponible || data.consumoParcial
+          title={data.consumoDisponible
             ? `Consumido: ${formatCLP(data.montoConsumido)}`
             : "No hay ordenes asociadas disponibles para calcular consumo"}
         >
@@ -107,7 +110,7 @@ const MercadoPublicoResumen = ({ data }) => {
             />
           </div>
         </Tooltip>
-        {data.consumoDisponible || data.consumoParcial ? (
+        {data.consumoDisponible ? (
           <Text type="secondary">
             {formatCLP(data.montoConsumido)} / {formatCLP(data.montoAdjudicado)}
           </Text>
@@ -183,17 +186,19 @@ export const TablaItemsOrdenCompra = ({
       title: "P. Unitario",
       dataIndex: "precioUnitario",
       key: "precioUnitario",
-      width: 130,
+      width: 148,
       align: "right",
-      render: formatCLP
+      className: styles.moneyCell,
+      render: (value) => <span className={styles.moneyValue}>{formatCLP(value)}</span>
     },
     {
       title: "Total",
       dataIndex: "total",
       key: "total",
-      width: 140,
+      width: 162,
       align: "right",
-      render: (value) => <Text strong>{formatCLP(value)}</Text>
+      className: styles.moneyCell,
+      render: renderMoney
     }
   )
 
@@ -223,7 +228,7 @@ export const TablaItemsOrdenCompra = ({
   return (
     <div className={styles.itemsSection}>
       <Text strong className={styles.itemsTitle}>{title} ({items.length})</Text>
-      <div className={styles.tableContainer}>
+      <div className={`${styles.tableContainer} ${styles.itemsTableContainer}`}>
         <Table
           className={styles.compactTable}
           columns={columns}
@@ -231,7 +236,8 @@ export const TablaItemsOrdenCompra = ({
           rowKey={(item, index) => `${item.correlativo ?? index}-${item.codigoProducto ?? ""}`}
           size="small"
           pagination={false}
-          scroll={{ x: showAdjudicacion ? 1497 : 1167 }}
+          tableLayout="fixed"
+          scroll={{ x: showAdjudicacion ? 1540 : 1220 }}
         />
       </div>
     </div>
@@ -272,9 +278,10 @@ export const TablaOrdenesCompra = ({ ordenes = [], expandedRowKeys = [], onExpan
       title: "Total",
       dataIndex: "total",
       key: "total",
-      width: 135,
+      width: 150,
       align: "right",
-      render: (value) => <Text strong>{formatCLP(value)}</Text>
+      className: styles.moneyCell,
+      render: renderMoney
     },
     {
       title: "Items",
@@ -302,7 +309,8 @@ export const TablaOrdenesCompra = ({ ordenes = [], expandedRowKeys = [], onExpan
         rowKey="codigoOC"
         size="small"
         pagination={false}
-        scroll={{ x: 1085 }}
+        tableLayout="fixed"
+        scroll={{ x: 1100 }}
         expandable={{
           expandedRowKeys,
           onExpandedRowsChange: onExpandedRowKeysChange,
@@ -325,14 +333,6 @@ const FilaLicitacionExpandable = ({
   return (
     <div className={styles.detailPanel}>
       <MercadoPublicoResumen data={data} />
-      {data.consumoParcial && (
-        <Alert
-          className={styles.partialWarning}
-          type="warning"
-          showIcon
-          message="Algunas ordenes no respondieron desde Mercado Publico. El consumo mostrado es parcial."
-        />
-      )}
 
       {hasOrdenes && (
         <>

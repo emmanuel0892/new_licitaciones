@@ -4,8 +4,9 @@ const BASE_URL = "https://api.mercadopublico.cl/servicios/v1/publico/licitacione
 const ORDENES_COMPRA_URL = "https://api.mercadopublico.cl/servicios/v1/publico/ordenesdecompra.json"
 const TICKET = process.env.MERCADO_PUBLICO_TICKET ?? "8E6AFEDD-E204-4921-90C3-CD736B80D116"
 const CODIGO_ORGANISMO = process.env.MERCADO_PUBLICO_CODIGO_ORGANISMO ?? "7374"
-const API_RETRIES = 2
-const API_RETRY_DELAY = 350
+const API_RETRIES = 4
+const API_RETRY_DELAY = 750
+const API_REQUEST_DELAY = 250
 
 export const pick = (obj, keys, fallback = null) => {
   for (const key of keys) {
@@ -172,27 +173,27 @@ const fetchMercadoPublicoJson = async (url, errorMessage, retries = API_RETRIES)
 
 const fetchOrdenesCompraDirectas = async (codigosOrdenCompra = []) => {
   const ordenes = []
-  const codigosFallidos = []
 
-  for (const codigoOC of codigosOrdenCompra) {
-    try {
-      const json = await fetchMercadoPublicoJson(
-        buildOrdenCompraUrl(codigoOC),
-        `No se pudo obtener la orden de compra ${codigoOC} desde Mercado Publico.`
-      )
-      const orden = getListado(json)[0]
+  for (let index = 0; index < codigosOrdenCompra.length; index += 1) {
+    const codigoOC = codigosOrdenCompra[index]
+    const json = await fetchMercadoPublicoJson(
+      buildOrdenCompraUrl(codigoOC),
+      `No se pudo actualizar la orden de compra ${codigoOC} desde Mercado Publico. Intente nuevamente.`
+    )
+    const orden = getListado(json)[0]
 
-      if (orden) {
-        ordenes.push(orden)
-      } else {
-        codigosFallidos.push(codigoOC)
-      }
-    } catch {
-      codigosFallidos.push(codigoOC)
+    if (!orden) {
+      throw new Error(`Mercado Publico no devolvio la orden de compra ${codigoOC}. Intente nuevamente.`)
+    }
+
+    ordenes.push(orden)
+
+    if (index < codigosOrdenCompra.length - 1) {
+      await delay(API_REQUEST_DELAY)
     }
   }
 
-  return { ordenes, codigosFallidos }
+  return ordenes
 }
 
 export const normalizeMercadoPublicoResponse = (json, ordenesExternas = [], options = {}) => {
@@ -224,9 +225,7 @@ export const normalizeMercadoPublicoResponse = (json, ordenesExternas = [], opti
     montoConsumido,
     porcentajeConsumo,
     consumoDisponible: Boolean(options.consumoDisponible ?? ordenesAnidadas),
-    consumoParcial: Boolean(options.consumoParcial),
     cantidadOrdenesIndexadas: Number(options.cantidadOrdenesIndexadas ?? ordenesCompra.length),
-    codigosOrdenesFallidos: options.codigosOrdenesFallidos ?? [],
     proveedoresAdjudicados,
     cantidadItems: Number(licitacion?.Items?.Cantidad ?? items.length),
     items,
@@ -252,12 +251,10 @@ export const fetchLicitacionMercadoPublico = async (codigo, { codigosOrdenCompra
     return normalizeMercadoPublicoResponse(json)
   }
 
-  const { ordenes, codigosFallidos } = await fetchOrdenesCompraDirectas(codigosOrdenCompra)
+  const ordenes = await fetchOrdenesCompraDirectas(codigosOrdenCompra)
 
   return normalizeMercadoPublicoResponse(json, ordenes, {
-    consumoDisponible: codigosFallidos.length === 0,
-    consumoParcial: codigosFallidos.length > 0,
-    cantidadOrdenesIndexadas: codigosOrdenCompra.length,
-    codigosOrdenesFallidos: codigosFallidos
+    consumoDisponible: true,
+    cantidadOrdenesIndexadas: codigosOrdenCompra.length
   })
 }
