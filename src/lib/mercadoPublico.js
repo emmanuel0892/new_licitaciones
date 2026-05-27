@@ -43,7 +43,24 @@ export const cleanText = (value) => {
     .trim()
 }
 
-const normalizeItem = (item = {}, index = 0, isOrderItem = false) => {
+const getUnidadFromSpecification = (item = {}) => {
+  const specification = pick(item, ["EspecificacionComprador", "Descripcion"])
+
+  if (!specification) return null
+
+  const fields = String(specification)
+    .split(/\t|\r?\n/)
+    .map(cleanText)
+    .filter(Boolean)
+
+  const unidadField = fields.find((field) => (
+    ["UNIDAD", "UNIDADES", "CAJA", "CAJAS", "PAQUETE", "PAQUETES", "KIT", "KITS"].includes(field.toUpperCase())
+  ))
+
+  return unidadField || null
+}
+
+const normalizeItem = (item = {}, index = 0, isOrderItem = false, unidadFallback = null) => {
   const adjudicacion = item.Adjudicacion ?? null
   const cantidad = asNumber(
     pick(adjudicacion, ["Cantidad"], pick(item, ["Cantidad", "CantidadTotal", "CantidadAdjudicada"], 0))
@@ -66,7 +83,9 @@ const normalizeItem = (item = {}, index = 0, isOrderItem = false) => {
       "EspecificacionComprador",
       "EspecificacionProveedor"
     ])),
-    unidadMedida: cleanText(pick(item, ["UnidadMedida", "Unidad"])),
+    unidadMedida: cleanText(
+      pick(item, ["UnidadMedida", "Unidad"], unidadFallback ?? getUnidadFromSpecification(item))
+    ),
     cantidad,
     precioUnitario: adjudicado ? precioUnitario : null,
     total: adjudicado ? totalOrden ?? cantidad * precioUnitario : null,
@@ -78,18 +97,20 @@ const normalizeItem = (item = {}, index = 0, isOrderItem = false) => {
   }
 }
 
-const getItemsFromOrden = (orden = {}) => {
+const getItemsFromOrden = (orden = {}, itemsLicitacion = []) => {
   const items = pick(orden, ["Items", "ItemsListado"])
+  const itemsOrden = items ? getListado(items) : getListado(pick(orden, ["Listado"]))
 
-  if (items) {
-    return getListado(items).map((item, index) => normalizeItem(item, index, true))
-  }
+  return itemsOrden.map((item, index) => {
+    const itemLicitacion = itemsLicitacion.find((licitacionItem) => (
+      String(licitacionItem.codigoProducto) === String(item.CodigoProducto)
+    ))
 
-  const listado = pick(orden, ["Listado"])
-  return getListado(listado).map((item, index) => normalizeItem(item, index, true))
+    return normalizeItem(item, index, true, itemLicitacion?.unidadMedida ?? null)
+  })
 }
 
-const normalizeOrden = (orden = {}) => ({
+const normalizeOrden = (orden = {}, itemsLicitacion = []) => ({
   codigoOC: pick(orden, ["Codigo", "CodigoOC", "CodigoOrdenCompra"]),
   codigoLicitacion: pick(orden, ["CodigoLicitacion"]),
   codigoEstado: pick(orden, ["CodigoEstado"]),
@@ -98,7 +119,7 @@ const normalizeOrden = (orden = {}) => ({
   estado: pick(orden, ["Estado", "EstadoProveedor"]),
   total: asNumber(pick(orden, ["Total", "MontoTotal", "TotalNeto"])),
   fecha: pick(orden.Fechas, ["FechaEnvio", "FechaCreacion", "FechaAceptacion"], pick(orden, ["Fecha", "FechaCreacion"])),
-  items: getItemsFromOrden(orden)
+  items: getItemsFromOrden(orden, itemsLicitacion)
 })
 
 const calculateMontoAdjudicado = (licitacion, items) => {
@@ -200,7 +221,8 @@ export const normalizeMercadoPublicoResponse = (json, ordenesExternas = [], opti
   const licitacion = json?.Listado?.[0] ?? json ?? {}
   const items = asArray(licitacion?.Items?.Listado).map((item, index) => normalizeItem(item, index))
   const ordenesAnidadas = pick(licitacion, ["OrdenesCompra"], pick(json, ["OrdenesCompra"]))
-  const ordenesCompra = (ordenesAnidadas ? getListado(ordenesAnidadas) : asArray(ordenesExternas)).map(normalizeOrden)
+  const ordenesCompra = (ordenesAnidadas ? getListado(ordenesAnidadas) : asArray(ordenesExternas))
+    .map((orden) => normalizeOrden(orden, items))
   const montoAdjudicado = calculateMontoAdjudicado(licitacion, items)
   const { montoConsumido, porcentajeConsumo } = calculateConsumo(ordenesCompra, montoAdjudicado)
   const proveedoresAdjudicados = [...new Set(
