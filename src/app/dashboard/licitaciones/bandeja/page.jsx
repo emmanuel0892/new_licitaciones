@@ -16,7 +16,10 @@ import {
   HistoryOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
-  LockOutlined
+  LockOutlined,
+  EditOutlined,
+  PlusOutlined,
+  MinusOutlined
 } from "@ant-design/icons"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -30,6 +33,8 @@ import ModalWorkflow from "@/components/modals/ModalWorkflow"
 import ModalDocumentos from "@/components/modals/ModalDocumentos"
 import ModalInicioAnticipado from "@/components/modals/ModalInicioAnticipado"
 import ModalFirmarLicitacion from "@/components/modals/ModalFirmarLicitacion"
+import ModalEditarCodigoMercadoPublico from "@/components/modals/ModalEditarCodigoMercadoPublico"
+import MercadoPublicoDetalle from "@/components/licitaciones/MercadoPublicoDetalle"
 import * as XLSX from "xlsx"
 import styles from "./bandeja.module.css"
 
@@ -54,6 +59,12 @@ const BandejaPage = () => {
   const [generatingExcel, setGeneratingExcel] = useState(false)
   const [inicioAnticipadoModalData, setInicioAnticipadoModalData] = useState({ id: null, open: false })
   const [addendumModalData, setAddendumModalData] = useState({ id: null, open: false })
+  const [codigoMercadoPublicoModalData, setCodigoMercadoPublicoModalData] = useState({ licitacion: null, open: false })
+  const [expandedRows, setExpandedRows] = useState({})
+  const [expandedOrdenesCompra, setExpandedOrdenesCompra] = useState({})
+  const [mercadoPublicoData, setMercadoPublicoData] = useState({})
+  const [loadingMercadoPublico, setLoadingMercadoPublico] = useState({})
+  const [mercadoPublicoErrors, setMercadoPublicoErrors] = useState({})
 
   const modalDevolverRef = useRef(null)
   const modalHistorialRef = useRef(null)
@@ -280,6 +291,94 @@ const BandejaPage = () => {
     return hasPermission(`workflow.${action}.${currentStep}`)
   }
 
+  const getCodigoMercadoPublico = (record) => {
+    return record.codigoMercadoPublico ?? record.codigo_mercado_publico ?? null
+  }
+
+  const getCodigoVisible = (record) => {
+    return getCodigoMercadoPublico(record) ??
+      record.numeroLicitacion ??
+      record.numero_licitacion ??
+      null
+  }
+
+  const canViewMercadoPublico = (record) => {
+    return Boolean(getCodigoMercadoPublico(record)) && hasPermission("mercado_publico.ver")
+  }
+
+  const handleLoadMercadoPublico = async (record) => {
+    const codigoMercadoPublico = getCodigoMercadoPublico(record)
+    const cachedResult = mercadoPublicoData[record.id]
+
+    if (!codigoMercadoPublico || cachedResult?.codigo === codigoMercadoPublico) {
+      return
+    }
+
+    setLoadingMercadoPublico((current) => ({ ...current, [record.id]: true }))
+    setMercadoPublicoErrors((current) => ({ ...current, [record.id]: null }))
+
+    try {
+      const response = await fetch(
+        `/api/mercado-publico/licitacion?codigo=${encodeURIComponent(codigoMercadoPublico)}`,
+        { cache: "no-store" }
+      )
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "No se pudo consultar Mercado Publico.")
+      }
+
+      setMercadoPublicoData((current) => ({
+        ...current,
+        [record.id]: {
+          codigo: codigoMercadoPublico,
+          data: result.data
+        }
+      }))
+    } catch (error) {
+      setMercadoPublicoErrors((current) => ({
+        ...current,
+        [record.id]: error.message || "No se pudo consultar Mercado Publico."
+      }))
+    } finally {
+      setLoadingMercadoPublico((current) => ({ ...current, [record.id]: false }))
+    }
+  }
+
+  const handleToggleMercadoPublicoRow = async (record) => {
+    if (!canViewMercadoPublico(record)) return
+
+    if (expandedRows[record.id]) {
+      setExpandedRows((current) => ({ ...current, [record.id]: false }))
+      return
+    }
+
+    setExpandedRows((current) => ({ ...current, [record.id]: true }))
+    await handleLoadMercadoPublico(record)
+  }
+
+  const handleOpenCodigoMercadoPublico = (record) => {
+    setCodigoMercadoPublicoModalData({ licitacion: record, open: true })
+  }
+
+  const handleCodigoMercadoPublicoSaved = (record, updatedMercadoPublicoFields) => {
+    const updatedRecord = { ...record, ...updatedMercadoPublicoFields }
+
+    setCodigoMercadoPublicoModalData({ licitacion: null, open: false })
+    setLicitaciones((current) => current.map((licitacion) => (
+      licitacion.id === record.id ? updatedRecord : licitacion
+    )))
+
+    setExpandedRows((current) => ({ ...current, [record.id]: false }))
+    setExpandedOrdenesCompra((current) => ({ ...current, [record.id]: [] }))
+    setMercadoPublicoData((current) => {
+      const nextData = { ...current }
+      delete nextData[record.id]
+      return nextData
+    })
+    setMercadoPublicoErrors((current) => ({ ...current, [record.id]: null }))
+  }
+
   const getMissingSignaturesMessage = (missingSignatures = []) => {
     if (missingSignatures.length === 0) {
       return ""
@@ -293,8 +392,31 @@ const BandejaPage = () => {
       title: "N° Licitación",
       dataIndex: "numeroLicitacion",
       key: "numeroLicitacion",
-      width: 140,
-      render: (text) => text || <Text type="secondary">Sin número</Text>
+      width: 180,
+      render: (_, record) => {
+        const codigoVisible = getCodigoVisible(record)
+        const puedeExpandir = canViewMercadoPublico(record)
+        const isExpanded = Boolean(expandedRows[record.id])
+
+        return (
+          <div className={styles.numeroLicitacionCell}>
+            {puedeExpandir && (
+              <Button
+                type="text"
+                size="small"
+                className={styles.expandButton}
+                aria-label={isExpanded ? "Ocultar datos Mercado Publico" : "Ver datos Mercado Publico"}
+                title={isExpanded ? "Ocultar datos Mercado Publico" : "Ver datos Mercado Publico"}
+                icon={isExpanded ? <MinusOutlined /> : <PlusOutlined />}
+                onClick={() => handleToggleMercadoPublicoRow(record)}
+              />
+            )}
+            {codigoVisible
+              ? <span className={styles.numeroLicitacionText}>{codigoVisible}</span>
+              : <Text type="secondary">Sin numero</Text>}
+          </div>
+        )
+      }
     },
     {
       title: "Formato",
@@ -308,7 +430,8 @@ const BandejaPage = () => {
       dataIndex: "nombreLicitacion",
       key: "nombre",
       width: 280,
-      render: (text) => (
+      render: (text) => {
+        return (
         <Tooltip title={text || "Sin nombre"}>
           <div style={{
             minWidth: "240px",
@@ -325,7 +448,8 @@ const BandejaPage = () => {
             {text || <Text type="secondary">Sin nombre</Text>}
           </div>
         </Tooltip>
-      )
+        )
+      }
     },
     {
       title: "Creador",
@@ -352,9 +476,7 @@ const BandejaPage = () => {
       dataIndex: "estado",
       key: "estado",
       width: 110,
-      render: (text) => (
-        <Tag color={getEstadoColor(text)}>{text}</Tag>
-      )
+      render: (text) => <Tag color={getEstadoColor(text)}>{text}</Tag>
     },
     {
       title: "Proceso Actual",
@@ -471,15 +593,38 @@ const BandejaPage = () => {
       key: "actions",
       fixed: "right",
       width: 220,
+      onHeaderCell: () => ({
+        className: styles.actionsHeader
+      }),
+      onCell: () => ({
+        className: styles.actionsCell
+      }),
       render: (_, record) => {
         const isPublicada = record.procesoActual?.tituloProceso === "Publicada"
-        const isFirstStep = record.procesoActual?.numeroPaso === 1
+        const isFirstStep = Number(record.procesoActual?.numeroPaso) === 1
+        const canEditMercadoPublicoCode = (
+          isFirstStep &&
+          esFormatoLicitacion(record.formatoLiquidacion.titulo) &&
+          hasPermission("mercado_publico.editar_codigo") &&
+          hasPermission("mercado_publico.sincronizar")
+        )
         const missingSignatures = record.signatureValidation?.missing || []
         const hasMissingSignatures = missingSignatures.length > 0
         const missingSignaturesMessage = getMissingSignaturesMessage(missingSignatures)
 
         return (
-          <Space size="small">
+          <Space size={10} className={styles.actionsButtons}>
+            {canEditMercadoPublicoCode && (
+              <Tooltip title="Editar codigo Mercado Publico">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EditOutlined style={{ color: "#1677ff" }} />}
+                  onClick={() => handleOpenCodigoMercadoPublico(record)}
+                />
+              </Tooltip>
+            )}
+
             {/* 0. Ver Historial */}
             {hasPermission("licitacion.ver_historial") && (
               <Tooltip title="Ver historial">
@@ -708,10 +853,29 @@ const BandejaPage = () => {
         </div>
 
         <Table
+          className={styles.bandejaTable}
           columns={columns}
           dataSource={licitaciones}
           loading={loading}
           scroll={{ x: 1960 }}
+          expandable={{
+            expandedRowKeys: Object.entries(expandedRows)
+              .filter(([, expanded]) => expanded)
+              .map(([id]) => Number(id)),
+            rowExpandable: canViewMercadoPublico,
+            showExpandColumn: false,
+            expandedRowRender: (record) => (
+              <MercadoPublicoDetalle
+                data={mercadoPublicoData[record.id]?.data}
+                loading={loadingMercadoPublico[record.id]}
+                error={mercadoPublicoErrors[record.id]}
+                expandedOrdenKeys={expandedOrdenesCompra[record.id] ?? []}
+                onExpandedOrdenKeysChange={(keys) => {
+                  setExpandedOrdenesCompra((current) => ({ ...current, [record.id]: keys }))
+                }}
+              />
+            )
+          }}
           pagination={{
             pageSize: 10,
             showSizeChanger: false,
@@ -726,6 +890,12 @@ const BandejaPage = () => {
       <ModalWorkflow ref={modalWorkflowRef} />
       <ModalDocumentos ref={modalDocumentosRef} onSuccess={loadData} />
       <ModalFirmarLicitacion ref={modalFirmarRef} onSuccess={loadData} currentUserId={userId} />
+      <ModalEditarCodigoMercadoPublico
+        open={codigoMercadoPublicoModalData.open}
+        licitacion={codigoMercadoPublicoModalData.licitacion}
+        onCancel={() => setCodigoMercadoPublicoModalData({ licitacion: null, open: false })}
+        onSuccess={handleCodigoMercadoPublicoSaved}
+      />
       <ModalInicioAnticipado
         open={inicioAnticipadoModalData.open}
         onConfirm={handleInicioAnticipadoConfirm}

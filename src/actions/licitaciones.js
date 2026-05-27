@@ -71,7 +71,6 @@ const getPasoAnteriorLicitacion = (currentStep) => {
   return currentStep - 1
 }
 
-
 export const getLicitaciones = async (filters = {}) => {
 
   const session = await auth()
@@ -176,7 +175,6 @@ export const getLicitaciones = async (filters = {}) => {
         })
     )
     const signatureValidationByLicitacionId = Object.fromEntries(signatureValidationByStepEntries)
-
     const licitacionesWithSignatureValidation = licitaciones.map((licitacion) => {
       if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)) {
         return {

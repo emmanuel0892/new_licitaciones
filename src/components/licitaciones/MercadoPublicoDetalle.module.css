@@ -1,0 +1,141 @@
+.detailPanel {
+  width: 100%;
+  padding: 4px 0;
+}
+
+.summaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.summaryIdentity {
+  display: flex;
+  flex-direction: column;
+  min-width: 260px;
+  flex: 2;
+}
+
+.summaryName {
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summaryMetric {
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+  max-width: 245px;
+}
+
+.summaryValue {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.consumo {
+  min-width: 245px;
+  max-width: 330px;
+  flex: 1;
+}
+
+.consumoHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.consumoProgress {
+  cursor: help;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: #334155;
+}
+
+.partialWarning {
+  margin-bottom: 10px;
+}
+
+.tableContainer {
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.compactTable :global(.ant-table-thead > tr > th) {
+  background: #f8fafc !important;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.compactTable :global(.ant-table-cell) {
+  padding-top: 7px !important;
+  padding-bottom: 7px !important;
+  font-size: 12px;
+}
+
+.compactTable :global(.ant-table-expanded-row > td) {
+  padding: 10px 14px !important;
+  background: #f8f9fa !important;
+}
+
+.nestedExpandButton {
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #d9d9d9;
+  color: #1677ff;
+}
+
+.itemsSection {
+  padding: 2px 0;
+}
+
+.itemsTitle {
+  display: block;
+  margin-bottom: 8px;
+  color: #334155;
+}
+
+.clampedText {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loading {
+  padding: 20px;
+  text-align: center;
+}
+
+.emptyState {
+  margin: 14px 0;
+}
+
+@media (max-width: 720px) {
+  .summaryMetric,
+  .consumo {
+    width: 100%;
+    max-width: 100%;
+  }
+}

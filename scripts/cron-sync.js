@@ -6,6 +6,13 @@
  * Puede ejecutarse como servicio de Windows o con PM2
  */
 
+const isPersistentMercadoPublicoSyncDisabled = () => true
+
+if (isPersistentMercadoPublicoSyncDisabled()) {
+  console.error("Cron deshabilitado: los datos de Mercado Publico se consultan en linea y no se almacenan.")
+  process.exit(1)
+}
+
 const cron = require("node-cron")
 const { spawn } = require("child_process")
 const path = require("path")

@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache"
 
 const API_BASE_URL = process.env.MERCADO_PUBLICO_API_URL || "https://api.mercadopublico.cl/servicios/v1/publico"
 const API_TICKET = process.env.MERCADO_PUBLICO_TICKET
+const isPersistentMercadoPublicoSyncDisabled = () => true
+const PERSISTENCE_DISABLED_ERROR = "La persistencia de datos Mercado Publico fue deshabilitada. Consulte los datos en linea desde la Bandeja de Entrada."
 
 // Obtener licitaciones por requirente/servicio
 export const getLicitacionesMPByRequirente = async (requirente) => {
@@ -149,6 +151,10 @@ export const syncLicitacionMP = async (codigoLicitacion, requirente) => {
   const session = await auth()
   if (!session) return { error: "No autorizado" }
 
+  if (isPersistentMercadoPublicoSyncDisabled()) {
+    return { error: PERSISTENCE_DISABLED_ERROR }
+  }
+
   if (!API_TICKET) {
     return { error: "API de Mercado Público no configurada" }
   }
@@ -263,6 +269,10 @@ const getItemIdByCorrelativo = async (licitacionMPId, correlativo) => {
 export const syncOrdenesCompraMP = async (licitacionMPId) => {
   const session = await auth()
   if (!session) return { error: "No autorizado" }
+
+  if (isPersistentMercadoPublicoSyncDisabled()) {
+    return { error: PERSISTENCE_DISABLED_ERROR }
+  }
 
   if (!API_TICKET) {
     return { error: "API de Mercado Público no configurada" }
@@ -498,6 +508,10 @@ export const marcarAlertaLeida = async (alertaId) => {
 export const createLicitacionMPManual = async (data) => {
   const session = await auth()
   if (!session) return { error: "No autorizado" }
+
+  if (isPersistentMercadoPublicoSyncDisabled()) {
+    return { error: PERSISTENCE_DISABLED_ERROR }
+  }
 
   try {
     const licitacion = await prisma.licitacionMP.create({

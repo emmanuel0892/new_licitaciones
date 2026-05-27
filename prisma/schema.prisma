@@ -80,6 +80,7 @@ model Licitacion {
   updatedAt            DateTime              @updatedAt @map("updated_at")
   flujoPostPaso12      String?               @map("flujo_post_paso_12") @db.VarChar(30)
   requiereAddendum     Boolean               @default(false) @map("requiere_addendum")
+  codigoMercadoPublico String?               @map("codigo_mercado_publico") @db.VarChar(50)
   documentos           DocumentoLicitacion[]
   historial            HistorialLicitacion[]
   licitacion_firmas    licitacion_firmas[]

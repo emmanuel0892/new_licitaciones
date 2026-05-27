@@ -4,6 +4,13 @@
  * Ejecutar con: node scripts/relink-oc.js
  */
 
+const isPersistentMercadoPublicoSyncDisabled = () => true
+
+if (isPersistentMercadoPublicoSyncDisabled()) {
+  console.error("Proceso deshabilitado: los datos de Mercado Publico se consultan en linea y no se almacenan.")
+  process.exit(1)
+}
+
 require("dotenv").config()
 const { PrismaClient } = require("@prisma/client")
 const https = require("https")

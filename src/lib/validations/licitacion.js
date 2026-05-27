@@ -44,3 +44,25 @@ export const filtroLicitacionSchema = z.object({
   estado: z.string().optional(),
   roleId: z.string().optional()
 })
+
+export const updateCodigoMercadoPublicoSchema = z.object({
+  licitacionId: z.coerce
+    .number()
+    .int()
+    .positive("La licitacion es requerida"),
+  codigoMercadoPublico: z
+    .string()
+    .trim()
+    .min(1, "El codigo Mercado Publico es requerido")
+    .max(50, "El codigo Mercado Publico no puede superar 50 caracteres")
+    .transform((codigo) => codigo.toUpperCase())
+})
+
+export const consultaMercadoPublicoSchema = z.object({
+  codigo: z
+    .string()
+    .trim()
+    .min(1, "El codigo Mercado Publico es requerido")
+    .max(50, "El codigo Mercado Publico no puede superar 50 caracteres")
+    .transform((codigo) => codigo.toUpperCase())
+})

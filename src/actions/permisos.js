@@ -51,6 +51,24 @@ const BASE_PERMISSIONS = [
     categoria: "Documentos"
   },
   {
+    codigo: "mercado_publico.ver",
+    nombre: "Ver datos de Mercado Publico",
+    descripcion: "Permite consultar en linea datos asociados a una licitacion",
+    categoria: "Mercado Publico"
+  },
+  {
+    codigo: "mercado_publico.editar_codigo",
+    nombre: "Editar codigo Mercado Publico",
+    descripcion: "Permite guardar el codigo Mercado Publico en el primer paso",
+    categoria: "Mercado Publico"
+  },
+  {
+    codigo: "mercado_publico.sincronizar",
+    nombre: "Consultar Mercado Publico",
+    descripcion: "Permite consultar datos externos sin persistirlos",
+    categoria: "Mercado Publico"
+  },
+  {
     codigo: "usuarios.gestionar",
     nombre: "Gestionar usuarios",
     descripcion: "Permite administrar usuarios",

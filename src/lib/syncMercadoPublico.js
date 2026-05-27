@@ -2,10 +2,18 @@ import prisma from "@/lib/prisma"
 
 const API_BASE_URL = process.env.MERCADO_PUBLICO_API_URL || "https://api.mercadopublico.cl/servicios/v1/publico"
 const API_TICKET = process.env.MERCADO_PUBLICO_TICKET
+const isPersistentMercadoPublicoSyncDisabled = () => true
 const CODIGO_ORGANISMO = process.env.MERCADO_PUBLICO_CODIGO_ORGANISMO || "7374"
 
 // Sincronizar todas las licitaciones adjudicadas del organismo
 export const syncAllLicitacionesMP = async () => {
+  if (isPersistentMercadoPublicoSyncDisabled()) {
+    return {
+      error: "La persistencia de datos Mercado Publico fue deshabilitada. Consulte los datos en linea desde la Bandeja de Entrada.",
+      synced: 0
+    }
+  }
+
   if (!API_TICKET) {
     console.error("[SYNC] API de Mercado Público no configurada")
     return { error: "API de Mercado Público no configurada", synced: 0 }
