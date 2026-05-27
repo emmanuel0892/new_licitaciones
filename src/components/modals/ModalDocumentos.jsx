@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useImperativeHandle, forwardRef } from "react"
-import { Modal, Upload, Button, List, Typography, App, Spin, Empty, Space } from "antd"
+import { Alert, Modal, Upload, Button, List, Typography, App, Spin, Empty, Space, Tag } from "antd"
 import { UploadOutlined, FileTextOutlined, DeleteOutlined, DownloadOutlined } from "@ant-design/icons"
 import { getDocumentosLicitacion, uploadDocumento, deleteDocumento } from "@/actions/documentos"
 import { formatDate } from "@/lib/helpers"
@@ -16,21 +16,32 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
   const [documentos, setDocumentos] = useState([])
   const [licitacionId, setLicitacionId] = useState(null)
   const [canUpload, setCanUpload] = useState(false)
+  const [documentContext, setDocumentContext] = useState(null)
 
   const loadDocumentos = async (id) => {
     setLoading(true)
     const result = await getDocumentosLicitacion(id)
+
     if (result.data) {
       setDocumentos(result.data)
+      setDocumentContext(result.context)
+    } else {
+      setDocumentos([])
+      message.error(result.error || "No se pudieron obtener los documentos")
     }
+
     setLoading(false)
   }
 
   useImperativeHandle(ref, () => ({
-    open: async (id, allowUpload = false) => {
+    open: async (licitacion, allowUpload = false) => {
+      const id = typeof licitacion === "object" ? licitacion.id : licitacion
+
       setOpen(true)
       setLicitacionId(id)
       setCanUpload(allowUpload)
+      setDocumentos([])
+      setDocumentContext(null)
       await loadDocumentos(id)
     }
   }))
@@ -83,14 +94,25 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
       open={open}
       onCancel={() => setOpen(false)}
       footer={null}
-      width={600}
+      width={820}
       destroyOnHidden
     >
+      {documentContext && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={`Nro. Licitacion actual: ${documentContext.numeroLicitacion}`}
+          description={`Proceso actual: Paso ${documentContext.numeroPaso ?? "-"} - ${documentContext.procesoNombre}`}
+        />
+      )}
+
       {canUpload && (
         <Upload
           customRequest={customRequest}
           onChange={handleUpload}
           showUploadList={false}
+          multiple
           accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
         >
           <Button
@@ -120,7 +142,7 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
                   type="text"
                   size="small"
                   icon={<DownloadOutlined />}
-                  href={doc.rutaArchivo}
+                  href={`/api/documentos/${doc.id}/download`}
                   target="_blank"
                 >
                   Descargar
@@ -141,9 +163,20 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
             >
               <List.Item.Meta
                 avatar={<FileTextOutlined style={{ fontSize: 24, color: "#23aeaa" }} />}
-                title={doc.nombreArchivo}
+                title={doc.nombreOriginal || doc.nombreArchivo}
                 description={
-                  <Space direction="vertical" size={0}>
+                  <Space direction="vertical" size={2}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Nro. Licitacion: {doc.numeroLicitacion}
+                    </Text>
+                    <Space size={6}>
+                      <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+                        Paso {doc.numeroPaso ?? "-"}
+                      </Tag>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {doc.procesoNombre || "Sin proceso"}
+                      </Text>
+                    </Space>
                     <Text type="secondary" style={{ fontSize: 12 }}>
                       Subido por: {doc.usuario.name} {doc.usuario.lastname}
                     </Text>

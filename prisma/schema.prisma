@@ -95,17 +95,26 @@ model Licitacion {
 }
 
 model DocumentoLicitacion {
-  id            Int        @id @default(autoincrement())
-  licitacionId  Int        @map("fk_licitacion_id")
-  usuarioId     String     @map("fk_usuario_id")
-  nombreArchivo String     @map("nombre_archivo")
-  rutaArchivo   String     @map("ruta_archivo")
-  createdAt     DateTime   @default(now()) @map("created_at")
-  licitacion    Licitacion @relation(fields: [licitacionId], references: [id])
-  usuario       User       @relation(fields: [usuarioId], references: [id])
+  id               Int        @id @default(autoincrement())
+  licitacionId     Int        @map("fk_licitacion_id")
+  usuarioId        String     @map("fk_usuario_id")
+  nombreArchivo    String     @map("nombre_archivo") @db.VarChar(255)
+  nombreOriginal   String?    @map("nombre_original") @db.VarChar(255)
+  rutaArchivo      String     @map("ruta_archivo") @db.VarChar(500)
+  mimeType         String?    @map("mime_type") @db.VarChar(150)
+  sizeBytes        BigInt?    @map("size_bytes")
+  numeroLicitacion String     @map("numero_licitacion") @db.VarChar(100)
+  numeroPaso       Int?       @map("numero_paso")
+  procesoNombre    String?    @map("proceso_nombre") @db.VarChar(255)
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at")
+  licitacion       Licitacion @relation(fields: [licitacionId], references: [id])
+  usuario          User       @relation(fields: [usuarioId], references: [id])
 
   @@index([licitacionId], map: "documentos_licitacion_fk_licitacion_id_fkey")
   @@index([usuarioId], map: "documentos_licitacion_fk_usuario_id_fkey")
+  @@index([numeroLicitacion], map: "documentos_licitacion_numero_licitacion_idx")
+  @@index([numeroPaso], map: "documentos_licitacion_numero_paso_idx")
   @@map("documentos_licitacion")
 }
 

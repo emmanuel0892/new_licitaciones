@@ -634,14 +634,14 @@ const BandejaPage = () => {
               </Tooltip>
             )}
 
-            {/* 1. Ver Documentos - Solo si tiene documentos */}
-            {hasPermission("licitacion.ver_documentos") && record._count.documentos > 0 && (
+            {/* 1. Ver documentos asociados al numero de licitacion actual */}
+            {hasPermission("licitacion.ver_documentos") && (
               <Tooltip title="Ver documentos">
                 <Button
                   type="text"
                   size="small"
                   icon={<FolderOpenOutlined style={{ color: "#FFD96D" }} />}
-                  onClick={() => modalDocumentosRef.current?.open(record.id, false)}
+                  onClick={() => modalDocumentosRef.current?.open(record, false)}
                 />
               </Tooltip>
             )}
@@ -659,7 +659,7 @@ const BandejaPage = () => {
                   type="text"
                   size="small"
                   icon={<UploadOutlined style={{ color: "#87CEEB" }} />}
-                  onClick={() => modalDocumentosRef.current?.open(record.id, true)}
+                  onClick={() => modalDocumentosRef.current?.open(record, true)}
                 />
               </Tooltip>
             )}

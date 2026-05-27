@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Table, Button, Space, Tag, Typography, Card, App, Tooltip } from "antd"
 import { EyeOutlined, EditOutlined, FileTextOutlined, HistoryOutlined } from "@ant-design/icons"
 import { getMisLicitaciones } from "@/actions/licitaciones"
@@ -9,6 +9,7 @@ import { formatDate, formatMoney, getEstadoColor, getProcesoActualLicitacionLabe
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalWorkflow from "@/components/modals/ModalWorkflow"
 import ModalEditarLicitacion from "@/components/modals/ModalEditarLicitacion"
+import ModalDocumentos from "@/components/modals/ModalDocumentos"
 import styles from "./mis-licitaciones.module.css"
 
 const { Title, Text } = Typography
@@ -22,8 +23,9 @@ const MisLicitacionesPage = () => {
   const modalHistorialRef = useRef(null)
   const modalWorkflowRef = useRef(null)
   const modalEditarRef = useRef(null)
+  const modalDocumentosRef = useRef(null)
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -44,11 +46,15 @@ const MisLicitacionesPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [message])
 
   useEffect(() => {
-    loadData()
-  }, [])
+    const timerId = setTimeout(() => {
+      void loadData()
+    }, 0)
+
+    return () => clearTimeout(timerId)
+  }, [loadData])
 
   const hasPermission = (permissionCode) => {
     return authorization.isSuperAdmin || authorization.permissions.includes(permissionCode)
@@ -143,12 +149,13 @@ const MisLicitacionesPage = () => {
           </Tooltip>
           )}
 
-          {hasPermission("licitacion.ver_documentos") && record._count.documentos > 0 && (
+          {hasPermission("licitacion.ver_documentos") && (
             <Tooltip title="Ver documentos">
               <Button
                 type="text"
                 size="small"
                 icon={<FileTextOutlined style={{ color: "#FFD96D" }} />}
+                onClick={() => modalDocumentosRef.current?.open(record, false)}
               />
             </Tooltip>
           )}
@@ -205,6 +212,7 @@ const MisLicitacionesPage = () => {
       <ModalHistorial ref={modalHistorialRef} />
       <ModalWorkflow ref={modalWorkflowRef} />
       <ModalEditarLicitacion ref={modalEditarRef} onSuccess={loadData} />
+      <ModalDocumentos ref={modalDocumentosRef} onSuccess={loadData} />
     </div>
   )
 }
