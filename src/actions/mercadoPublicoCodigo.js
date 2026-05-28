@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { getUserPermissionContext, PERMISSION_CODES } from "@/lib/permissions"
 import { getOrCreateLicitacionMercadoPublico } from "@/lib/mercadoPublicoCache"
+import { esFormatoLicitacion, esFormatoTratoDirecto } from "@/lib/helpers"
 import { updateCodigoMercadoPublicoSchema } from "@/lib/validations/licitacion"
 
 export const updateCodigoMercadoPublico = async (data) => {
@@ -15,10 +16,8 @@ export const updateCodigoMercadoPublico = async (data) => {
   }
 
   const authorization = await getUserPermissionContext(session.user.id)
-  const canEditAndSync = authorization.isSuperAdmin || (
-    authorization.permissions.includes(PERMISSION_CODES.MERCADO_PUBLICO_EDIT_CODE) &&
-    authorization.permissions.includes(PERMISSION_CODES.MERCADO_PUBLICO_SYNC)
-  )
+  const canEditAndSync = authorization.isSuperAdmin ||
+    authorization.permissions.includes(PERMISSION_CODES.MERCADO_PUBLICO_EDIT_CODE)
 
   if (!canEditAndSync) {
     return { error: "No tienes permisos para editar y consultar Mercado Publico." }
@@ -43,6 +42,9 @@ export const updateCodigoMercadoPublico = async (data) => {
         numeroLicitacion: true,
         montoPresupuestado: true,
         requirente: true,
+        formatoLiquidacion: {
+          select: { titulo: true }
+        },
         procesoActual: {
           select: { numeroPaso: true }
         }
@@ -53,8 +55,14 @@ export const updateCodigoMercadoPublico = async (data) => {
       return { error: "Licitacion no encontrada" }
     }
 
-    if (Number(licitacion.procesoActual?.numeroPaso) !== 1) {
-      return { error: "El codigo Mercado Publico solo se puede editar en el primer paso." }
+    const currentStep = Number(licitacion.procesoActual?.numeroPaso)
+    const canEditInCurrentStep = (
+      (esFormatoLicitacion(licitacion.formatoLiquidacion?.titulo) && currentStep === 1) ||
+      (esFormatoTratoDirecto(licitacion) && currentStep === 5)
+    )
+
+    if (!canEditInCurrentStep) {
+      return { error: "El codigo Mercado Publico solo se puede editar en la etapa habilitada para este formato." }
     }
 
     const datosMercadoPublico = await getOrCreateLicitacionMercadoPublico(codigoMercadoPublico)

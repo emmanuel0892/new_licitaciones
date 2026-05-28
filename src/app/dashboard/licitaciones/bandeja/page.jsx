@@ -26,7 +26,7 @@ import { useRouter } from "next/navigation"
 import { getLicitaciones, avanzarLicitacion, avanzarLicitacionConInicioAnticipado, avanzarLicitacionConContrato, avanzarLicitacionConAddendum, finalizarLicitacionSinAddendum, getRoles } from "@/actions/licitaciones"
 import { getLicitacionMercadoPublicoBandeja } from "@/actions/mercadoPublicoBandeja"
 import { getUsers } from "@/actions/users"
-import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel, formatRoleLabel } from "@/lib/helpers"
+import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, esFormatoTratoDirecto, getFormatoKey, getFormatoLabel, formatRoleLabel } from "@/lib/helpers"
 import ModalDevolver from "@/components/modals/ModalDevolver"
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalHistorialNuevo from "@/components/modals/ModalHistorialNuevo"
@@ -289,7 +289,11 @@ const BandejaPage = () => {
 
   const hasWorkflowPermission = (action, record) => {
     const currentStep = Number(record.procesoActual?.numeroPaso)
-    return hasPermission(`workflow.${action}.${currentStep}`)
+    const formatoKey = getFormatoKey(record)
+    const specificPermission = formatoKey ? `workflow.${formatoKey}.${action}.${currentStep}` : null
+
+    return Boolean(specificPermission && hasPermission(specificPermission)) ||
+      hasPermission(`workflow.${action}.${currentStep}`)
   }
 
   const getCodigoMercadoPublico = (record) => {
@@ -589,7 +593,7 @@ const BandejaPage = () => {
       title: "Acciones",
       key: "actions",
       fixed: "right",
-      width: 220,
+      width: 240,
       onHeaderCell: () => ({
         className: styles.actionsHeader
       }),
@@ -598,12 +602,15 @@ const BandejaPage = () => {
       }),
       render: (_, record) => {
         const isPublicada = record.procesoActual?.tituloProceso === "Publicada"
-        const isFirstStep = Number(record.procesoActual?.numeroPaso) === 1
+        const currentStep = Number(record.procesoActual?.numeroPaso)
+        const isFirstStep = currentStep === 1
+        const isTratoDirectoStepFive = esFormatoTratoDirecto(record) && currentStep === 5
         const canEditMercadoPublicoCode = (
-          isFirstStep &&
-          esFormatoLicitacion(record.formatoLiquidacion.titulo) &&
           hasPermission("mercado_publico.editar_codigo") &&
-          hasPermission("mercado_publico.sincronizar")
+          (
+            (isFirstStep && esFormatoLicitacion(record.formatoLiquidacion.titulo)) ||
+            isTratoDirectoStepFive
+          )
         )
         const missingSignatures = record.signatureValidation?.missing || []
         const hasMissingSignatures = missingSignatures.length > 0
@@ -849,37 +856,39 @@ const BandejaPage = () => {
           </Button>
         </div>
 
-        <Table
-          className={styles.bandejaTable}
-          columns={columns}
-          dataSource={licitaciones}
-          loading={loading}
-          scroll={{ x: 1960 }}
-          expandable={{
-            expandedRowKeys: Object.entries(expandedRows)
-              .filter(([, expanded]) => expanded)
-              .map(([id]) => Number(id)),
-            rowExpandable: canViewMercadoPublico,
-            showExpandColumn: false,
-            expandedRowClassName: () => styles.mercadoPublicoExpandedRow,
-            expandedRowRender: (record) => (
-              <MercadoPublicoDetalle
-                data={mercadoPublicoData[record.id]?.data}
-                loading={loadingMercadoPublico[record.id]}
-                error={mercadoPublicoErrors[record.id]}
-                expandedOrdenKeys={expandedOrdenesCompra[record.id] ?? []}
-                onExpandedOrdenKeysChange={(keys) => {
-                  setExpandedOrdenesCompra((current) => ({ ...current, [record.id]: keys }))
-                }}
-              />
-            )
-          }}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: false,
-            showTotal: (total) => `Total: ${total} licitaciones`
-          }}
-        />
+        <div className={styles.tableWrapper}>
+          <Table
+            className={styles.bandejaTable}
+            columns={columns}
+            dataSource={licitaciones}
+            loading={loading}
+            scroll={{ x: 1960 }}
+            expandable={{
+              expandedRowKeys: Object.entries(expandedRows)
+                .filter(([, expanded]) => expanded)
+                .map(([id]) => Number(id)),
+              rowExpandable: canViewMercadoPublico,
+              showExpandColumn: false,
+              expandedRowClassName: () => styles.mercadoPublicoExpandedRow,
+              expandedRowRender: (record) => (
+                <MercadoPublicoDetalle
+                  data={mercadoPublicoData[record.id]?.data}
+                  loading={loadingMercadoPublico[record.id]}
+                  error={mercadoPublicoErrors[record.id]}
+                  expandedOrdenKeys={expandedOrdenesCompra[record.id] ?? []}
+                  onExpandedOrdenKeysChange={(keys) => {
+                    setExpandedOrdenesCompra((current) => ({ ...current, [record.id]: keys }))
+                  }}
+                />
+              )
+            }}
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: false,
+              showTotal: (total) => `Total: ${total} licitaciones`
+            }}
+          />
+        </div>
       </Card>
 
       <ModalDevolver ref={modalDevolverRef} onSuccess={loadData} />

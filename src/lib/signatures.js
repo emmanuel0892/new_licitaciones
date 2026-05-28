@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma"
+import { getFormatoKey } from "@/lib/helpers"
 import { PERMISSION_CODES } from "@/lib/permissions"
 
 export const REQUIRED_SIGNATURES_BY_STEP = {
@@ -211,8 +212,64 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
   ]
 }
 
-const getRequiredSignatures = (numeroPaso) => {
-  return [...(REQUIRED_SIGNATURES_BY_STEP[Number(numeroPaso)] ?? [])]
+export const REQUIRED_SIGNATURES_BY_FORMAT_AND_STEP = {
+  trato_directo: {
+    2: [
+      {
+        key: "jefatura_unidad",
+        label: "Jefatura de Unidad",
+        permissionCode: PERMISSION_CODES.SIGN_UNIT_HEAD,
+        order: 1
+      },
+      {
+        key: "jefatura_dpto",
+        label: "Jefatura de Dpto",
+        permissionCode: PERMISSION_CODES.SIGN_DEPARTMENT_HEAD,
+        order: 2,
+        dependsOn: "jefatura_unidad"
+      }
+    ],
+    4: [
+      {
+        key: "subdirector_administrativo",
+        label: "Subdirector Administrativo",
+        permissionCode: PERMISSION_CODES.SIGN_ADMINISTRATIVE_SUBDIRECTOR,
+        order: 1
+      },
+      {
+        key: "director",
+        label: "Director",
+        permissionCode: PERMISSION_CODES.SIGN_DIRECTOR,
+        order: 2,
+        dependsOn: "subdirector_administrativo"
+      }
+    ],
+    7: [
+      {
+        key: "jefatura_unidad",
+        label: "Jefatura de Unidad",
+        permissionCode: PERMISSION_CODES.SIGN_UNIT_HEAD,
+        order: 1
+      },
+      {
+        key: "jefatura_dpto",
+        label: "Jefatura de Dpto",
+        permissionCode: PERMISSION_CODES.SIGN_DEPARTMENT_HEAD,
+        order: 2,
+        dependsOn: "jefatura_unidad"
+      }
+    ]
+  }
+}
+
+export const getRequiredSignaturesForStep = (licitacion, numeroPaso) => {
+  const formatoKey = getFormatoKey(licitacion)
+  const signaturesByFormat = REQUIRED_SIGNATURES_BY_FORMAT_AND_STEP[formatoKey]
+  const signatures = signaturesByFormat
+    ? signaturesByFormat[Number(numeroPaso)] ?? []
+    : REQUIRED_SIGNATURES_BY_STEP[Number(numeroPaso)] ?? []
+
+  return [...signatures]
     .sort((a, b) => a.order - b.order)
 }
 
@@ -223,8 +280,8 @@ export const isSignatureBlocked = (requirement, signatureStatus) => {
   return dependency?.status !== "firmada"
 }
 
-export const getSignatureStatusForStep = async (licitacionId, numeroPaso) => {
-  const required = getRequiredSignatures(numeroPaso)
+export const getSignatureStatusForStep = async (licitacionId, numeroPaso, licitacion = null) => {
+  const required = getRequiredSignaturesForStep(licitacion, numeroPaso)
 
   if (required.length === 0) {
     return []
@@ -277,8 +334,8 @@ export const getSignatureStatusForStep = async (licitacionId, numeroPaso) => {
   }))
 }
 
-export const areRequiredSignaturesCompleted = async (licitacionId, numeroPaso) => {
-  const required = getRequiredSignatures(numeroPaso)
+export const areRequiredSignaturesCompleted = async (licitacionId, numeroPaso, licitacion = null) => {
+  const required = getRequiredSignaturesForStep(licitacion, numeroPaso)
 
   if (required.length === 0) {
     return {
@@ -304,9 +361,9 @@ export const areRequiredSignaturesCompleted = async (licitacionId, numeroPaso) =
   }
 }
 
-export const canAdvanceBySignature = async (licitacionId, numeroPaso) => {
-  const statuses = await getSignatureStatusForStep(licitacionId, numeroPaso)
-  const validation = await areRequiredSignaturesCompleted(licitacionId, numeroPaso)
+export const canAdvanceBySignature = async (licitacionId, numeroPaso, licitacion = null) => {
+  const statuses = await getSignatureStatusForStep(licitacionId, numeroPaso, licitacion)
+  const validation = await areRequiredSignaturesCompleted(licitacionId, numeroPaso, licitacion)
 
   return {
     canAdvance: validation.completed,
@@ -315,8 +372,8 @@ export const canAdvanceBySignature = async (licitacionId, numeroPaso) => {
   }
 }
 
-export const assertCanAdvanceBySignature = async (licitacionId, numeroPaso) => {
-  const validation = await areRequiredSignaturesCompleted(licitacionId, numeroPaso)
+export const assertCanAdvanceBySignature = async (licitacionId, numeroPaso, licitacion = null) => {
+  const validation = await areRequiredSignaturesCompleted(licitacionId, numeroPaso, licitacion)
 
   if (validation.completed) {
     return

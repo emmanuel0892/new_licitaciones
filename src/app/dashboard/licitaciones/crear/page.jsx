@@ -19,7 +19,7 @@ import {
   getProcesosByFormato
 } from "@/actions/licitaciones"
 import { getAllLicitacionesMPForTable } from "@/actions/mercadoPublico"
-import { formatMoney, FLUJO_LICITACION, esFormatoLicitacion, getProcesoActualNumero, getMainStepState, getSubStepState, getStepLabel, isSubpasoVisualLicitacion, getProcesosVisibles } from "@/lib/helpers"
+import { formatMoney, FLUJO_LICITACION, esFormatoLicitacion, esFormatoTratoDirecto, getProcesoActualNumero, getMainStepState, getSubStepState, getStepLabel, isSubpasoVisualLicitacion, getProcesosVisibles } from "@/lib/helpers"
 import dayjs from "dayjs"
 import styles from "./crear.module.css"
 
@@ -30,6 +30,7 @@ const CrearLicitacionPage = () => {
   const { message } = App.useApp()
   const router = useRouter()
   const [form] = Form.useForm()
+  const montoPresupuestadoPreview = Form.useWatch("montoPresupuestado", form)
   const [loading, setLoading] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [formatos, setFormatos] = useState([])
@@ -75,26 +76,36 @@ const CrearLicitacionPage = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      const [formatosRes, requirentesRes, statsRes, licitacionesMPRes] = await Promise.all([
+      const [formatosResult, requirentesResult, statsResult, licitacionesMPResult] = await Promise.allSettled([
         getFormatosLiquidacion(),
         getRequirentes(),
         getDashboardStats(),
         getAllLicitacionesMPForTable()
       ])
 
-      if (formatosRes.data) {
-        setFormatos(formatosRes.data)
+      const formatosRes = formatosResult.status === "fulfilled" ? formatosResult.value : null
+      const requirentesRes = requirentesResult.status === "fulfilled" ? requirentesResult.value : null
+      const statsRes = statsResult.status === "fulfilled" ? statsResult.value : null
+      const licitacionesMPRes = licitacionesMPResult.status === "fulfilled" ? licitacionesMPResult.value : null
+
+      const formatosData = formatosRes?.data ?? formatosRes?.formatos ?? []
+
+      if (formatosData.length > 0) {
+        setFormatos(formatosData)
+      } else {
+        console.error("Error al obtener formatos:", formatosRes?.error ?? formatosResult.reason)
+        message.error(formatosRes?.error || "Error al cargar formatos de liquidación")
       }
 
-      if (requirentesRes.data) {
+      if (requirentesRes?.data) {
         setRequirentes(requirentesRes.data.map(r => r.nombre))
       }
 
-      if (statsRes.data) {
+      if (statsRes?.data) {
         setStats(statsRes.data)
       }
 
-      if (licitacionesMPRes.data) {
+      if (licitacionesMPRes?.data) {
         setLicitacionesMP(licitacionesMPRes.data)
       }
 
@@ -103,7 +114,7 @@ const CrearLicitacionPage = () => {
     }
 
     loadData()
-  }, [])
+  }, [message])
 
   const handleFormatoChange = async (value) => {
     const formatoId = value ? parseInt(value) : null
@@ -119,10 +130,14 @@ const CrearLicitacionPage = () => {
     if (formatoId) {
       setLoadingProcesos(true)
       const result = await getProcesosByFormato(formatoId)
-      if (result.data) {
-        setProcesosFormato(result.data)
+
+      const procesos = result?.data ?? result?.procesos ?? []
+
+      if (result?.ok !== false) {
+        setProcesosFormato(procesos)
       } else {
-        message.error("Error al cargar procesos del formato")
+        console.error("Error al cargar procesos del formato:", result?.error)
+        message.error(result?.error || "Error al cargar procesos del formato")
         setProcesosFormato([])
       }
       setLoadingProcesos(false)
@@ -459,9 +474,9 @@ const CrearLicitacionPage = () => {
 
               <Form.Item
                 name="numeroLicitacion"
-                label="Número de Licitación"
+                label="ID Licitación anterior/ MEMO"
               >
-                <Input placeholder="Ej: 2024-LP-001" />
+                <Input placeholder="Licitación Anterior/MEMO" />
               </Form.Item>
 
               <Row gutter={16}>
@@ -542,12 +557,16 @@ const CrearLicitacionPage = () => {
                     </div>
                   ) : (
                     <div className={styles.workflowContainer}>
-                      {getProcesosVisibles(procesosFormato, {}).map((paso) => {
+                      {getProcesosVisibles(procesosFormato, {
+                        formatoLiquidacion: formatoSeleccionado,
+                        montoPresupuestado: montoPresupuestadoPreview
+                      }).map((paso) => {
+                        const isTratoDirecto = esFormatoTratoDirecto(formatoSeleccionado)
                         const pasoObj = {
-                          numero: getStepLabel(paso.numeroPaso),
+                          numero: isTratoDirecto ? String(paso.numeroPaso) : getStepLabel(paso.numeroPaso),
                           nombre: paso.tituloProceso,
                           numeroPaso: paso.numeroPaso,
-                          isSubpaso: isSubpasoVisualLicitacion(paso.numeroPaso)
+                          isSubpaso: !isTratoDirecto && isSubpasoVisualLicitacion(paso.numeroPaso)
                         }
                         
                         const isSubpaso = pasoObj.isSubpaso

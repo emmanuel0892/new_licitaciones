@@ -548,6 +548,105 @@ export const getFormatoLabel = (formato) => {
   return formato
 }
 
+export const getFormatoKey = (value) => {
+  const titulo =
+    value?.formatoLiquidacion?.titulo ??
+    value?.formato_liquidacion?.titulo ??
+    value?.formato ??
+    value ??
+    ""
+
+  return String(titulo)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+}
+
+export const esFormatoTratoDirecto = (formato) => {
+  return getFormatoKey(formato) === "trato_directo"
+}
+
+const toMontoNumber = (value) => {
+  if (value === null || value === undefined || value === "" || value === "null") return 0
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0
+  }
+
+  const normalizedValue = String(value)
+    .replace(/\./g, "")
+    .replace(/[^0-9]/g, "")
+
+  const number = Number(normalizedValue)
+  return Number.isFinite(number) ? number : 0
+}
+
+export const getMontoLicitacion = (licitacion = {}) => {
+  if (typeof licitacion !== "object" || licitacion === null) {
+    return toMontoNumber(licitacion)
+  }
+
+  return toMontoNumber(
+    licitacion.monto ??
+      licitacion.montoPresupuestado ??
+      licitacion.monto_presupuestado ??
+      0
+  )
+}
+
+export const LIMITE_TRATO_DIRECTO_1000_UTM_CLP = Number(
+  process.env.LIMITE_TRATO_DIRECTO_1000_UTM_CLP ?? 70588000
+)
+
+export const requierePasosContratoTratoDirecto = (licitacionOrMonto = {}) => {
+  const monto = getMontoLicitacion(licitacionOrMonto)
+  return monto >= LIMITE_TRATO_DIRECTO_1000_UTM_CLP
+}
+
+export const requiereContratoTratoDirecto = requierePasosContratoTratoDirecto
+
+export const getProcesosVisiblesTratoDirecto = (procesos, licitacionOrMonto = {}) => {
+  const procesosBase = Array.isArray(procesos) ? procesos : []
+  const mostrarPasosContrato = requierePasosContratoTratoDirecto(licitacionOrMonto)
+
+  return procesosBase.filter((proceso) => {
+    const numeroPaso = Number(proceso.numeroPaso ?? proceso.numero_paso)
+
+    if (numeroPaso <= 6) return true
+
+    if (numeroPaso === 7 || numeroPaso === 8) {
+      return mostrarPasosContrato
+    }
+
+    return false
+  })
+}
+
+export const getNextStepTratoDirecto = (currentStep, licitacion = {}) => {
+  const step = Number(currentStep)
+
+  if (step < 6) return step + 1
+
+  if (step === 6) {
+    return requierePasosContratoTratoDirecto(licitacion) ? 7 : null
+  }
+
+  if (step === 7) return 8
+  if (step === 8) return null
+
+  return null
+}
+
+export const getPreviousStepTratoDirecto = (currentStep) => {
+  const step = Number(currentStep)
+
+  if (step <= 1) return null
+  if (step <= 8) return step - 1
+
+  return null
+}
+
 // Helper para obtener número visual de Licitación basado en numero_paso
 export const getNextStep = (currentStep, decision = null) => {
   const current = Number(currentStep)
@@ -647,6 +746,11 @@ export const isSubpasoVisualLicitacion = (numeroPaso) => {
 
 export const getProcesosVisibles = (procesos, licitacion) => {
   const procesosBase = Array.isArray(procesos) ? procesos : []
+
+  if (esFormatoTratoDirecto(licitacion)) {
+    return getProcesosVisiblesTratoDirecto(procesosBase, licitacion)
+  }
+
   const flujoPostPaso12 =
     licitacion?.flujoPostPaso12 ??
     licitacion?.flujo_post_paso_12 ??

@@ -4,7 +4,7 @@ import { useState, useEffect, useImperativeHandle, forwardRef } from "react"
 import { Modal, Typography, Tag, Spin, Table, Button, Row, Col } from "antd"
 import { CheckCircleFilled, ClockCircleFilled, DownOutlined, RightOutlined } from "@ant-design/icons"
 import { getHistorialLicitacion, getLicitacionWorkflowById, getWorkflowProcessesByFormato } from "@/actions/licitaciones"
-import { formatDate, formatMoney, FLUJO_LICITACION, FLUJO_LICITACION_SECUENCIA, FLUJO_LICITACION_AVANCE, esFormatoLicitacion, getParentStep, getProcesoActualNumero, getMainStepState, getSubStepState, getFormatoLabel, getMainStepNumero, getProcesoActualLabelByNumeroPaso, MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO, getStepLabel, isSubpasoVisualLicitacion, getProcesosVisibles as getProcesosVisiblesHelper } from "@/lib/helpers"
+import { formatDate, formatMoney, FLUJO_LICITACION, FLUJO_LICITACION_SECUENCIA, FLUJO_LICITACION_AVANCE, esFormatoLicitacion, esFormatoTratoDirecto, getParentStep, getProcesoActualNumero, getMainStepState, getSubStepState, getFormatoLabel, getMainStepNumero, getProcesoActualLabelByNumeroPaso, MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO, getStepLabel, isSubpasoVisualLicitacion, getProcesosVisibles as getProcesosVisiblesHelper } from "@/lib/helpers"
 import "./ModalWorkflow.css"
 
 const { Text, Title } = Typography
@@ -42,8 +42,14 @@ const ModalWorkflow = forwardRef((props, ref) => {
   }
 
   const getProcesosVisibles = () => {
+    if (esFormatoTratoDirecto(licitacion)) {
+      return getProcesosVisiblesHelper(procesosFormato, licitacion)
+        .sort((a, b) => Number(a.numeroPaso ?? a.numero_paso) - Number(b.numeroPaso ?? b.numero_paso))
+    }
+
     if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)) {
-      return licitacion.formatoLiquidacion.procesos?.sort((a, b) => a.numeroPaso - b.numeroPaso) || []
+      return (licitacion.formatoLiquidacion.procesos ?? [])
+        .sort((a, b) => Number(a.numeroPaso ?? a.numero_paso) - Number(b.numeroPaso ?? b.numero_paso))
     }
 
     return getProcesosVisiblesHelper(procesosFormato, licitacion)
@@ -219,7 +225,8 @@ const ModalWorkflow = forwardRef((props, ref) => {
       const procesoAnterior = procesosVisiblesOrdenados[index - 1]
       const procesoSiguiente = procesosVisiblesOrdenados[index + 1]
       const numeroPaso = getProcesoNumero(proceso)
-      const numeroVisual = getStepLabel(numeroPaso)
+      const isTratoDirecto = esFormatoTratoDirecto(licitacion)
+      const numeroVisual = isTratoDirecto ? String(numeroPaso) : getStepLabel(numeroPaso)
       const debeCortarPorReset = Boolean(
         fechaReset &&
         !flujoPostPaso12 &&
@@ -366,7 +373,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
         diasSugeridos: proceso.diasSugeridos,
         numeroPaso,
         hasSubpasos: false,
-        isSubstep: isSubpasoVisualLicitacion(numeroPaso),
+        isSubstep: !isTratoDirecto && isSubpasoVisualLicitacion(numeroPaso),
         subpasos: [],
         fechaRecepcion: fechaRecepcion ? formatDate(fechaRecepcion) : "Pendiente",
         fechaEmision: esPasoActual && !estaFinalizada && fueAlcanzado
@@ -395,7 +402,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
         setLicitacion(licResult.data)
 
         // Si es formato Licitación, cargar procesos desde BD
-        if (esFormatoLicitacion(licResult.data.formatoLiquidacion.titulo)) {
+        if (esFormatoLicitacion(licResult.data.formatoLiquidacion.titulo) || esFormatoTratoDirecto(licResult.data)) {
           const procesosResult = await getWorkflowProcessesByFormato(licResult.data.formatoLiquidacionId)
           if (procesosResult.data) {
             setProcesosFormato(procesosResult.data)
@@ -1047,8 +1054,9 @@ const ModalWorkflow = forwardRef((props, ref) => {
                       <>
                         {getProcesosVisibles().map((proceso) => {
                           const status = getStepStatus(proceso, licitacion.procesoActual)
-                          const numeroVisual = getStepLabel(proceso.numeroPaso)
-                          const isSubpaso = isSubpasoVisualLicitacion(proceso.numeroPaso)
+                          const isTratoDirecto = esFormatoTratoDirecto(licitacion)
+                          const numeroVisual = isTratoDirecto ? String(proceso.numeroPaso) : getStepLabel(proceso.numeroPaso)
+                          const isSubpaso = !isTratoDirecto && isSubpasoVisualLicitacion(proceso.numeroPaso)
 
                           return (
                             <div

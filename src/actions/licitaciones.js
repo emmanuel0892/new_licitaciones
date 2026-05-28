@@ -7,9 +7,9 @@ import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { createLicitacionSchema, devolverLicitacionSchema } from "@/lib/validations/licitacion"
-import { esFormatoLicitacion, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getMainStepNumero, getNextStep, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
-import { getUserPermissionContext, getWorkflowPermissionCode, PERMISSION_CODES, userHasPermission } from "@/lib/permissions"
-import { REQUIRED_SIGNATURES_BY_STEP, assertCanAdvanceBySignature, canAdvanceBySignature, getSignatureStatusForStep, isSignatureBlocked } from "@/lib/signatures.js"
+import { esFormatoLicitacion, esFormatoTratoDirecto, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getMainStepNumero, getNextStep, getNextStepTratoDirecto, getPreviousStepTratoDirecto, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
+import { getUserPermissionContext, getWorkflowPermissionCode, PERMISSION_CODES, userHasPermission, userHasWorkflowPermission } from "@/lib/permissions"
+import { assertCanAdvanceBySignature, canAdvanceBySignature, getRequiredSignaturesForStep, getSignatureStatusForStep, isSignatureBlocked } from "@/lib/signatures.js"
 
 const signatureStatusSchema = z.object({
   licitacionId: z.coerce.number().int().positive()
@@ -164,29 +164,17 @@ export const getLicitaciones = async (filters = {}) => {
 
     const signatureValidationByStepEntries = await Promise.all(
       licitaciones
-        .filter((licitacion) => esFormatoLicitacion(licitacion.formatoLiquidacion.titulo))
         .map(async (licitacion) => {
           const numeroPaso = Number(licitacion.procesoActual?.numeroPaso)
 
           return [
             licitacion.id,
-            await canAdvanceBySignature(licitacion.id, numeroPaso)
+            await canAdvanceBySignature(licitacion.id, numeroPaso, licitacion)
           ]
         })
     )
     const signatureValidationByLicitacionId = Object.fromEntries(signatureValidationByStepEntries)
     const licitacionesWithSignatureValidation = licitaciones.map((licitacion) => {
-      if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)) {
-        return {
-          ...licitacion,
-          signatureValidation: {
-            canAdvance: true,
-            missing: [],
-            required: []
-          }
-        }
-      }
-
       return {
         ...licitacion,
         signatureValidation: signatureValidationByLicitacionId[licitacion.id] ?? {
@@ -373,51 +361,29 @@ export const getRequirentes = async () => {
 
 
 export const getFormatosLiquidacion = async () => {
-
   try {
-
     const formatos = await prisma.formatoLiquidacion.findMany({
-
-      include: { 
-
-        procesos: { 
-
-          orderBy: { numeroPaso: "asc" },
-
-          include: {
-
-            role: {
-
-              select: {
-
-                id: true,
-
-                name: true
-
-              }
-
-            }
-
-          }
-
-        } 
-
+      select: {
+        id: true,
+        titulo: true,
+        cantidadPasos: true
       },
-
       orderBy: { id: "asc" }
-
     })
 
-
-
-    return { data: formatos }
+    return {
+      ok: true,
+      data: formatos
+    }
 
   } catch (error) {
+    console.error("Error real al obtener formatos:", error)
 
-    return { error: "Error al obtener formatos" }
-
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error)
+    }
   }
-
 }
 
 
@@ -625,16 +591,86 @@ export const avanzarLicitacion = async (id) => {
 
 
     const currentStep = Number(licitacion.procesoActual.numeroPaso)
-    const canAdvance = await userHasPermission(
+    const formato = licitacion.formatoLiquidacion.titulo
+    const canAdvance = await userHasWorkflowPermission(
       session.user.id,
-      getWorkflowPermissionCode("avanzar", currentStep)
+      "avanzar",
+      currentStep,
+      formato
     )
 
     if (!canAdvance) {
       return { error: "No tienes permisos para avanzar este paso." }
     }
 
-    const formato = licitacion.formatoLiquidacion.titulo
+    if (esFormatoTratoDirecto(formato)) {
+      await assertCanAdvanceBySignature(licitacion.id, currentStep, licitacion)
+
+      const nextStep = getNextStepTratoDirecto(currentStep, licitacion)
+
+      if (!nextStep) {
+        await prisma.$transaction([
+          prisma.licitacion.update({
+            where: { id: parseInt(id) },
+            data: { estado: "Finalizada" }
+          }),
+          prisma.historialLicitacion.create({
+            data: {
+              licitacionId: parseInt(id),
+              usuarioId: session.user.id,
+              tipoAccion: "finalizacion",
+              procesoOrigen: licitacion.procesoActual.tituloProceso,
+              procesoDestino: "Finalizada",
+              observacion: "Proceso Trato Directo finalizado",
+              requirente: licitacion.requirente
+            }
+          })
+        ])
+
+        revalidatePath("/dashboard/licitaciones")
+        return { success: true, message: "Proceso Trato Directo finalizado" }
+      }
+
+      const procesoSiguiente = await prisma.procesoLicitacion.findFirst({
+        where: {
+          formatoLiquidacionId: licitacion.formatoLiquidacionId,
+          numeroPaso: nextStep
+        }
+      })
+
+      if (!procesoSiguiente) {
+        return { error: "No se encontro el proceso siguiente de Trato Directo" }
+      }
+
+      await prisma.$transaction([
+        prisma.licitacion.update({
+          where: { id: parseInt(id) },
+          data: {
+            procesoActual: {
+              connect: {
+                id: procesoSiguiente.id
+              }
+            },
+            fechaRecepcion: new Date(),
+            estado: "Pendiente"
+          }
+        }),
+        prisma.historialLicitacion.create({
+          data: {
+            licitacionId: parseInt(id),
+            usuarioId: session.user.id,
+            tipoAccion: "avance",
+            procesoOrigen: licitacion.procesoActual.tituloProceso,
+            procesoDestino: procesoSiguiente.tituloProceso,
+            observacion: "Avance flujo Trato Directo",
+            requirente: licitacion.requirente
+          }
+        })
+      ])
+
+      revalidatePath("/dashboard/licitaciones")
+      return { success: true }
+    }
 
 
 
@@ -950,16 +986,66 @@ export const devolverLicitacion = async (data) => {
 
 
     const currentStep = Number(licitacion.procesoActual.numeroPaso)
-    const canReturn = await userHasPermission(
+    const formato = licitacion.formatoLiquidacion.titulo
+    const canReturn = await userHasWorkflowPermission(
       session.user.id,
-      getWorkflowPermissionCode("devolver", currentStep)
+      "devolver",
+      currentStep,
+      formato
     )
 
     if (!canReturn) {
       return { error: "No tienes permisos para devolver este paso." }
     }
 
-    const formato = licitacion.formatoLiquidacion.titulo
+    if (esFormatoTratoDirecto(formato)) {
+      const prevStep = getPreviousStepTratoDirecto(currentStep)
+
+      if (!prevStep) {
+        return { error: "No se puede devolver, esta en el primer proceso" }
+      }
+
+      const procesoAnterior = await prisma.procesoLicitacion.findFirst({
+        where: {
+          formatoLiquidacionId: licitacion.formatoLiquidacionId,
+          numeroPaso: prevStep
+        }
+      })
+
+      if (!procesoAnterior) {
+        return { error: "No se encontro el proceso anterior de Trato Directo" }
+      }
+
+      await prisma.$transaction([
+        prisma.licitacion.update({
+          where: { id: licitacionId },
+          data: {
+            procesoActual: {
+              connect: {
+                id: procesoAnterior.id
+              }
+            },
+            fechaRecepcion: new Date(),
+            estado: "Pendiente"
+          }
+        }),
+        prisma.historialLicitacion.create({
+          data: {
+            licitacionId,
+            usuarioId: session.user.id,
+            tipoAccion: "devolucion",
+            procesoOrigen: licitacion.procesoActual.tituloProceso,
+            procesoDestino: procesoAnterior.tituloProceso,
+            observacion,
+            requirente: licitacion.requirente,
+            createdAt: new Date()
+          }
+        })
+      ])
+
+      revalidatePath("/dashboard/licitaciones")
+      return { success: true }
+    }
 
 
 
@@ -2607,41 +2693,40 @@ export const deleteLicitacion = async (id) => {
 // Obtener procesos por formato de liquidación desde la base de datos
 
 export const getProcesosByFormato = async (formatoId) => {
-  const session = await auth()
-
-
-
-  if (!session) {
-
-    return { error: "No autorizado" }
-
-  }
-
-
-
   try {
+    const formatoLiquidacionId = Number(formatoId)
+
+    if (!formatoLiquidacionId) {
+      return {
+        ok: false,
+        error: "Formato no válido",
+        data: []
+      }
+    }
 
     const procesos = await prisma.procesoLicitacion.findMany({
 
       where: {
 
-        formatoLiquidacionId: parseInt(formatoId)
+        formatoLiquidacionId
 
       },
 
-      include: {
+      select: {
 
-        role: {
+        id: true,
 
-          select: {
+        formatoLiquidacionId: true,
 
-            id: true,
+        tituloProceso: true,
 
-            name: true
+        numeroPaso: true,
 
-          }
+        diasSugeridos: true,
 
-        }
+        createdAt: true,
+
+        updatedAt: true
 
       },
 
@@ -2655,13 +2740,20 @@ export const getProcesosByFormato = async (formatoId) => {
 
 
 
-    return { data: procesos }
+    return {
+      ok: true,
+      data: procesos
+    }
 
   } catch (error) {
 
-    console.error(error)
+    console.error("Error al cargar procesos del formato:", error)
 
-    return { error: "Error al obtener procesos" }
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      data: []
+    }
 
   }
 }
@@ -2771,7 +2863,7 @@ export const getLicitacionSignatureStatus = async (data) => {
       return { error: "Licitación no encontrada" }
     }
 
-    if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)) {
+    if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo) && !esFormatoTratoDirecto(licitacion)) {
       return { error: "Esta función solo es para licitaciones" }
     }
 
@@ -2782,7 +2874,7 @@ export const getLicitacionSignatureStatus = async (data) => {
       return { error: "Usuario no encontrado." }
     }
 
-    const signatureStatus = await getSignatureStatusForStep(licitacion.id, numeroPaso)
+    const signatureStatus = await getSignatureStatusForStep(licitacion.id, numeroPaso, licitacion)
 
     return {
       data: {
@@ -2840,7 +2932,7 @@ export const signLicitacionStep = async (data) => {
       return { error: "Licitación no encontrada" }
     }
 
-    if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo)) {
+    if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo) && !esFormatoTratoDirecto(licitacion)) {
       return { error: "Esta función solo es para licitaciones" }
     }
 
@@ -2850,7 +2942,7 @@ export const signLicitacionStep = async (data) => {
       return { error: "Esta firma no corresponde al paso actual." }
     }
 
-    const required = REQUIRED_SIGNATURES_BY_STEP[currentStep] ?? []
+    const required = getRequiredSignaturesForStep(licitacion, currentStep)
     const requirement = required.find((item) => item.key === firmaKey)
 
     if (!requirement) {

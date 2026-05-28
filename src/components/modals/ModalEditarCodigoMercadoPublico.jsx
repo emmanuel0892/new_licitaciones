@@ -13,7 +13,7 @@ const ModalEditarCodigoMercadoPublico = ({ open, licitacion, onCancel, onSuccess
     if (!open) return
 
     form.setFieldsValue({
-      codigoMercadoPublico: licitacion?.codigoMercadoPublico ?? ""
+      codigoMercadoPublico: licitacion?.codigoMercadoPublico ?? licitacion?.numeroLicitacion ?? ""
     })
   }, [form, licitacion, open])
 

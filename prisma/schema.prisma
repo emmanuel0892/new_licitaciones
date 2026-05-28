@@ -49,10 +49,10 @@ model ProcesoLicitacion {
   diasSugeridos        Int                @default(5) @map("dias_sugeridos")
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
-  roleId               String             @map("role_id") @db.VarChar(36)
+  roleId               String?            @map("role_id") @db.VarChar(36)
   licitaciones         Licitacion[]
   formatoLiquidacion   FormatoLiquidacion @relation(fields: [formatoLiquidacionId], references: [id])
-  role                 roles              @relation(fields: [roleId], references: [id])
+  role                 roles?             @relation(fields: [roleId], references: [id])
 
   @@index([formatoLiquidacionId], map: "proceso_licitacion_fk_formato_liquidacion_id_fkey")
   @@index([roleId], map: "proceso_licitacion_role_id_fkey")

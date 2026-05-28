@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma"
+import { getFormatoKey } from "@/lib/helpers"
 
 export const PERMISSION_CODES = {
   LICITACION_CREATE: "licitacion.crear",
@@ -142,4 +143,31 @@ export const canUserPerform = async (userId, permissionCode) => {
 
 export const getWorkflowPermissionCode = (action, numeroPaso) => {
   return `workflow.${action}.${Number(numeroPaso)}`
+}
+
+export const getWorkflowPermissionCodes = (action, numeroPaso, formato) => {
+  const step = Number(numeroPaso)
+  const formatoKey = getFormatoKey(formato)
+  const genericPermission = getWorkflowPermissionCode(action, step)
+
+  if (!formatoKey) {
+    return [genericPermission]
+  }
+
+  return [
+    `workflow.${formatoKey}.${action}.${step}`,
+    genericPermission
+  ]
+}
+
+export const userHasWorkflowPermission = async (userId, action, numeroPaso, formato) => {
+  const permissionCodes = getWorkflowPermissionCodes(action, numeroPaso, formato)
+
+  for (const permissionCode of permissionCodes) {
+    const allowed = await userHasPermission(userId, permissionCode)
+
+    if (allowed) return true
+  }
+
+  return false
 }
