@@ -5,6 +5,7 @@ import { Alert, App, Button, Divider, List, Modal, Space, Spin, Tag, Typography,
 import { CheckCircleOutlined, ClockCircleOutlined, LockOutlined, SignatureOutlined } from "@ant-design/icons"
 import { getLicitacionSignatureStatus, signLicitacionStep } from "@/actions/licitaciones"
 import { formatDate } from "@/lib/helpers"
+import PdfSignaturePlacement from "@/components/pdf/PdfSignaturePlacement"
 
 const { Text, Title } = Typography
 
@@ -29,6 +30,7 @@ const ModalFirmarLicitacion = forwardRef(({ onSuccess, currentUserId }, ref) => 
   const [licitacionId, setLicitacionId] = useState(null)
   const [previewPdfFirma, setPreviewPdfFirma] = useState(false)
   const [firmaSeleccionada, setFirmaSeleccionada] = useState(null)
+  const [signaturePlacement, setSignaturePlacement] = useState(null)
 
   const loadSignatureStatus = async (id) => {
     setLoading(true)
@@ -71,6 +73,13 @@ const ModalFirmarLicitacion = forwardRef(({ onSuccess, currentUserId }, ref) => 
   const handleConfirmarFirma = async () => {
     if (!firmaSeleccionada || !licitacionId) return
 
+    if (!signaturePlacement) {
+      message.warning("Debe seleccionar la ubicación de la firma en el documento.")
+      return
+    }
+
+    console.log("Ubicación de firma seleccionada:", signaturePlacement)
+
     try {
       setSigningKey(firmaSeleccionada.key)
       const result = await signLicitacionStep({
@@ -84,6 +93,7 @@ const ModalFirmarLicitacion = forwardRef(({ onSuccess, currentUserId }, ref) => 
         message.success("Firma registrada correctamente")
         setPreviewPdfFirma(false)
         setFirmaSeleccionada(null)
+        setSignaturePlacement(null)
         await loadSignatureStatus(licitacionId)
         await onSuccess?.()
       } else {
@@ -99,6 +109,7 @@ const ModalFirmarLicitacion = forwardRef(({ onSuccess, currentUserId }, ref) => 
   const handleVolver = () => {
     setPreviewPdfFirma(false)
     setFirmaSeleccionada(null)
+    setSignaturePlacement(null)
   }
 
   const signatures = statusData?.signatures ?? []
@@ -134,23 +145,21 @@ const ModalFirmarLicitacion = forwardRef(({ onSuccess, currentUserId }, ref) => 
       ) : previewPdfFirma ? (
         <Space direction="vertical" size={16} style={{ width: "100%" }}>
           <Title level={5}>Documento a firmar</Title>
-          <div style={{ width: "100%", height: 520, border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", background: "#f8fafc" }}>
-            <iframe
-              src="/documento%20de%20prueba.pdf"
-              style={{ width: "100%", height: "100%", border: "none" }}
-              title="Documento de prueba"
-            />
-          </div>
-          {statusData?.currentUser?.firma && (
-            <div style={{ marginTop: 12, padding: 10, border: "1px solid #dbeafe", borderRadius: 8, background: "#f8fbff" }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>Firma que se aplicará</Text>
-              <div style={{ marginTop: 4 }}>
-                <Image
-                  src={statusData.currentUser.firma}
-                  alt="Firma del usuario"
-                  style={{ maxWidth: 240, maxHeight: 90, objectFit: "contain", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 6, padding: 6 }}
-                  preview={false}
-                />
+          <PdfSignaturePlacement
+            pdfUrl="/documento de prueba.pdf"
+            firmaBase64={statusData?.currentUser?.firma}
+            onPlacementChange={setSignaturePlacement}
+          />
+          {signaturePlacement && (
+            <div style={{ padding: 10, border: "1px solid #dbeafe", borderRadius: 8, background: "#f8fbff" }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Ubicación seleccionada:
+              </Text>
+              <div style={{ marginTop: 4, fontSize: 12 }}>
+                <div>X: {Math.round(signaturePlacement.x)}</div>
+                <div>Y: {Math.round(signaturePlacement.y)}</div>
+                <div>Ancho: {Math.round(signaturePlacement.width)}</div>
+                <div>Alto: {Math.round(signaturePlacement.height)}</div>
               </div>
             </div>
           )}
