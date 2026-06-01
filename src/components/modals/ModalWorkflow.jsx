@@ -153,6 +153,65 @@ const ModalWorkflow = forwardRef((props, ref) => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
   }
 
+  const getHistorialDate = (item) => {
+    return item?.createdAt ?? item?.created_at ?? null
+  }
+
+  const isFutureStep = (proceso, currentStep, completedStepNumbers) => {
+    const numeroPaso = getProcesoNumero(proceso)
+
+    return numeroPaso > Number(currentStep) && !completedStepNumbers.has(numeroPaso)
+  }
+
+  const buildWorkflowTransitions = (procesosVisiblesOrdenados, historialOrdenado, options = {}) => {
+    const fechaMinima = options.fechaMinima ? new Date(options.fechaMinima) : null
+    const transitions = new Map()
+    const usedTransitionKeys = new Set()
+    let cursorDate = fechaMinima
+
+    for (let index = 0; index < procesosVisiblesOrdenados.length - 1; index += 1) {
+      const procesoOrigen = procesosVisiblesOrdenados[index]
+      const procesoDestino = procesosVisiblesOrdenados[index + 1]
+      const origenEsperado = normalizar(getProcesoTitulo(procesoOrigen))
+      const destinoEsperado = normalizar(getProcesoTitulo(procesoDestino))
+
+      const transition = historialOrdenado.find((h) => {
+        const transitionKey = h.id ?? `${getHistorialDate(h)}-${h.tipoAccion}-${h.procesoOrigen}-${h.procesoDestino}`
+        const fechaHistorialValue = getHistorialDate(h)
+        const fechaHistorial = fechaHistorialValue ? new Date(fechaHistorialValue) : null
+
+        if (usedTransitionKeys.has(transitionKey)) return false
+        if (cursorDate && fechaHistorial && fechaHistorial < cursorDate) return false
+
+        return normalizar(h.tipoAccion ?? h.tipo_accion) === "avance" &&
+          normalizar(h.procesoOrigen ?? h.proceso_origen) === origenEsperado &&
+          normalizar(h.procesoDestino ?? h.proceso_destino) === destinoEsperado
+      })
+
+      if (!transition) continue
+
+      const transitionKey = transition.id ??
+        `${getHistorialDate(transition)}-${transition.tipoAccion}-${transition.procesoOrigen}-${transition.procesoDestino}`
+      const numeroOrigen = getProcesoNumero(procesoOrigen)
+      const numeroDestino = getProcesoNumero(procesoDestino)
+
+      usedTransitionKeys.add(transitionKey)
+      transitions.set(numeroOrigen, {
+        ...(transitions.get(numeroOrigen) ?? {}),
+        salida: transition
+      })
+      transitions.set(numeroDestino, {
+        ...(transitions.get(numeroDestino) ?? {}),
+        llegada: transition
+      })
+
+      const transitionDate = getHistorialDate(transition)
+      cursorDate = transitionDate ? new Date(transitionDate) : cursorDate
+    }
+
+    return transitions
+  }
+
   const transformTableData = () => {
     const procesosVisiblesOrdenados = getProcesosVisibles()
       .slice()
@@ -162,8 +221,147 @@ const ModalWorkflow = forwardRef((props, ref) => {
       ? procesosFormato
       : licitacion.formatoLiquidacion.procesos ?? []
     const ultimaDevolucionReset = getUltimaDevolucionReset(historialOrdenado, procesosBase)
-    const fechaReset = ultimaDevolucionReset?.createdAt ?? null
+    const fechaReset = getHistorialDate(ultimaDevolucionReset)
     const pasoActual = getPasoActual()
+
+    {
+      const estadoActualNormalizado = normalizar(licitacion?.estado ?? licitacion?.status ?? "")
+      const licitacionFinalizada = ["finalizada", "finalizado", "terminada", "terminado"].includes(estadoActualNormalizado)
+      const ultimoProcesoActual = procesosVisiblesOrdenados[procesosVisiblesOrdenados.length - 1] ?? null
+      const ultimoProcesoTituloNormalizado = ultimoProcesoActual
+        ? normalizar(getProcesoTitulo(ultimoProcesoActual))
+        : ""
+      const historialFinalActual = licitacionFinalizada && ultimoProcesoActual
+        ? [...historialOrdenado]
+          .filter((h) => {
+            const tipo = normalizar(h.tipoAccion ?? h.tipo_accion)
+            const origen = normalizar(h.procesoOrigen ?? h.proceso_origen)
+            const destino = normalizar(h.procesoDestino ?? h.proceso_destino)
+
+            if (!["finalizacion", "finalizado", "terminado", "terminar", "avance"].includes(tipo)) {
+              return false
+            }
+
+            return origen === ultimoProcesoTituloNormalizado || destino === ultimoProcesoTituloNormalizado
+          })
+          .at(-1) ?? null
+        : null
+      const transitions = buildWorkflowTransitions(procesosVisiblesOrdenados, historialOrdenado, {
+        fechaMinima: fechaReset
+      })
+      const completedStepNumbers = new Set()
+
+      transitions.forEach((transition, numeroPaso) => {
+        if (transition.salida && (Number(numeroPaso) < pasoActual || licitacionFinalizada)) {
+          completedStepNumbers.add(Number(numeroPaso))
+        }
+      })
+
+      const buildRow = (proceso, index, data = {}) => {
+        const numeroPaso = getProcesoNumero(proceso)
+        const isTratoDirecto = esFormatoTratoDirecto(licitacion)
+        const numeroVisual = isTratoDirecto ? String(numeroPaso) : getStepLabel(numeroPaso)
+
+        return {
+          ...proceso,
+          key: proceso.id || `proceso-${index}`,
+          numero: numeroVisual,
+          nombre: proceso.tituloProceso,
+          tituloProceso: `${numeroVisual} ${proceso.tituloProceso}`,
+          diasSugeridos: proceso.diasSugeridos,
+          numeroPaso,
+          hasSubpasos: false,
+          isSubstep: !isTratoDirecto && isSubpasoVisualLicitacion(numeroPaso),
+          subpasos: [],
+          fechaRecepcion: "Pendiente",
+          fechaEmision: "Pendiente",
+          diasDemorados: 0,
+          aprobadoPor: "Pendiente",
+          estadoProceso: "Pendiente",
+          ...data
+        }
+      }
+
+      const getFechaRecepcionPasoActual = (proceso, transition) => {
+        const numeroPaso = getProcesoNumero(proceso)
+        const tituloProceso = normalizar(getProcesoTitulo(proceso))
+        const devolucionAlPasoActual = [...historialOrdenado].reverse().find((h) => {
+          const fechaHistorialValue = getHistorialDate(h)
+          const fechaHistorial = fechaHistorialValue ? new Date(fechaHistorialValue) : null
+
+          if (fechaReset && fechaHistorial && fechaHistorial < new Date(fechaReset)) return false
+
+          return ["devolucion", "retroceso"].includes(normalizar(h.tipoAccion ?? h.tipo_accion)) &&
+            normalizar(h.procesoDestino ?? h.proceso_destino) === tituloProceso
+        })
+
+        return getHistorialDate(devolucionAlPasoActual) ??
+          getHistorialDate(transition?.llegada) ??
+          licitacion.fechaRecepcion ??
+          (numeroPaso === 1 ? licitacion.createdAt : null)
+      }
+
+      return procesosVisiblesOrdenados.map((proceso, index) => {
+        const numeroPaso = getProcesoNumero(proceso)
+        const transition = transitions.get(numeroPaso) ?? {}
+        const esPasoActual = numeroPaso === pasoActual
+
+        if (!licitacionFinalizada && isFutureStep(proceso, pasoActual, completedStepNumbers)) {
+          return buildRow(proceso, index)
+        }
+
+        if (esPasoActual && !licitacionFinalizada) {
+          const fechaRecepcion = getFechaRecepcionPasoActual(proceso, transition)
+
+          return buildRow(proceso, index, {
+            fechaRecepcion: fechaRecepcion ? formatDate(fechaRecepcion) : "Pendiente",
+            fechaEmision: "En curso",
+            diasDemorados: calcularDiasDemorados(fechaRecepcion, null, true),
+            aprobadoPor: "Pendiente",
+            estadoProceso: "En curso"
+          })
+        }
+
+        const fechaRecepcion = numeroPaso === 1
+          ? licitacion.createdAt
+          : getHistorialDate(transition.llegada)
+        let fechaEmision = getHistorialDate(transition.salida)
+        let aprobadoPor = getAprobadoPor(transition.salida) ?? "Pendiente"
+
+        if (
+          licitacionFinalizada &&
+          ultimoProcesoActual &&
+          numeroPaso === getProcesoNumero(ultimoProcesoActual)
+        ) {
+          const fechaFinalizacion = getHistorialDate(historialFinalActual) ??
+            licitacion.updatedAt ??
+            licitacion.updated_at ??
+            fechaRecepcion
+
+          if (fechaFinalizacion) {
+            fechaEmision = fechaFinalizacion
+          }
+
+          const aprobadoFinal = getAprobadoPor(historialFinalActual)
+          if (aprobadoFinal) {
+            aprobadoPor = aprobadoFinal
+          }
+        }
+
+        if (!fechaEmision) {
+          return buildRow(proceso, index)
+        }
+
+        return buildRow(proceso, index, {
+          fechaRecepcion: fechaRecepcion ? formatDate(fechaRecepcion) : "Pendiente",
+          fechaEmision: formatDate(fechaEmision),
+          diasDemorados: calcularDiasDemorados(fechaRecepcion, fechaEmision, false),
+          aprobadoPor,
+          estadoProceso: "Completado"
+        })
+      })
+    }
+
     const flujoPostPaso12 =
       licitacion?.flujoPostPaso12 ??
       licitacion?.flujo_post_paso_12 ??

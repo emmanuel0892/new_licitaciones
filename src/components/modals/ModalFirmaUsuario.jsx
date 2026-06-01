@@ -4,6 +4,7 @@ import { useState, useImperativeHandle, forwardRef } from "react"
 import { Modal, Button, Space, Typography, Upload, Alert, Image, App, Divider, Popconfirm } from "antd"
 import { DeleteOutlined, SaveOutlined, UploadOutlined } from "@ant-design/icons"
 import { deleteUserSignature, updateUserSignature } from "@/actions/users"
+import BotonFirmarWacom from "@/components/wacom/BotonFirmarWacom"
 
 const { Text } = Typography
 
@@ -30,6 +31,7 @@ const ModalFirmaUsuario = forwardRef(({ onSuccess }, ref) => {
   const [selectedFileName, setSelectedFileName] = useState("")
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [capturandoFirma, setCapturandoFirma] = useState(false)
 
   useImperativeHandle(ref, () => ({
     open: (selectedUser) => {
@@ -120,6 +122,20 @@ const ModalFirmaUsuario = forwardRef(({ onSuccess }, ref) => {
     setDeleting(false)
   }
 
+  const handleFirmaCapturada = async (dataUrl) => {
+    setCapturandoFirma(true)
+    try {
+      setNewSignature(dataUrl)
+      setPreview(dataUrl)
+      setSelectedFileName("firma_wacom.png")
+      message.success("Firma capturada con Wacom correctamente")
+    } catch (error) {
+      message.error("Error al capturar la firma con Wacom")
+    } finally {
+      setCapturandoFirma(false)
+    }
+  }
+
   return (
     <Modal
       title="Subir firma"
@@ -184,16 +200,26 @@ const ModalFirmaUsuario = forwardRef(({ onSuccess }, ref) => {
 
         <Space direction="vertical" size="small" style={{ width: "100%" }}>
           <Text strong>Nueva firma</Text>
-          <Upload
-            accept="image/png,image/jpeg,image/jpg,image/webp"
-            beforeUpload={handleBeforeUpload}
-            showUploadList={false}
-            maxCount={1}
-          >
-            <Button icon={<UploadOutlined />}>Seleccionar imagen</Button>
-          </Upload>
-          <Text type="secondary">Formatos permitidos: PNG, JPG, JPEG o WEBP. Maximo 2MB.</Text>
-          {selectedFileName ? <Text type="secondary">Archivo: {selectedFileName}</Text> : null}
+          <Space direction="vertical" size="small" style={{ width: "100%" }}>
+            <Upload
+              accept="image/png,image/jpeg,image/jpg,image/webp"
+              beforeUpload={handleBeforeUpload}
+              showUploadList={false}
+              maxCount={1}
+            >
+              <Button icon={<UploadOutlined />} disabled={capturandoFirma}>
+                Seleccionar imagen
+              </Button>
+            </Upload>
+            <Text type="secondary">o</Text>
+            <BotonFirmarWacom
+              nombreFirmante={`${user?.name ?? ""} ${user?.lastname ?? ""}`.trim() || "Usuario"}
+              motivoFirma="Registro de firma de usuario"
+              onFirmaCapturada={handleFirmaCapturada}
+            />
+            <Text type="secondary">Formatos permitidos: PNG, JPG, JPEG o WEBP. Maximo 2MB.</Text>
+            {selectedFileName ? <Text type="secondary">Archivo: {selectedFileName}</Text> : null}
+          </Space>
         </Space>
 
         {newSignature ? (

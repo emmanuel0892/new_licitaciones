@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useImperativeHandle, forwardRef } from "react"
-import { Modal, Typography, Table, Alert, Spin, Button } from "antd"
+import { Modal, Typography, Table, Alert, Spin, Button, Image } from "antd"
 import { InfoCircleOutlined } from "@ant-design/icons"
 import { getHistorialLicitacion } from "@/actions/licitaciones"
+import { getHistorialFirmasLicitacion } from "@/actions/historialFirmas"
 import { formatDateTime } from "@/lib/helpers"
 
 const { Title } = Typography
@@ -13,11 +14,14 @@ const ModalHistorialNuevo = forwardRef((props, ref) => {
   const [loading, setLoading] = useState(false)
   const [historial, setHistorial] = useState([])
   const [licitacion, setLicitacion] = useState(null)
+  const [firmas, setFirmas] = useState([])
+  const [loadingFirmas, setLoadingFirmas] = useState(false)
 
   useImperativeHandle(ref, () => ({
     open: async (id, licitacionData = null) => {
       setOpen(true)
       setLoading(true)
+      setLoadingFirmas(true)
       if (licitacionData) {
         setLicitacion(licitacionData)
       }
@@ -27,7 +31,13 @@ const ModalHistorialNuevo = forwardRef((props, ref) => {
         setHistorial(result.data)
       }
 
+      const firmasResult = await getHistorialFirmasLicitacion(id)
+      if (firmasResult.data) {
+        setFirmas(firmasResult.data)
+      }
+
       setLoading(false)
+      setLoadingFirmas(false)
     }
   }))
 
@@ -121,6 +131,46 @@ const ModalHistorialNuevo = forwardRef((props, ref) => {
     }
   ]
 
+  const firmasColumns = [
+    {
+      title: "Firmado por",
+      dataIndex: "firmadoPor",
+      key: "firmadoPor"
+    },
+    {
+      title: "Tipo de firma",
+      dataIndex: "tipoFirma",
+      key: "tipoFirma"
+    },
+    {
+      title: "Paso",
+      dataIndex: "procesoNombre",
+      key: "procesoNombre"
+    },
+    {
+      title: "Fecha firma",
+      dataIndex: "fechaFirma",
+      key: "fechaFirma",
+      render: (text) => formatDateTime(text)
+    },
+    {
+      title: "Firma",
+      dataIndex: "firmaBase64",
+      key: "firmaBase64",
+      render: (firmaBase64) => {
+        if (!firmaBase64) return <span style={{ color: "#999" }}>Sin firma visual</span>
+        return (
+          <Image
+            src={firmaBase64}
+            alt="Firma usada"
+            style={{ maxWidth: 120, maxHeight: 48, objectFit: "contain", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 6, padding: 4 }}
+            preview={false}
+          />
+        )
+      }
+    }
+  ]
+
   const avancesData = historial.filter((h) => h.tipoAccion === "avance")
   const observacionesData = historial.filter((h) => h.tipoAccion === "devolucion")
   const modificacionesData = historial.filter((h) => h.tipoAccion === "edicion")
@@ -176,6 +226,34 @@ const ModalHistorialNuevo = forwardRef((props, ref) => {
             ) : (
               <div style={{ padding: 16, textAlign: "center", color: "#999" }}>
                 No existen avances registrados.
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginBottom: 24 }}>
+            <Title level={5} style={{ color: "#52c41a", marginBottom: 12 }}>
+              Firmas:
+            </Title>
+            {loadingFirmas ? (
+              <div style={{ textAlign: "center", padding: 16 }}>
+                <Spin size="small" />
+              </div>
+            ) : firmas.length > 0 ? (
+              <Table
+                columns={firmasColumns}
+                dataSource={firmas}
+                pagination={false}
+                size="small"
+                rowKey="id"
+                scroll={{ x: 1000 }}
+                style={{
+                  backgroundColor: "#f6ffed",
+                  borderRadius: 4
+                }}
+              />
+            ) : (
+              <div style={{ padding: 16, textAlign: "center", color: "#999" }}>
+                No existen firmas registradas.
               </div>
             )}
           </div>

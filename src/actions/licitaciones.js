@@ -2871,11 +2871,20 @@ const getCurrentUserSignatureContext = async (userId) => {
     return null
   }
 
+  const normalizeFirmaBase64 = (firma) => {
+    if (!firma) return null
+    if (firma.startsWith("data:image/")) {
+      return firma
+    }
+    return `data:image/png;base64,${firma}`
+  }
+
   return {
     user: currentUser,
     isSuperAdmin: authorization.isSuperAdmin,
     permissions: authorization.permissions,
-    hasStoredSignature: Boolean(currentUser.firma && currentUser.firma.trim() !== "")
+    hasStoredSignature: Boolean(currentUser.firma && currentUser.firma.trim() !== ""),
+    firma: normalizeFirmaBase64(currentUser.firma)
   }
 }
 
@@ -2976,7 +2985,9 @@ export const getLicitacionSignatureStatus = async (data) => {
         },
         currentUser: {
           id: userContext.user.id,
-          hasStoredSignature: userContext.hasStoredSignature
+          hasStoredSignature: userContext.hasStoredSignature,
+          firma: userContext.firma,
+          isSuperAdmin: userContext.isSuperAdmin
         },
         signatures: buildSignatureActionStatus(signatureStatus, userContext)
       }
