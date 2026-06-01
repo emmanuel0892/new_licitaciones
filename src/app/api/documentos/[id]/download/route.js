@@ -4,7 +4,8 @@ import { z } from "zod"
 import prisma from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { resolveDocumentoAbsolutePath, sanitizeFileName } from "@/lib/documentosLicitacion"
-import { PERMISSION_CODES, userHasPermission } from "@/lib/permissions"
+import { userHasPermission } from "@/lib/permissions"
+import { getDocumentViewPermissionCode } from "@/lib/permissionCodes"
 
 const documentoIdSchema = z.coerce.number().int().positive()
 
@@ -22,26 +23,36 @@ export const GET = async (_request, { params }) => {
     return NextResponse.json({ error: "Documento invalido" }, { status: 400 })
   }
 
-  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_VIEW_DOCUMENTS)
-
-  if (!allowed) {
-    return NextResponse.json({ error: "No tienes permisos para realizar esta accion." }, { status: 403 })
-  }
-
   const documentos = await prisma.$queryRaw`
     SELECT
-      nombre_archivo AS nombreArchivo,
-      nombre_original AS nombreOriginal,
-      mime_type AS mimeType,
-      ruta_archivo AS rutaArchivo
-    FROM documentos_licitacion
-    WHERE id = ${parsedDocumentoId.data}
+      documento.nombre_archivo AS nombreArchivo,
+      documento.nombre_original AS nombreOriginal,
+      documento.mime_type AS mimeType,
+      documento.ruta_archivo AS rutaArchivo,
+      formato.titulo AS formatoTitulo
+    FROM documentos_licitacion AS documento
+    INNER JOIN licitaciones AS licitacion ON licitacion.id = documento.fk_licitacion_id
+    INNER JOIN formato_liquidacion AS formato ON formato.id = licitacion.fk_formato_liquidacion_id
+    WHERE documento.id = ${parsedDocumentoId.data}
     LIMIT 1
   `
   const documento = documentos[0]
 
   if (!documento) {
     return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 })
+  }
+
+  const allowed = await userHasPermission(
+    session.user.id,
+    getDocumentViewPermissionCode({
+      formatoLiquidacion: {
+        titulo: documento.formatoTitulo
+      }
+    })
+  )
+
+  if (!allowed) {
+    return NextResponse.json({ error: "No tienes permisos para realizar esta accion." }, { status: 403 })
   }
 
   const filePath = resolveDocumentoAbsolutePath(documento.rutaArchivo)

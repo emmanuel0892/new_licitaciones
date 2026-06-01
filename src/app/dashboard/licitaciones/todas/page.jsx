@@ -7,6 +7,7 @@ import { getLicitaciones, deleteLicitacion } from "@/actions/licitaciones"
 import { getCurrentAuthorization } from "@/actions/permisos"
 import { getUsers } from "@/actions/users"
 import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel } from "@/lib/helpers"
+import { getHistoryPermissionCode, getWorkflowViewPermissionCode } from "@/lib/permissionCodes"
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalWorkflow from "@/components/modals/ModalWorkflow"
 import ModalEditarLicitacion from "@/components/modals/ModalEditarLicitacion"
@@ -210,9 +211,13 @@ const TodasLicitacionesPage = () => {
       key: "actions",
       fixed: "right",
       width: 180,
-      render: (_, record) => (
-        <Space size="small">
-          {hasPermission("licitacion.ver_historial") && (
+      render: (_, record) => {
+        const canViewHistory = hasPermission(getHistoryPermissionCode(record))
+        const canViewWorkflow = hasPermission(getWorkflowViewPermissionCode(record))
+
+        return (
+          <Space size="small">
+          {canViewHistory && (
           <Tooltip title="Ver historial">
             <Button
               type="text"
@@ -223,7 +228,7 @@ const TodasLicitacionesPage = () => {
           </Tooltip>
           )}
 
-          {hasPermission("licitacion.ver_flujo") && (
+          {canViewWorkflow && (
           <Tooltip title="Ver workflow">
             <Button
               type="text"
@@ -259,7 +264,8 @@ const TodasLicitacionesPage = () => {
             </Tooltip>
           </Popconfirm>
         </Space>
-      )
+        )
+      }
     }
   ]
 

@@ -27,6 +27,7 @@ import {
   updateRolePermissions,
   updateUserRoles
 } from "@/actions/permisos"
+import { getTratoDirectoPermissionOrder } from "@/lib/permissionCodes"
 
 const { Text, Title } = Typography
 
@@ -44,6 +45,7 @@ const CATEGORY_ORDER = [
   "Licitaciones",
   "Workflow - Avanzar",
   "Workflow - Devolver",
+  "Trato Directo",
   "Documentos",
   "Usuarios",
   "Gestión Novedades"
@@ -92,6 +94,14 @@ const normalizePermissionIds = (permissionIds = []) => {
       permissionId?.permiso_id ?? permissionId?.permisoId ?? permissionId?.id ?? permissionId
     ))
     .filter((permissionId) => Number.isInteger(permissionId) && permissionId > 0)
+}
+
+const categoryFooterStyle = {
+  display: "flex",
+  justifyContent: "flex-end",
+  paddingTop: 12,
+  marginTop: 12,
+  borderTop: "1px solid #f1f5f9"
 }
 
 const PermissionsManagement = () => {
@@ -185,6 +195,10 @@ const PermissionsManagement = () => {
           if (aStep !== bStep) return aStep - bStep
         }
 
+        if (category === "Trato Directo") {
+          return getTratoDirectoPermissionOrder(a) - getTratoDirectoPermissionOrder(b)
+        }
+
         return a.nombre.localeCompare(b.nombre, "es")
       })
 
@@ -250,25 +264,31 @@ const PermissionsManagement = () => {
   }
 
   const handleSavePermissions = async () => {
-    if (!selectedRoleId) return
+    if (!selectedRoleId) {
+      message.warning("Debe seleccionar un rol")
+      return
+    }
 
     const roleIdToSave = selectedRoleId
     const permissionIdsToSave = normalizePermissionIds(selectedPermissionIds)
 
     setSaving(true)
-    const result = await updateRolePermissions({
-      roleId: roleIdToSave,
-      permissionIds: permissionIdsToSave
-    })
 
-    if (result.success) {
-      await loadRolePermissions(roleIdToSave)
-      message.success("Permisos actualizados correctamente")
-    } else {
-      message.error(result.error || "Error al actualizar permisos")
+    try {
+      const result = await updateRolePermissions({
+        roleId: roleIdToSave,
+        permissionIds: permissionIdsToSave
+      })
+
+      if (result.success) {
+        await loadRolePermissions(roleIdToSave)
+        message.success("Permisos actualizados correctamente")
+      } else {
+        message.error(result.error || "Error al actualizar permisos")
+      }
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
   }
 
   const handleSyncPermissionCatalog = async () => {
@@ -388,7 +408,7 @@ const PermissionsManagement = () => {
               type="primary"
               loading={saving}
               onClick={handleSavePermissions}
-              disabled={!selectedRoleId || loadingRolePermissions}
+              disabled={!selectedRoleId || loadingRolePermissions || saving}
             >
               Guardar cambios
             </Button>
@@ -450,6 +470,16 @@ const PermissionsManagement = () => {
                         )
                       })}
                     </Space>
+                    <div style={categoryFooterStyle}>
+                      <Button
+                        type="primary"
+                        loading={saving}
+                        disabled={!selectedRoleId || loadingRolePermissions || saving}
+                        onClick={handleSavePermissions}
+                      >
+                        Guardar cambios
+                      </Button>
+                    </div>
                   </Card>
                 ))}
               </Space>

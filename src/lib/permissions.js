@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma"
-import { getFormatoKey } from "@/lib/helpers"
+import { getWorkflowActionPermissionCode } from "@/lib/permissionCodes"
 
 export const PERMISSION_CODES = {
   LICITACION_CREATE: "licitacion.crear",
@@ -7,6 +7,11 @@ export const PERMISSION_CODES = {
   LICITACION_VIEW_HISTORY: "licitacion.ver_historial",
   LICITACION_VIEW_DOCUMENTS: "licitacion.ver_documentos",
   LICITACION_UPLOAD_DOCUMENT: "licitacion.subir_documento",
+  TRATO_DIRECTO_VIEW_WORKFLOW: "trato_directo.ver_flujo",
+  TRATO_DIRECTO_VIEW_HISTORY: "trato_directo.ver_historial",
+  TRATO_DIRECTO_VIEW_DOCUMENTS: "trato_directo.ver_documentos",
+  TRATO_DIRECTO_UPLOAD_DOCUMENT: "trato_directo.subir_documento",
+  TRATO_DIRECTO_EDIT_MERCADO_PUBLICO_CODE: "trato_directo.editar_codigo_mercado_publico",
   MERCADO_PUBLICO_VIEW: "mercado_publico.ver",
   MERCADO_PUBLICO_EDIT_CODE: "mercado_publico.editar_codigo",
   MERCADO_PUBLICO_SYNC: "mercado_publico.sincronizar",
@@ -146,18 +151,7 @@ export const getWorkflowPermissionCode = (action, numeroPaso) => {
 }
 
 export const getWorkflowPermissionCodes = (action, numeroPaso, formato) => {
-  const step = Number(numeroPaso)
-  const formatoKey = getFormatoKey(formato)
-  const genericPermission = getWorkflowPermissionCode(action, step)
-
-  if (!formatoKey) {
-    return [genericPermission]
-  }
-
-  return [
-    `workflow.${formatoKey}.${action}.${step}`,
-    genericPermission
-  ]
+  return [getWorkflowActionPermissionCode(formato, action, numeroPaso)]
 }
 
 export const userHasWorkflowPermission = async (userId, action, numeroPaso, formato) => {

@@ -14,7 +14,8 @@ import {
   sanitizeFileName,
   sanitizeFolderName
 } from "@/lib/documentosLicitacion"
-import { PERMISSION_CODES, userHasPermission } from "@/lib/permissions"
+import { userHasPermission } from "@/lib/permissions"
+import { getDocumentUploadPermissionCode, getDocumentViewPermissionCode } from "@/lib/permissionCodes"
 
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024
 const ALLOWED_FILE_EXTENSIONS = new Set([".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png"])
@@ -56,6 +57,9 @@ const findLicitacionDocumentContext = async (licitacionId) => {
       id: true,
       codigoMercadoPublico: true,
       numeroLicitacion: true,
+      formatoLiquidacion: {
+        select: { titulo: true }
+      },
       procesoActual: {
         select: {
           numeroPaso: true,
@@ -136,11 +140,15 @@ const createDocumentoRecord = async (data) => {
 const findDocumentoRecordById = async (documentoId) => {
   const documentos = await prisma.$queryRaw`
     SELECT
-      id,
-      fk_usuario_id AS usuarioId,
-      ruta_archivo AS rutaArchivo
+      documentos_licitacion.id,
+      documentos_licitacion.fk_usuario_id AS usuarioId,
+      documentos_licitacion.ruta_archivo AS rutaArchivo,
+      licitacion.fk_formato_liquidacion_id AS formatoLiquidacionId,
+      formato.titulo AS formatoTitulo
     FROM documentos_licitacion
-    WHERE id = ${documentoId}
+    INNER JOIN licitaciones AS licitacion ON licitacion.id = documentos_licitacion.fk_licitacion_id
+    INNER JOIN formato_liquidacion AS formato ON formato.id = licitacion.fk_formato_liquidacion_id
+    WHERE documentos_licitacion.id = ${documentoId}
     LIMIT 1
   `
 
@@ -160,17 +168,20 @@ export const getDocumentosLicitacion = async (licitacionId) => {
     return { error: "Datos invalidos" }
   }
 
-  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_VIEW_DOCUMENTS)
-
-  if (!allowed) {
-    return { error: "No tienes permisos para realizar esta accion." }
-  }
-
   try {
     const licitacion = await findLicitacionDocumentContext(parsedLicitacionId.data)
 
     if (!licitacion) {
       return { error: "Licitacion no encontrada." }
+    }
+
+    const allowed = await userHasPermission(
+      session.user.id,
+      getDocumentViewPermissionCode(licitacion)
+    )
+
+    if (!allowed) {
+      return { error: "No tienes permisos para realizar esta accion." }
     }
 
     const numeroLicitacionActual = getNumeroLicitacionActual(licitacion)
@@ -197,12 +208,6 @@ export const uploadDocumento = async (formData) => {
     return { error: "No autorizado" }
   }
 
-  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_UPLOAD_DOCUMENT)
-
-  if (!allowed) {
-    return { error: "No tienes permisos para realizar esta accion." }
-  }
-
   const parsedLicitacionId = licitacionIdSchema.safeParse(formData.get("licitacionId"))
   const files = formData.getAll("files").length > 0 ? formData.getAll("files") : [formData.get("file")]
   const validatedFiles = z.array(uploadedFileSchema).min(1, "Debes seleccionar al menos un archivo.").safeParse(files)
@@ -216,6 +221,15 @@ export const uploadDocumento = async (formData) => {
 
     if (!licitacion) {
       return { error: "Licitacion no encontrada." }
+    }
+
+    const allowed = await userHasPermission(
+      session.user.id,
+      getDocumentUploadPermissionCode(licitacion)
+    )
+
+    if (!allowed) {
+      return { error: "No tienes permisos para realizar esta accion." }
     }
 
     const numeroLicitacionActual = getNumeroLicitacionActual(licitacion)
@@ -277,17 +291,24 @@ export const deleteDocumento = async (documentoId) => {
     return { error: "Datos invalidos" }
   }
 
-  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_UPLOAD_DOCUMENT)
-
-  if (!allowed) {
-    return { error: "No tienes permisos para realizar esta accion." }
-  }
-
   try {
     const documento = await findDocumentoRecordById(parsedDocumentoId.data)
 
     if (!documento) {
       return { error: "Documento no encontrado" }
+    }
+
+    const allowed = await userHasPermission(
+      session.user.id,
+      getDocumentUploadPermissionCode({
+        formatoLiquidacion: {
+          titulo: documento.formatoTitulo
+        }
+      })
+    )
+
+    if (!allowed) {
+      return { error: "No tienes permisos para realizar esta accion." }
     }
 
     if (documento.usuarioId !== session.user.id && session.user.typeAccount !== "Super Admin") {

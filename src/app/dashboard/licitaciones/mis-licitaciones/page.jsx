@@ -6,6 +6,11 @@ import { EyeOutlined, EditOutlined, FileTextOutlined, HistoryOutlined } from "@a
 import { getMisLicitaciones } from "@/actions/licitaciones"
 import { getCurrentAuthorization } from "@/actions/permisos"
 import { formatDate, formatMoney, getEstadoColor, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel } from "@/lib/helpers"
+import {
+  getDocumentViewPermissionCode,
+  getHistoryPermissionCode,
+  getWorkflowViewPermissionCode
+} from "@/lib/permissionCodes"
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalWorkflow from "@/components/modals/ModalWorkflow"
 import ModalEditarLicitacion from "@/components/modals/ModalEditarLicitacion"
@@ -136,9 +141,14 @@ const MisLicitacionesPage = () => {
       key: "actions",
       fixed: "right",
       width: 150,
-      render: (_, record) => (
-        <Space size="small">
-          {hasPermission("licitacion.ver_historial") && (
+      render: (_, record) => {
+        const canViewHistory = hasPermission(getHistoryPermissionCode(record))
+        const canViewDocuments = hasPermission(getDocumentViewPermissionCode(record))
+        const canViewWorkflow = hasPermission(getWorkflowViewPermissionCode(record))
+
+        return (
+          <Space size="small">
+          {canViewHistory && (
           <Tooltip title="Ver historial">
             <Button
               type="text"
@@ -149,7 +159,7 @@ const MisLicitacionesPage = () => {
           </Tooltip>
           )}
 
-          {hasPermission("licitacion.ver_documentos") && (
+          {canViewDocuments && (
             <Tooltip title="Ver documentos">
               <Button
                 type="text"
@@ -160,7 +170,7 @@ const MisLicitacionesPage = () => {
             </Tooltip>
           )}
 
-          {hasPermission("licitacion.ver_flujo") && (
+          {canViewWorkflow && (
           <Tooltip title="Ver workflow">
             <Button
               type="text"
@@ -180,7 +190,8 @@ const MisLicitacionesPage = () => {
             />
           </Tooltip>
         </Space>
-      )
+        )
+      }
     }
   ]
 

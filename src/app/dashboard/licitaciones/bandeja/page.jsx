@@ -26,7 +26,16 @@ import { useRouter } from "next/navigation"
 import { getLicitaciones, avanzarLicitacion, avanzarLicitacionConInicioAnticipado, avanzarLicitacionConContrato, avanzarLicitacionConAddendum, finalizarLicitacionSinAddendum, getRoles } from "@/actions/licitaciones"
 import { getLicitacionMercadoPublicoBandeja } from "@/actions/mercadoPublicoBandeja"
 import { getUsers } from "@/actions/users"
-import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, esFormatoTratoDirecto, getFormatoKey, getFormatoLabel, formatRoleLabel } from "@/lib/helpers"
+import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, esFormatoTratoDirecto, getFormatoLabel, formatRoleLabel } from "@/lib/helpers"
+import {
+  getAdvancePermissionCode,
+  getDocumentUploadPermissionCode,
+  getDocumentViewPermissionCode,
+  getHistoryPermissionCode,
+  getMercadoPublicoEditPermissionCode,
+  getReturnPermissionCode,
+  getWorkflowViewPermissionCode
+} from "@/lib/permissionCodes"
 import ModalDevolver from "@/components/modals/ModalDevolver"
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalHistorialNuevo from "@/components/modals/ModalHistorialNuevo"
@@ -289,11 +298,21 @@ const BandejaPage = () => {
 
   const hasWorkflowPermission = (action, record) => {
     const currentStep = Number(record.procesoActual?.numeroPaso)
-    const formatoKey = getFormatoKey(record)
-    const specificPermission = formatoKey ? `workflow.${formatoKey}.${action}.${currentStep}` : null
+    const permissionCode = action === "avanzar"
+      ? getAdvancePermissionCode(record, currentStep)
+      : getReturnPermissionCode(record, currentStep)
 
-    return Boolean(specificPermission && hasPermission(specificPermission)) ||
-      hasPermission(`workflow.${action}.${currentStep}`)
+    return hasPermission(permissionCode)
+  }
+
+  const getMissingWorkflowPermissionMessage = (action, record) => {
+    if (!esFormatoTratoDirecto(record)) {
+      return `No tienes permisos para ${action} este paso.`
+    }
+
+    return action === "avanzar"
+      ? "No tienes permisos para avanzar este paso de Trato Directo."
+      : "No tienes permisos para devolver este paso de Trato Directo."
   }
 
   const getCodigoMercadoPublico = (record) => {
@@ -605,8 +624,12 @@ const BandejaPage = () => {
         const currentStep = Number(record.procesoActual?.numeroPaso)
         const isFirstStep = currentStep === 1
         const isTratoDirectoStepFive = esFormatoTratoDirecto(record) && currentStep === 5
+        const canViewHistory = hasPermission(getHistoryPermissionCode(record))
+        const canViewDocuments = hasPermission(getDocumentViewPermissionCode(record))
+        const canUploadDocuments = hasPermission(getDocumentUploadPermissionCode(record))
+        const canViewWorkflow = hasPermission(getWorkflowViewPermissionCode(record))
         const canEditMercadoPublicoCode = (
-          hasPermission("mercado_publico.editar_codigo") &&
+          hasPermission(getMercadoPublicoEditPermissionCode(record)) &&
           (
             (isFirstStep && esFormatoLicitacion(record.formatoLiquidacion.titulo)) ||
             isTratoDirectoStepFive
@@ -630,7 +653,7 @@ const BandejaPage = () => {
             )}
 
             {/* 0. Ver Historial */}
-            {hasPermission("licitacion.ver_historial") && (
+            {canViewHistory && (
               <Tooltip title="Ver historial">
               <Button
                 type="text"
@@ -642,7 +665,7 @@ const BandejaPage = () => {
             )}
 
             {/* 1. Ver documentos asociados al numero de licitacion actual */}
-            {hasPermission("licitacion.ver_documentos") && (
+            {canViewDocuments && (
               <Tooltip title="Ver documentos">
                 <Button
                   type="text"
@@ -659,7 +682,7 @@ const BandejaPage = () => {
               const currentStep = Number(record.procesoActual?.numeroPaso)
               const isLastStep = isLicitacion && currentStep === 24
               
-              return hasPermission("licitacion.subir_documento") && !isPublicada && record.estado !== "Finalizada" && !isLastStep
+              return canUploadDocuments && !isPublicada && record.estado !== "Finalizada" && !isLastStep
             })() && (
               <Tooltip title="Subir documento">
                 <Button
@@ -689,7 +712,7 @@ const BandejaPage = () => {
                   />
                 </Tooltip>
               ) : (
-                <Tooltip title="No tienes permisos para devolver este paso.">
+                <Tooltip title={getMissingWorkflowPermissionMessage("devolver", record)}>
                   <span>
                     <Button
                       type="text"
@@ -711,7 +734,7 @@ const BandejaPage = () => {
               return record.estado !== "Finalizada" && !isLastStep
             })() && (
               !hasWorkflowPermission("avanzar", record) ? (
-                <Tooltip title="No tienes permisos para avanzar este paso.">
+                <Tooltip title={getMissingWorkflowPermissionMessage("avanzar", record)}>
                   <span>
                     <Button
                       type="text"
@@ -762,7 +785,7 @@ const BandejaPage = () => {
             )}
 
             {/* 6. Ver WorkFlow */}
-            {hasPermission("licitacion.ver_flujo") && (
+            {canViewWorkflow && (
               <Tooltip title="Ver workflow">
               <Button
                 type="text"
@@ -774,7 +797,7 @@ const BandejaPage = () => {
             )}
 
             {/* 7. Ver WorkFlow Super Admin - Solo para Super Admin */}
-            {currentUserIsSuperAdmin && hasPermission("licitacion.ver_flujo") && (
+            {currentUserIsSuperAdmin && canViewWorkflow && (
               <Tooltip title="Workflow extendido">
                 <Button
                   type="text"

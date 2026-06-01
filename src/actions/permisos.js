@@ -214,6 +214,66 @@ const BASE_PERMISSIONS = [
   }
 ]
 
+const TRATO_DIRECTO_PERMISSIONS = [
+  {
+    codigo: "trato_directo.ver_flujo",
+    nombre: "Ver flujo Trato Directo",
+    descripcion: "Permite visualizar el flujo de trabajo de Trato Directo",
+    categoria: "Trato Directo"
+  },
+  {
+    codigo: "trato_directo.ver_historial",
+    nombre: "Ver historial Trato Directo",
+    descripcion: "Permite visualizar el historial de Trato Directo",
+    categoria: "Trato Directo"
+  },
+  {
+    codigo: "trato_directo.subir_documento",
+    nombre: "Subir documentos Trato Directo",
+    descripcion: "Permite subir documentos en procesos de Trato Directo",
+    categoria: "Trato Directo"
+  },
+  {
+    codigo: "trato_directo.ver_documentos",
+    nombre: "Ver documentos Trato Directo",
+    descripcion: "Permite ver documentos asociados a Trato Directo",
+    categoria: "Trato Directo"
+  },
+  {
+    codigo: "trato_directo.editar_codigo_mercado_publico",
+    nombre: "Editar código Mercado Público en Trato Directo",
+    descripcion: "Permite editar el N° Licitación/MEMO por código Mercado Público en el paso correspondiente de Trato Directo",
+    categoria: "Trato Directo"
+  },
+  ...[
+    "Confección Bases Técnicas",
+    "Firmas Jefatura de Unidad y Jefatura de Dpto.",
+    "Unidad Administrativa Legal",
+    "Firmas Subdirector Administrativo y Director",
+    "Fecha y Enumeración de Oficina de Partes",
+    "Presupuesto",
+    "Firmas Jefatura de Unidad y Jefatura de Dpto.",
+    "Confección de Contrato"
+  ].flatMap((stepName, index) => {
+    const numeroPaso = index + 1
+
+    return [
+      {
+        codigo: `workflow.trato_directo.avanzar.${numeroPaso}`,
+        nombre: `Avanzar paso ${numeroPaso} - ${stepName}`,
+        descripcion: `Permite avanzar el paso ${numeroPaso} del flujo Trato Directo`,
+        categoria: "Trato Directo"
+      },
+      {
+        codigo: `workflow.trato_directo.devolver.${numeroPaso}`,
+        nombre: `Devolver paso ${numeroPaso} - ${stepName}`,
+        descripcion: `Permite devolver desde el paso ${numeroPaso} del flujo Trato Directo`,
+        categoria: "Trato Directo"
+      }
+    ]
+  })
+]
+
 const getAuthorizedSession = async () => {
   const session = await auth()
 
@@ -413,7 +473,7 @@ export const syncPermissionCatalog = async () => {
       }
     ])
 
-    const catalog = [...BASE_PERMISSIONS, ...workflowPermissions]
+    const catalog = [...BASE_PERMISSIONS, ...TRATO_DIRECTO_PERMISSIONS, ...workflowPermissions]
 
     await prisma.$transaction(
       catalog.map((permission) =>

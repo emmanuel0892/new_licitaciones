@@ -9,6 +9,7 @@ import { z } from "zod"
 import { createLicitacionSchema, devolverLicitacionSchema } from "@/lib/validations/licitacion"
 import { esFormatoLicitacion, esFormatoTratoDirecto, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getMainStepNumero, getNextStep, getNextStepTratoDirecto, getPreviousStepTratoDirecto, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
 import { getUserPermissionContext, getWorkflowPermissionCode, PERMISSION_CODES, userHasPermission, userHasWorkflowPermission } from "@/lib/permissions"
+import { getHistoryPermissionCode, getWorkflowViewPermissionCode } from "@/lib/permissionCodes"
 import { assertCanAdvanceBySignature, canAdvanceBySignature, getRequiredSignaturesForStep, getSignatureStatusForStep, isSignatureBlocked } from "@/lib/signatures.js"
 
 const signatureStatusSchema = z.object({
@@ -21,6 +22,9 @@ const signLicitacionStepSchema = z.object({
   firmaKey: z.string().trim().min(1),
   currentUserId: z.string().optional()
 })
+
+const licitacionIdSchema = z.coerce.number().int().positive()
+const formatoLiquidacionIdSchema = z.coerce.number().int().positive()
 
 const getFlujoPostPaso12Update = (targetStep) => {
   if (targetStep <= 16) {
@@ -325,13 +329,57 @@ export const getLicitacionWorkflowById = async (id) => {
     return { error: "No autorizado" }
   }
 
-  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_VIEW_WORKFLOW)
+  const parsedId = licitacionIdSchema.safeParse(id)
+
+  if (!parsedId.success) {
+    return { error: "Licitación inválida" }
+  }
+
+  const licitacion = await prisma.licitacion.findUnique({
+    where: { id: parsedId.data },
+    select: {
+      id: true,
+      formatoLiquidacion: {
+        select: { titulo: true }
+      }
+    }
+  })
+
+  if (!licitacion) {
+    return { error: "Licitación no encontrada" }
+  }
+
+  const allowed = await userHasPermission(
+    session.user.id,
+    getWorkflowViewPermissionCode(licitacion)
+  )
 
   if (!allowed) {
     return { error: "No tienes permisos para realizar esta acción." }
   }
 
-  return getLicitacionById(id)
+  try {
+    const workflowLicitacion = await prisma.licitacion.findUnique({
+      where: { id: parsedId.data },
+      include: {
+        usuario: { select: { name: true, lastname: true } },
+        formatoLiquidacion: {
+          select: {
+            titulo: true,
+            cantidadPasos: true,
+            procesos: {
+              orderBy: { numeroPaso: "asc" }
+            }
+          }
+        },
+        procesoActual: true
+      }
+    })
+
+    return { data: workflowLicitacion }
+  } catch (error) {
+    return { error: "Error al obtener la licitación" }
+  }
 }
 
 
@@ -1580,7 +1628,30 @@ export const getHistorialLicitacion = async (id) => {
 
   }
 
-  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_VIEW_HISTORY)
+  const parsedId = licitacionIdSchema.safeParse(id)
+
+  if (!parsedId.success) {
+    return { error: "Licitación inválida" }
+  }
+
+  const licitacion = await prisma.licitacion.findUnique({
+    where: { id: parsedId.data },
+    select: {
+      id: true,
+      formatoLiquidacion: {
+        select: { titulo: true }
+      }
+    }
+  })
+
+  if (!licitacion) {
+    return { error: "Licitación no encontrada" }
+  }
+
+  const allowed = await userHasPermission(
+    session.user.id,
+    getHistoryPermissionCode(licitacion)
+  )
 
   if (!allowed) {
     return { error: "No tienes permisos para realizar esta acción." }
@@ -1592,7 +1663,7 @@ export const getHistorialLicitacion = async (id) => {
 
     const historial = await prisma.historialLicitacion.findMany({
 
-      where: { licitacionId: parseInt(id) },
+      where: { licitacionId: parsedId.data },
 
       include: { usuario: { select: { name: true, lastname: true } } },
 
@@ -2765,13 +2836,31 @@ export const getWorkflowProcessesByFormato = async (formatoId) => {
     return { error: "No autorizado" }
   }
 
-  const allowed = await userHasPermission(session.user.id, PERMISSION_CODES.LICITACION_VIEW_WORKFLOW)
+  const parsedFormatoId = formatoLiquidacionIdSchema.safeParse(formatoId)
+
+  if (!parsedFormatoId.success) {
+    return { error: "Formato inválido" }
+  }
+
+  const formatoLiquidacion = await prisma.formatoLiquidacion.findUnique({
+    where: { id: parsedFormatoId.data },
+    select: { titulo: true }
+  })
+
+  if (!formatoLiquidacion) {
+    return { error: "Formato no encontrado" }
+  }
+
+  const allowed = await userHasPermission(
+    session.user.id,
+    getWorkflowViewPermissionCode({ formatoLiquidacion })
+  )
 
   if (!allowed) {
     return { error: "No tienes permisos para realizar esta acción." }
   }
 
-  return getProcesosByFormato(formatoId)
+  return getProcesosByFormato(parsedFormatoId.data)
 }
 
 const getCurrentUserSignatureContext = async (userId) => {

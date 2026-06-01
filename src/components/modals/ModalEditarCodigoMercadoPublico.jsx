@@ -67,7 +67,7 @@ const ModalEditarCodigoMercadoPublico = ({ open, licitacion, onCancel, onSuccess
           ]}
         >
           <Input
-            placeholder="Ej: 2080-148-LE25"
+            placeholder="Código de Mercado Público"
             maxLength={50}
             onChange={(event) => {
               form.setFieldValue("codigoMercadoPublico", event.target.value.toUpperCase())

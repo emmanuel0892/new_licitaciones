@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache"
 import prisma from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { getUserPermissionContext, PERMISSION_CODES } from "@/lib/permissions"
+import { getUserPermissionContext } from "@/lib/permissions"
 import { getOrCreateLicitacionMercadoPublico } from "@/lib/mercadoPublicoCache"
 import { esFormatoLicitacion, esFormatoTratoDirecto } from "@/lib/helpers"
+import { getMercadoPublicoEditPermissionCode } from "@/lib/permissionCodes"
 import { updateCodigoMercadoPublicoSchema } from "@/lib/validations/licitacion"
 
 export const updateCodigoMercadoPublico = async (data) => {
@@ -13,14 +14,6 @@ export const updateCodigoMercadoPublico = async (data) => {
 
   if (!session) {
     return { error: "No autorizado" }
-  }
-
-  const authorization = await getUserPermissionContext(session.user.id)
-  const canEditAndSync = authorization.isSuperAdmin ||
-    authorization.permissions.includes(PERMISSION_CODES.MERCADO_PUBLICO_EDIT_CODE)
-
-  if (!canEditAndSync) {
-    return { error: "No tienes permisos para editar y consultar Mercado Publico." }
   }
 
   const validatedFields = updateCodigoMercadoPublicoSchema.safeParse(data)
@@ -53,6 +46,14 @@ export const updateCodigoMercadoPublico = async (data) => {
 
     if (!licitacion) {
       return { error: "Licitacion no encontrada" }
+    }
+
+    const authorization = await getUserPermissionContext(session.user.id)
+    const canEditAndSync = authorization.isSuperAdmin ||
+      authorization.permissions.includes(getMercadoPublicoEditPermissionCode(licitacion))
+
+    if (!canEditAndSync) {
+      return { error: "No tienes permisos para editar y consultar Mercado Publico." }
     }
 
     const currentStep = Number(licitacion.procesoActual?.numeroPaso)

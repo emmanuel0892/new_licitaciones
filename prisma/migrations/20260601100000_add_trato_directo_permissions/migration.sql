@@ -1,0 +1,23 @@
+INSERT IGNORE INTO `permisos` (`codigo`, `nombre`, `descripcion`, `categoria`)
+VALUES
+  ('trato_directo.ver_flujo', 'Ver flujo Trato Directo', 'Permite visualizar el flujo de trabajo de Trato Directo', 'Trato Directo'),
+  ('trato_directo.ver_historial', 'Ver historial Trato Directo', 'Permite visualizar el historial de Trato Directo', 'Trato Directo'),
+  ('trato_directo.subir_documento', 'Subir documentos Trato Directo', 'Permite subir documentos en procesos de Trato Directo', 'Trato Directo'),
+  ('trato_directo.ver_documentos', 'Ver documentos Trato Directo', 'Permite ver documentos asociados a Trato Directo', 'Trato Directo'),
+  ('trato_directo.editar_codigo_mercado_publico', 'Editar código Mercado Público en Trato Directo', 'Permite editar el N° Licitación/MEMO por código Mercado Público en el paso correspondiente de Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.avanzar.1', 'Avanzar paso 1 - Confección Bases Técnicas', 'Permite avanzar el paso 1 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.avanzar.2', 'Avanzar paso 2 - Firmas Jefatura de Unidad y Jefatura de Dpto.', 'Permite avanzar el paso 2 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.avanzar.3', 'Avanzar paso 3 - Unidad Administrativa Legal', 'Permite avanzar el paso 3 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.avanzar.4', 'Avanzar paso 4 - Firmas Subdirector Administrativo y Director', 'Permite avanzar el paso 4 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.avanzar.5', 'Avanzar paso 5 - Fecha y Enumeración de Oficina de Partes', 'Permite avanzar el paso 5 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.avanzar.6', 'Avanzar paso 6 - Presupuesto', 'Permite avanzar el paso 6 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.avanzar.7', 'Avanzar paso 7 - Firmas Jefatura de Unidad y Jefatura de Dpto.', 'Permite avanzar el paso 7 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.avanzar.8', 'Avanzar paso 8 - Confección de Contrato', 'Permite avanzar el paso 8 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.devolver.1', 'Devolver paso 1 - Confección Bases Técnicas', 'Permite devolver desde el paso 1 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.devolver.2', 'Devolver paso 2 - Firmas Jefatura de Unidad y Jefatura de Dpto.', 'Permite devolver desde el paso 2 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.devolver.3', 'Devolver paso 3 - Unidad Administrativa Legal', 'Permite devolver desde el paso 3 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.devolver.4', 'Devolver paso 4 - Firmas Subdirector Administrativo y Director', 'Permite devolver desde el paso 4 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.devolver.5', 'Devolver paso 5 - Fecha y Enumeración de Oficina de Partes', 'Permite devolver desde el paso 5 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.devolver.6', 'Devolver paso 6 - Presupuesto', 'Permite devolver desde el paso 6 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.devolver.7', 'Devolver paso 7 - Firmas Jefatura de Unidad y Jefatura de Dpto.', 'Permite devolver desde el paso 7 del flujo Trato Directo', 'Trato Directo'),
+  ('workflow.trato_directo.devolver.8', 'Devolver paso 8 - Confección de Contrato', 'Permite devolver desde el paso 8 del flujo Trato Directo', 'Trato Directo');
