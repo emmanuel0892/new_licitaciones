@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const SIGCAPTX_PORT = 8000;
+const WACOM_SIGCAPTX_PORT = Number(
+  process.env.NEXT_PUBLIC_WACOM_SIGCAPTX_PORT ?? 8000
+);
 const RENDER_WIDTH = 300;
 const RENDER_HEIGHT = 120;
 
@@ -10,7 +12,7 @@ const RENDER_HEIGHT = 120;
 // Fuente: https://github.com/Wacom-Developer/sdk-for-signature-sigcaptx-windows/blob/master/GETTING-STARTED.md
 const WACOM_LICENCE = "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI3YmM5Y2IxYWIxMGE0NmUxODI2N2E5MTJkYTA2ZTI3NiIsImV4cCI6MjE0NzQ4MzY0NywiaWF0IjoxNTYwOTUwMjcyLCJyaWdodHMiOlsiU0lHX1NES19DT1JFIiwiU0lHQ0FQVFhfQUNDRVNTIl0sImRldmljZXMiOlsiV0FDT01fQU5ZIl0sInR5cGUiOiJwcm9kIiwibGljX25hbWUiOiJTaWduYXR1cmUgU0RLIiwid2Fjb21faWQiOiI3YmM5Y2IxYWIxMGE0NmUxODI2N2E5MTJkYTA2ZTI3NiIsImxpY191aWQiOiJiODUyM2ViYi0xOGI3LTQ3OGEtYTlkZS04NDlmZTIyNmIwMDIiLCJhcHBzX3dpbmRvd3MiOltdLCJhcHBzX2lvcyI6W10sImFwcHNfYW5kcm9pZCI6W10sIm1hY2hpbmVfaWRzIjpbXX0.ONy3iYQ7lC6rQhou7rz4iJT_OJ20087gWz7GtCgYX3uNtKjmnEaNuP3QkjgxOK_vgOrTdwzD-nm-ysiTDs2GcPlOdUPErSp_bcX8kFBZVmGLyJtmeInAW6HuSp2-57ngoGFivTH_l1kkQ1KMvzDKHJbRglsPpd4nVHhx9WkvqczXyogldygvl0LRidyPOsS5H2GYmaPiyIp9In6meqeNQ1n9zkxSHo7B11mp_WXJXl0k1pek7py8XYCedCNW5qnLi4UCNlfTd6Mk9qz31arsiWsesPeR9PN121LBJtiPi023yQU8mgb9piw_a-ccciviJuNsEuRDN3sGnqONG3dMSA";
 
-const CERT_URL = `https://localhost:${SIGCAPTX_PORT}`;
+const CERT_URL = `https://localhost:${WACOM_SIGCAPTX_PORT}`;
 
 /**
  * Hook para capturar firma digital desde una tableta Wacom STU-540
@@ -60,7 +62,7 @@ export default function useWacomSignature() {
           }
           setSdkReady(false);
         }
-      }, SIGCAPTX_PORT);
+      }, WACOM_SIGCAPTX_PORT);
     } catch (e) {
       console.error("[Wacom] Error inicializando SDK:", e);
       if (isHttps) {
@@ -87,7 +89,7 @@ export default function useWacomSignature() {
     }
 
     const script = document.createElement("script");
-    script.src = "/sdk/wgssSigCaptX.js";
+    script.src = "/sdk/wgssSigCaptX-ok.js?v=" + Date.now();
     script.async = true;
     script.onload = () => {
       scriptLoadedRef.current = true;

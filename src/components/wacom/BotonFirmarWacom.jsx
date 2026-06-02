@@ -68,7 +68,7 @@ export default function BotonFirmarWacom({
   }
 
   if (!sdkReady) {
-    return <Spin tip="Conectando con la tableta..." />;
+    return <Spin description="Conectando con la tableta..." />;
   }
 
   return (
