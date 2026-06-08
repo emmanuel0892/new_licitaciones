@@ -213,6 +213,77 @@ export const REQUIRED_SIGNATURES_BY_STEP = {
 }
 
 export const REQUIRED_SIGNATURES_BY_FORMAT_AND_STEP = {
+  convenio_marco: {
+    2: [
+      {
+        key: "jefatura_unidad",
+        label: "Jefatura de Unidad",
+        permissionCode: PERMISSION_CODES.SIGN_UNIT_HEAD,
+        order: 1
+      },
+      {
+        key: "jefatura_dpto",
+        label: "Jefatura de Dpto",
+        permissionCode: PERMISSION_CODES.SIGN_DEPARTMENT_HEAD,
+        order: 2,
+        dependsOn: "jefatura_unidad"
+      }
+    ],
+    4: [
+      {
+        key: "jefatura_unidad_legal",
+        label: "Jefatura Unidad Administrativo Legal",
+        permissionCode: PERMISSION_CODES.SIGN_LEGAL_UNIT_HEAD,
+        order: 1
+      }
+    ],
+    5: [
+      {
+        key: "subdirector_administrativo",
+        label: "Subdirector Administrativo",
+        permissionCode: PERMISSION_CODES.SIGN_ADMINISTRATIVE_SUBDIRECTOR,
+        order: 1
+      },
+      {
+        key: "director",
+        label: "Direccion / Director",
+        permissionCode: PERMISSION_CODES.SIGN_DIRECTOR,
+        order: 2,
+        dependsOn: "subdirector_administrativo"
+      }
+    ],
+    11: [
+      {
+        key: "jefatura_unidad",
+        label: "Jefatura de Unidad",
+        permissionCode: PERMISSION_CODES.SIGN_UNIT_HEAD,
+        order: 1
+      },
+      {
+        key: "jefatura_dpto",
+        label: "Jefatura de Dpto",
+        permissionCode: PERMISSION_CODES.SIGN_DEPARTMENT_HEAD,
+        order: 2,
+        dependsOn: "jefatura_unidad"
+      }
+    ],
+    13: [
+      {
+        key: "jefatura_unidad_legal",
+        label: "Jefatura Unidad Administrativo Legal",
+        permissionCode: PERMISSION_CODES.SIGN_LEGAL_UNIT_HEAD,
+        order: 1
+      }
+    ],
+    14: [
+      {
+        key: "subdirector_administrativo",
+        label: "Subdirector Administrativo",
+        permissionCode: PERMISSION_CODES.SIGN_ADMINISTRATIVE_SUBDIRECTOR,
+        order: 1
+      }
+    ]
+  },
   trato_directo: {
     2: [
       {

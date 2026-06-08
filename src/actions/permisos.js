@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import prisma from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { esFormatoLicitacion } from "@/lib/helpers"
+import { CONVENIO_MARCO_PROCESOS, esFormatoLicitacion, getVisualStepConvenioMarco } from "@/lib/helpers"
 import { getUserPermissionContext, PERMISSION_CODES, userHasPermission } from "@/lib/permissions"
 
 const roleAssignmentSchema = z.object({
@@ -274,6 +274,58 @@ const TRATO_DIRECTO_PERMISSIONS = [
   })
 ]
 
+const CONVENIO_MARCO_PERMISSIONS = [
+  {
+    codigo: "convenio_marco.ver_flujo",
+    nombre: "Ver flujo Convenio Marco / Gran Compra",
+    descripcion: "Permite visualizar el flujo de trabajo de Convenio Marco / Gran Compra",
+    categoria: "Convenio Marco / Gran Compra"
+  },
+  {
+    codigo: "convenio_marco.ver_historial",
+    nombre: "Ver historial Convenio Marco / Gran Compra",
+    descripcion: "Permite visualizar el historial de Convenio Marco / Gran Compra",
+    categoria: "Convenio Marco / Gran Compra"
+  },
+  {
+    codigo: "convenio_marco.subir_documento",
+    nombre: "Subir documentos Convenio Marco / Gran Compra",
+    descripcion: "Permite subir documentos en procesos de Convenio Marco / Gran Compra",
+    categoria: "Convenio Marco / Gran Compra"
+  },
+  {
+    codigo: "convenio_marco.ver_documentos",
+    nombre: "Ver documentos Convenio Marco / Gran Compra",
+    descripcion: "Permite ver documentos asociados a Convenio Marco / Gran Compra",
+    categoria: "Convenio Marco / Gran Compra"
+  },
+  {
+    codigo: "convenio_marco.editar_codigo_mercado_publico",
+    nombre: "Editar codigo Mercado Publico en Convenio Marco / Gran Compra",
+    descripcion: "Permite editar el codigo Mercado Publico en el paso correspondiente de Convenio Marco / Gran Compra",
+    categoria: "Convenio Marco / Gran Compra"
+  },
+  ...CONVENIO_MARCO_PROCESOS.flatMap((step) => {
+    const numeroPaso = step.numeroPaso
+    const numeroVisual = getVisualStepConvenioMarco(numeroPaso, Number.MAX_SAFE_INTEGER).visual
+
+    return [
+      {
+        codigo: `workflow.convenio_marco.avanzar.${numeroPaso}`,
+        nombre: `Avanzar paso ${numeroVisual} - ${step.tituloProceso}`,
+        descripcion: `Permite avanzar el paso interno ${numeroPaso} del flujo Convenio Marco / Gran Compra`,
+        categoria: "Convenio Marco / Gran Compra"
+      },
+      {
+        codigo: `workflow.convenio_marco.devolver.${numeroPaso}`,
+        nombre: `Devolver paso ${numeroVisual} - ${step.tituloProceso}`,
+        descripcion: `Permite devolver desde el paso interno ${numeroPaso} del flujo Convenio Marco / Gran Compra`,
+        categoria: "Convenio Marco / Gran Compra"
+      }
+    ]
+  })
+]
+
 const getAuthorizedSession = async () => {
   const session = await auth()
 
@@ -298,6 +350,19 @@ const revalidatePermissionConsumers = () => {
 }
 
 const formatWorkflowPermissionName = (permission, processByStep) => {
+  const convenioMarcoMatch = permission.codigo.match(/^workflow\.convenio_marco\.(avanzar|devolver)\.(\d+)$/)
+
+  if (convenioMarcoMatch) {
+    const actionLabel = convenioMarcoMatch[1] === "avanzar" ? "Avanzar" : "Devolver"
+    const numeroPaso = Number(convenioMarcoMatch[2])
+    const processName = CONVENIO_MARCO_PROCESOS.find((process) => process.numeroPaso === numeroPaso)?.tituloProceso
+    const numeroVisual = getVisualStepConvenioMarco(numeroPaso, Number.MAX_SAFE_INTEGER).visual
+
+    return processName
+      ? `${actionLabel} paso ${numeroVisual} - ${processName}`
+      : `${actionLabel} paso ${numeroVisual}`
+  }
+
   const match = permission.codigo.match(/^workflow\.(avanzar|devolver)\.(\d+)$/)
 
   if (!match) return permission.nombre
@@ -473,7 +538,7 @@ export const syncPermissionCatalog = async () => {
       }
     ])
 
-    const catalog = [...BASE_PERMISSIONS, ...TRATO_DIRECTO_PERMISSIONS, ...workflowPermissions]
+    const catalog = [...BASE_PERMISSIONS, ...TRATO_DIRECTO_PERMISSIONS, ...CONVENIO_MARCO_PERMISSIONS, ...workflowPermissions]
 
     await prisma.$transaction(
       catalog.map((permission) =>

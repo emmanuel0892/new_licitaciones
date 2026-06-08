@@ -6,7 +6,7 @@ import { SearchOutlined, ReloadOutlined, EyeOutlined, HistoryOutlined, FileTextO
 import { getLicitaciones, deleteLicitacion } from "@/actions/licitaciones"
 import { getCurrentAuthorization } from "@/actions/permisos"
 import { getUsers } from "@/actions/users"
-import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel } from "@/lib/helpers"
+import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualWorkflowLabel, getFormatoLabel } from "@/lib/helpers"
 import { getHistoryPermissionCode, getWorkflowViewPermissionCode } from "@/lib/permissionCodes"
 import ModalHistorial from "@/components/modals/ModalHistorial"
 import ModalWorkflow from "@/components/modals/ModalWorkflow"
@@ -110,7 +110,7 @@ const TodasLicitacionesPage = () => {
       "Monto Presupuestado": l.montoPresupuestado || "Sin Monto",
       "Vigencia": l.vigencia ? formatDate(l.vigencia) : "-",
       "Estado": l.estado,
-      "Proceso Actual": esFormatoLicitacion(l.formatoLiquidacion.titulo) ? getProcesoActualLicitacionLabel(l.procesoActual.tituloProceso) : l.procesoActual.tituloProceso,
+      "Proceso Actual": getProcesoActualWorkflowLabel(l),
       "Fecha de Creación": formatDate(l.createdAt)
     }))
 
@@ -200,10 +200,7 @@ const TodasLicitacionesPage = () => {
       width: 180,
       ellipsis: true,
       render: (titulo, record) => {
-        if (esFormatoLicitacion(record.formatoLiquidacion.titulo)) {
-          return getProcesoActualLicitacionLabel(titulo)
-        }
-        return titulo
+        return getProcesoActualWorkflowLabel(record) || titulo
       }
     },
     {

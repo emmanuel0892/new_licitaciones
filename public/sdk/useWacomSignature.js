@@ -42,7 +42,7 @@ export default function useWacomSignature() {
     }
 
     const script = document.createElement("script");
-    script.src = "/sdk/wgssSigCaptX.js";
+    script.src = "/sdk/wgssSigCaptX1.js";
     script.async = true;
     script.onload = () => {
       scriptLoadedRef.current = true;

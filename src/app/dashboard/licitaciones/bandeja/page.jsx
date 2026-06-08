@@ -26,7 +26,7 @@ import { useRouter } from "next/navigation"
 import { getLicitaciones, avanzarLicitacion, avanzarLicitacionConInicioAnticipado, avanzarLicitacionConContrato, avanzarLicitacionConAddendum, finalizarLicitacionSinAddendum, getRoles } from "@/actions/licitaciones"
 import { getLicitacionMercadoPublicoBandeja } from "@/actions/mercadoPublicoBandeja"
 import { getUsers } from "@/actions/users"
-import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualLicitacionLabel, esFormatoLicitacion, esFormatoTratoDirecto, getFormatoLabel, formatRoleLabel } from "@/lib/helpers"
+import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getInitialStepConvenioMarco, getProcesoActualWorkflowLabel, esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, getFormatoLabel, formatRoleLabel } from "@/lib/helpers"
 import {
   getAdvancePermissionCode,
   getDocumentUploadPermissionCode,
@@ -279,7 +279,7 @@ const BandejaPage = () => {
       "Monto Presupuestado": l.montoPresupuestado || "Sin Monto",
       "Vigencia": l.vigencia ? formatDate(l.vigencia) : "-",
       "Estado": l.estado,
-      "Proceso Actual": esFormatoLicitacion(l.formatoLiquidacion.titulo) ? getProcesoActualLicitacionLabel(l.procesoActual) : l.procesoActual.tituloProceso,
+      "Proceso Actual": getProcesoActualWorkflowLabel(l),
       "Fecha de Creación": formatDate(l.createdAt)
     }))
 
@@ -306,6 +306,12 @@ const BandejaPage = () => {
   }
 
   const getMissingWorkflowPermissionMessage = (action, record) => {
+    if (esFormatoConvenioMarco(record)) {
+      return action === "avanzar"
+        ? "No tienes permisos para avanzar este paso de Convenio Marco / Gran Compra."
+        : "No tienes permisos para devolver este paso de Convenio Marco / Gran Compra."
+    }
+
     if (!esFormatoTratoDirecto(record)) {
       return `No tienes permisos para ${action} este paso.`
     }
@@ -504,12 +510,10 @@ const BandejaPage = () => {
       key: "proceso",
       width: 200,
       render: (titulo, record) => {
-        let procesoLabel = esFormatoLicitacion(record.formatoLiquidacion.titulo) 
-          ? getProcesoActualLicitacionLabel(record.procesoActual) 
-          : titulo
+        let procesoLabel = getProcesoActualWorkflowLabel(record) || titulo
         
         // Quitar el número inicial si tiene formato "X Nombre"
-        if (procesoLabel && /^\d+\s+/.test(procesoLabel)) {
+        if (!esFormatoConvenioMarco(record) && procesoLabel && /^\d+\s+/.test(procesoLabel)) {
           procesoLabel = procesoLabel.replace(/^\d+\s+/, "")
         }
         
@@ -632,6 +636,7 @@ const BandejaPage = () => {
           hasPermission(getMercadoPublicoEditPermissionCode(record)) &&
           (
             (isFirstStep && esFormatoLicitacion(record.formatoLiquidacion.titulo)) ||
+            (esFormatoConvenioMarco(record) && currentStep === 7) ||
             isTratoDirectoStepFive
           )
         )
@@ -679,10 +684,12 @@ const BandejaPage = () => {
             {/* 3. Subir Documento - Solo si no es Publicada y tiene permisos */}
             {(() => {
               const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
+              const isConvenioMarco = esFormatoConvenioMarco(record)
               const currentStep = Number(record.procesoActual?.numeroPaso)
               const isLastStep = isLicitacion && currentStep === 24
-              
-              return canUploadDocuments && !isPublicada && record.estado !== "Finalizada" && !isLastStep
+              const isLastConvenioMarcoStep = isConvenioMarco && currentStep === 16
+               
+              return canUploadDocuments && !isPublicada && record.estado !== "Finalizada" && !isLastStep && !isLastConvenioMarcoStep
             })() && (
               <Tooltip title="Subir documento">
                 <Button
@@ -697,10 +704,14 @@ const BandejaPage = () => {
             {/* 4. Devolver - Visible durante el flujo y deshabilitado sin permiso */}
             {(() => {
               const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
+              const isConvenioMarco = esFormatoConvenioMarco(record)
               const currentStep = Number(record.procesoActual?.numeroPaso)
               const isLastStep = isLicitacion && currentStep === 24
-              
-              return !isFirstStep && !isPublicada && record.estado !== "Finalizada" && !isLastStep
+              const initialConvenioMarcoStep = isConvenioMarco
+                ? getInitialStepConvenioMarco(record.montoPresupuestado)
+                : null
+              const isFirstConvenioMarcoStep = isConvenioMarco && currentStep <= initialConvenioMarcoStep
+              return !isFirstStep && !isFirstConvenioMarcoStep && !isPublicada && record.estado !== "Finalizada" && !isLastStep
             })() && (
               hasWorkflowPermission("devolver", record) ? (
                 <Tooltip title="Devolver">
@@ -730,7 +741,7 @@ const BandejaPage = () => {
               const isLicitacion = esFormatoLicitacion(record.formatoLiquidacion.titulo)
               const currentStep = Number(record.procesoActual?.numeroPaso)
               const isLastStep = isLicitacion && currentStep === 24
-              
+               
               return record.estado !== "Finalizada" && !isLastStep
             })() && (
               !hasWorkflowPermission("avanzar", record) ? (

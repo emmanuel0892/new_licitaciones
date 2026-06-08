@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { getUserPermissionContext } from "@/lib/permissions"
 import { getOrCreateLicitacionMercadoPublico } from "@/lib/mercadoPublicoCache"
-import { esFormatoLicitacion, esFormatoTratoDirecto } from "@/lib/helpers"
+import { esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto } from "@/lib/helpers"
 import { getMercadoPublicoEditPermissionCode } from "@/lib/permissionCodes"
 import { updateCodigoMercadoPublicoSchema } from "@/lib/validations/licitacion"
 
@@ -59,7 +59,8 @@ export const updateCodigoMercadoPublico = async (data) => {
     const currentStep = Number(licitacion.procesoActual?.numeroPaso)
     const canEditInCurrentStep = (
       (esFormatoLicitacion(licitacion.formatoLiquidacion?.titulo) && currentStep === 1) ||
-      (esFormatoTratoDirecto(licitacion) && currentStep === 5)
+      (esFormatoTratoDirecto(licitacion) && currentStep === 5) ||
+      (esFormatoConvenioMarco(licitacion) && currentStep === 7)
     )
 
     if (!canEditInCurrentStep) {

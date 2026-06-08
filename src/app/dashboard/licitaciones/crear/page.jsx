@@ -19,7 +19,7 @@ import {
   getProcesosByFormato
 } from "@/actions/licitaciones"
 import { getAllLicitacionesMPForTable } from "@/actions/mercadoPublico"
-import { formatMoney, FLUJO_LICITACION, esFormatoLicitacion, esFormatoTratoDirecto, getProcesoActualNumero, getMainStepState, getSubStepState, getStepLabel, isSubpasoVisualLicitacion, getProcesosVisibles } from "@/lib/helpers"
+import { formatMoney, getMainStepState, getSubStepState, getNumeroPasoVisual, isSubpasoVisual, getProcesosVisibles } from "@/lib/helpers"
 import dayjs from "dayjs"
 import styles from "./crear.module.css"
 
@@ -561,12 +561,15 @@ const CrearLicitacionPage = () => {
                         formatoLiquidacion: formatoSeleccionado,
                         montoPresupuestado: montoPresupuestadoPreview
                       }).map((paso) => {
-                        const isTratoDirecto = esFormatoTratoDirecto(formatoSeleccionado)
+                        const licitacionPreview = {
+                          formatoLiquidacion: formatoSeleccionado,
+                          montoPresupuestado: montoPresupuestadoPreview
+                        }
                         const pasoObj = {
-                          numero: isTratoDirecto ? String(paso.numeroPaso) : getStepLabel(paso.numeroPaso),
+                          numero: getNumeroPasoVisual(paso, licitacionPreview),
                           nombre: paso.tituloProceso,
                           numeroPaso: paso.numeroPaso,
-                          isSubpaso: !isTratoDirecto && isSubpasoVisualLicitacion(paso.numeroPaso)
+                          isSubpaso: isSubpasoVisual(paso, licitacionPreview)
                         }
                         
                         const isSubpaso = pasoObj.isSubpaso

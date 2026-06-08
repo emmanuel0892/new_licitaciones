@@ -485,6 +485,29 @@ export const getProcesoActualLicitacionLabel = (procesoActual) => {
   return valor
 }
 
+export const getProcesoActualWorkflowLabel = (licitacion) => {
+  const procesoActual = licitacion?.procesoActual ?? licitacion?.proceso_actual
+
+  if (!procesoActual) return "Pendiente"
+
+  if (esFormatoConvenioMarco(licitacion)) {
+    const numeroPaso = Number(procesoActual.numeroPaso ?? procesoActual.numero_paso)
+    const monto = getMontoLicitacion(licitacion)
+    const visualData = getVisualStepConvenioMarco(numeroPaso, monto)
+    const titulo = procesoActual.tituloProceso ?? procesoActual.titulo_proceso ?? ""
+
+    return visualData.hidden
+      ? titulo || "Pendiente"
+      : `${visualData.visual} ${titulo}`.trim()
+  }
+
+  if (esFormatoLicitacion(licitacion?.formatoLiquidacion?.titulo ?? licitacion?.formato_liquidacion?.titulo)) {
+    return getProcesoActualLicitacionLabel(procesoActual)
+  }
+
+  return procesoActual.tituloProceso ?? procesoActual.titulo_proceso ?? String(procesoActual)
+}
+
 export const getProcesoActualNumero = (procesoActual) => {
   if (!procesoActual) return "1"
 
@@ -552,19 +575,34 @@ export const getFormatoKey = (value) => {
   const titulo =
     value?.formatoLiquidacion?.titulo ??
     value?.formato_liquidacion?.titulo ??
+    value?.titulo ??
     value?.formato ??
     value ??
     ""
 
-  return String(titulo)
+  const normalized = String(titulo)
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\//g, " ")
     .replace(/\s+/g, "_")
+
+  if (
+    normalized.includes("convenio_marco") ||
+    normalized.includes("gran_compra")
+  ) {
+    return "convenio_marco"
+  }
+
+  return normalized
 }
 
 export const esFormatoTratoDirecto = (formato) => {
   return getFormatoKey(formato) === "trato_directo"
+}
+
+export const esFormatoConvenioMarco = (formato) => {
+  return getFormatoKey(formato) === "convenio_marco"
 }
 
 const toMontoNumber = (value) => {
@@ -593,6 +631,141 @@ export const getMontoLicitacion = (licitacion = {}) => {
       licitacion.monto_presupuestado ??
       0
   )
+}
+
+export const LIMITE_1000_UTM_CLP = Number(
+  process.env.LIMITE_1000_UTM_CLP ?? 70588000
+)
+
+export const normalizarMontoCLP = (monto) => {
+  return Number(
+    String(monto ?? 0)
+      .replace(/\./g, "")
+      .replace(/\$/g, "")
+      .replace(/[^0-9]/g, "")
+  )
+}
+
+export const requiereIntencionCompraConvenioMarco = (monto) => {
+  return normalizarMontoCLP(monto) > LIMITE_1000_UTM_CLP
+}
+
+export const CONVENIO_MARCO_PROCESOS = [
+  { numeroPaso: 1, tituloProceso: "Confeccion de Intencion de Compra", diasSugeridos: 5 },
+  { numeroPaso: 2, tituloProceso: "Firma Jefatura de Unidad y Dpto.", diasSugeridos: 0 },
+  { numeroPaso: 3, tituloProceso: "Unidad Administrativa Legal", diasSugeridos: 5 },
+  { numeroPaso: 4, tituloProceso: "Firma Jefatura Unidad Administrativo Legal", diasSugeridos: 0 },
+  { numeroPaso: 5, tituloProceso: "Firma Subdirector Administrativo y Direccion", diasSugeridos: 0 },
+  { numeroPaso: 6, tituloProceso: "Fecha y Enumeracion de Oficina de Partes", diasSugeridos: 2 },
+  { numeroPaso: 7, tituloProceso: "Publicacion en Mercado Publico", diasSugeridos: 1 },
+  { numeroPaso: 8, tituloProceso: "Periodo de Apertura y Evaluacion Tecnica de Ofertas", diasSugeridos: 10 },
+  { numeroPaso: 9, tituloProceso: "Confeccion de Res. Preseleccion de Oferta y Comision", diasSugeridos: 5 },
+  { numeroPaso: 10, tituloProceso: "Presupuesto", diasSugeridos: 5 },
+  { numeroPaso: 11, tituloProceso: "Firmas Jefatura de Unidad y Jefatura de Dpto.", diasSugeridos: 0 },
+  { numeroPaso: 12, tituloProceso: "Unidad Administrativa Legal", diasSugeridos: 5 },
+  { numeroPaso: 13, tituloProceso: "Firma Jefatura Unidad Administrativo Legal", diasSugeridos: 0 },
+  { numeroPaso: 14, tituloProceso: "Firma Subdirector Administrativo", diasSugeridos: 0 },
+  { numeroPaso: 15, tituloProceso: "Fecha y Enumeracion de Oficina de Partes", diasSugeridos: 2 },
+  { numeroPaso: 16, tituloProceso: "Publicacion de Seleccion de Oferta o Desercion", diasSugeridos: 1 }
+]
+
+export const getVisualStepConvenioMarco = (numeroPasoInterno, monto) => {
+  const incluyeIntencionCompra = requiereIntencionCompraConvenioMarco(monto)
+  const step = Number(numeroPasoInterno)
+
+  if (incluyeIntencionCompra) {
+    const map = {
+      1: { visual: "1", isSubstep: false, parentVisual: null },
+      2: { visual: "1.1", isSubstep: true, parentVisual: "1" },
+      3: { visual: "2", isSubstep: false, parentVisual: null },
+      4: { visual: "2.1", isSubstep: true, parentVisual: "2" },
+      5: { visual: "3", isSubstep: false, parentVisual: null },
+      6: { visual: "3.1", isSubstep: true, parentVisual: "3" },
+      7: { visual: "4", isSubstep: false, parentVisual: null },
+      8: { visual: "5", isSubstep: false, parentVisual: null },
+      9: { visual: "6", isSubstep: false, parentVisual: null },
+      10: { visual: "7", isSubstep: false, parentVisual: null },
+      11: { visual: "7.1", isSubstep: true, parentVisual: "7" },
+      12: { visual: "8", isSubstep: false, parentVisual: null },
+      13: { visual: "8.1", isSubstep: true, parentVisual: "8" },
+      14: { visual: "9", isSubstep: false, parentVisual: null },
+      15: { visual: "9.1", isSubstep: true, parentVisual: "9" },
+      16: { visual: "10", isSubstep: false, parentVisual: null }
+    }
+
+    return map[step] ?? { visual: String(step), isSubstep: false, parentVisual: null }
+  }
+
+  const map = {
+    1: { hidden: true },
+    2: { visual: "1", isSubstep: false, parentVisual: null },
+    3: { visual: "2", isSubstep: false, parentVisual: null },
+    4: { visual: "2.1", isSubstep: true, parentVisual: "2" },
+    5: { visual: "3", isSubstep: false, parentVisual: null },
+    6: { visual: "3.1", isSubstep: true, parentVisual: "3" },
+    7: { visual: "4", isSubstep: false, parentVisual: null },
+    8: { visual: "5", isSubstep: false, parentVisual: null },
+    9: { visual: "6", isSubstep: false, parentVisual: null },
+    10: { visual: "7", isSubstep: false, parentVisual: null },
+    11: { visual: "7.1", isSubstep: true, parentVisual: "7" },
+    12: { visual: "8", isSubstep: false, parentVisual: null },
+    13: { visual: "8.1", isSubstep: true, parentVisual: "8" },
+    14: { visual: "9", isSubstep: false, parentVisual: null },
+    15: { visual: "9.1", isSubstep: true, parentVisual: "9" },
+    16: { visual: "10", isSubstep: false, parentVisual: null }
+  }
+
+  return map[step] ?? { visual: String(step), isSubstep: false, parentVisual: null }
+}
+
+export const getProcesosVisiblesConvenioMarco = (procesos, monto) => {
+  const procesosBase = Array.isArray(procesos) ? procesos : []
+
+  return procesosBase
+    .map((proceso) => {
+      const numeroPasoInterno = Number(proceso.numeroPaso ?? proceso.numero_paso)
+      const visualData = getVisualStepConvenioMarco(numeroPasoInterno, monto)
+
+      return {
+        ...proceso,
+        numeroPasoInterno,
+        numeroPasoVisual: visualData.visual,
+        isSubstep: Boolean(visualData.isSubstep),
+        parentVisual: visualData.parentVisual ?? null,
+        hidden: Boolean(visualData.hidden)
+      }
+    })
+    .filter((proceso) => !proceso.hidden)
+}
+
+export const getInitialStepConvenioMarco = (monto) => {
+  return requiereIntencionCompraConvenioMarco(monto) ? 1 : 2
+}
+
+export const getNextStepConvenioMarco = (currentStep, licitacion = {}) => {
+  const current = Number(currentStep)
+  const monto = getMontoLicitacion(licitacion)
+  const incluyeIntencionCompra = requiereIntencionCompraConvenioMarco(monto)
+
+  if (!incluyeIntencionCompra && current < 2) {
+    return 2
+  }
+
+  if (current < 16) {
+    return current + 1
+  }
+
+  return null
+}
+
+export const getPreviousStepConvenioMarco = (currentStep, licitacion = {}) => {
+  const current = Number(currentStep)
+  const initialStep = getInitialStepConvenioMarco(getMontoLicitacion(licitacion))
+
+  if (current <= initialStep) return null
+  if (current <= 16) return current - 1
+
+  return null
 }
 
 export const LIMITE_TRATO_DIRECTO_1000_UTM_CLP = Number(
@@ -735,6 +908,37 @@ export const getStepLabel = (numeroPaso) => {
   return WORKFLOW_STEP_LABELS[Number(numeroPaso)] ?? String(numeroPaso)
 }
 
+export const getNumeroPasoVisual = (proceso, licitacion) => {
+  const numeroPaso = Number(proceso?.numeroPaso ?? proceso?.numero_paso)
+
+  if (esFormatoConvenioMarco(licitacion)) {
+    return proceso?.numeroPasoVisual ?? getVisualStepConvenioMarco(numeroPaso, getMontoLicitacion(licitacion)).visual
+  }
+
+  if (esFormatoTratoDirecto(licitacion)) {
+    return String(numeroPaso)
+  }
+
+  return getStepLabel(numeroPaso)
+}
+
+export const isSubpasoVisual = (proceso, licitacion) => {
+  const numeroPaso = Number(proceso?.numeroPaso ?? proceso?.numero_paso)
+
+  if (esFormatoConvenioMarco(licitacion)) {
+    return Boolean(
+      proceso?.isSubstep ??
+      getVisualStepConvenioMarco(numeroPaso, getMontoLicitacion(licitacion)).isSubstep
+    )
+  }
+
+  if (esFormatoTratoDirecto(licitacion)) {
+    return false
+  }
+
+  return isSubpasoVisualLicitacion(numeroPaso)
+}
+
 export const getNumeroVisualLicitacion = (numeroPaso) => {
   return getStepLabel(numeroPaso)
 }
@@ -749,6 +953,10 @@ export const getProcesosVisibles = (procesos, licitacion) => {
 
   if (esFormatoTratoDirecto(licitacion)) {
     return getProcesosVisiblesTratoDirecto(procesosBase, licitacion)
+  }
+
+  if (esFormatoConvenioMarco(licitacion)) {
+    return getProcesosVisiblesConvenioMarco(procesosBase, getMontoLicitacion(licitacion))
   }
 
   const flujoPostPaso12 =

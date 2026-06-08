@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "node prisma/seed.js",
     "db:studio": "prisma studio",
+    "check:wacom": "node --check public/sdk/wacomreal.js",
     "cron:start": "node scripts/cron-sync.js",
     "cron:run": "node scripts/cron-sync.js --run-now",
     "sync:now": "node scripts/sync-once.js",

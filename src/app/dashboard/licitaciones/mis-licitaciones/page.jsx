@@ -5,7 +5,7 @@ import { Table, Button, Space, Tag, Typography, Card, App, Tooltip } from "antd"
 import { EyeOutlined, EditOutlined, FileTextOutlined, HistoryOutlined } from "@ant-design/icons"
 import { getMisLicitaciones } from "@/actions/licitaciones"
 import { getCurrentAuthorization } from "@/actions/permisos"
-import { formatDate, formatMoney, getEstadoColor, getProcesoActualLicitacionLabel, esFormatoLicitacion, getFormatoLabel } from "@/lib/helpers"
+import { formatDate, formatMoney, getEstadoColor, getProcesoActualWorkflowLabel, getFormatoLabel } from "@/lib/helpers"
 import {
   getDocumentViewPermissionCode,
   getHistoryPermissionCode,
@@ -130,10 +130,7 @@ const MisLicitacionesPage = () => {
       width: 180,
       ellipsis: true,
       render: (titulo, record) => {
-        if (esFormatoLicitacion(record.formatoLiquidacion.titulo)) {
-          return getProcesoActualLicitacionLabel(titulo)
-        }
-        return titulo
+        return getProcesoActualWorkflowLabel(record) || titulo
       }
     },
     {

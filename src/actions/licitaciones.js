@@ -7,7 +7,7 @@ import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { createLicitacionSchema, devolverLicitacionSchema } from "@/lib/validations/licitacion"
-import { esFormatoLicitacion, esFormatoTratoDirecto, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getMainStepNumero, getNextStep, getNextStepTratoDirecto, getPreviousStepTratoDirecto, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
+import { esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getInitialStepConvenioMarco, getMainStepNumero, getNextStep, getNextStepConvenioMarco, getNextStepTratoDirecto, getPreviousStepConvenioMarco, getPreviousStepTratoDirecto, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
 import { getUserPermissionContext, getWorkflowPermissionCode, PERMISSION_CODES, userHasPermission, userHasWorkflowPermission } from "@/lib/permissions"
 import { getHistoryPermissionCode, getWorkflowViewPermissionCode } from "@/lib/permissionCodes"
 import { assertCanAdvanceBySignature, canAdvanceBySignature, getRequiredSignaturesForStep, getSignatureStatusForStep, isSignatureBlocked } from "@/lib/signatures.js"
@@ -230,7 +230,7 @@ export const getMisLicitaciones = async () => {
 
         formatoLiquidacion: { select: { titulo: true } },
 
-        procesoActual: { select: { tituloProceso: true, roleId: true, role: { select: { name: true } } } },
+        procesoActual: { select: { tituloProceso: true, numeroPaso: true, roleId: true, role: { select: { name: true } } } },
 
         _count: { select: { documentos: true } }
 
@@ -502,9 +502,22 @@ export const createLicitacion = async (data) => {
 
   try {
 
+    const formatoLiquidacion = await prisma.formatoLiquidacion.findUnique({
+      where: { id: parseInt(formatoLiquidacionId) },
+      select: { titulo: true }
+    })
+
+    if (!formatoLiquidacion) {
+      return { error: "No se encontro el formato de liquidacion" }
+    }
+
+    const numeroPasoInicial = esFormatoConvenioMarco(formatoLiquidacion)
+      ? getInitialStepConvenioMarco(montoPresupuestado)
+      : 1
+
     const primerProceso = await prisma.procesoLicitacion.findFirst({
 
-      where: { formatoLiquidacionId: parseInt(formatoLiquidacionId), numeroPaso: 1 }
+      where: { formatoLiquidacionId: parseInt(formatoLiquidacionId), numeroPaso: numeroPasoInicial }
 
     })
 
@@ -721,6 +734,75 @@ export const avanzarLicitacion = async (id) => {
     }
 
 
+
+    if (esFormatoConvenioMarco(licitacion)) {
+      await assertCanAdvanceBySignature(licitacion.id, currentStep, licitacion)
+
+      const nextStep = getNextStepConvenioMarco(currentStep, licitacion)
+
+      if (!nextStep) {
+        await prisma.$transaction([
+          prisma.licitacion.update({
+            where: { id: parseInt(id) },
+            data: { estado: "Finalizada" }
+          }),
+          prisma.historialLicitacion.create({
+            data: {
+              licitacionId: parseInt(id),
+              usuarioId: session.user.id,
+              tipoAccion: "finalizacion",
+              procesoOrigen: licitacion.procesoActual.tituloProceso,
+              procesoDestino: "Finalizada",
+              observacion: "Proceso Convenio Marco / Gran Compra finalizado",
+              requirente: licitacion.requirente
+            }
+          })
+        ])
+
+        revalidatePath("/dashboard/licitaciones")
+        return { success: true, message: "Proceso Convenio Marco / Gran Compra finalizado" }
+      }
+
+      const procesoSiguiente = await prisma.procesoLicitacion.findFirst({
+        where: {
+          formatoLiquidacionId: licitacion.formatoLiquidacionId,
+          numeroPaso: nextStep
+        }
+      })
+
+      if (!procesoSiguiente) {
+        return { error: "No se encontro el proceso siguiente de Convenio Marco / Gran Compra" }
+      }
+
+      await prisma.$transaction([
+        prisma.licitacion.update({
+          where: { id: parseInt(id) },
+          data: {
+            procesoActual: {
+              connect: {
+                id: procesoSiguiente.id
+              }
+            },
+            fechaRecepcion: new Date(),
+            estado: "Pendiente"
+          }
+        }),
+        prisma.historialLicitacion.create({
+          data: {
+            licitacionId: parseInt(id),
+            usuarioId: session.user.id,
+            tipoAccion: "avance",
+            procesoOrigen: licitacion.procesoActual.tituloProceso,
+            procesoDestino: procesoSiguiente.tituloProceso,
+            observacion: "Avance flujo Convenio Marco / Gran Compra",
+            requirente: licitacion.requirente
+          }
+        })
+      ])
+
+      revalidatePath("/dashboard/licitaciones")
+      return { success: true }
+    }
 
     // Si es formato Licitación, usar numeroPaso directamente de la BD
     if (esFormatoLicitacion(formato)) {
@@ -1062,6 +1144,55 @@ export const devolverLicitacion = async (data) => {
 
       if (!procesoAnterior) {
         return { error: "No se encontro el proceso anterior de Trato Directo" }
+      }
+
+      await prisma.$transaction([
+        prisma.licitacion.update({
+          where: { id: licitacionId },
+          data: {
+            procesoActual: {
+              connect: {
+                id: procesoAnterior.id
+              }
+            },
+            fechaRecepcion: new Date(),
+            estado: "Pendiente"
+          }
+        }),
+        prisma.historialLicitacion.create({
+          data: {
+            licitacionId,
+            usuarioId: session.user.id,
+            tipoAccion: "devolucion",
+            procesoOrigen: licitacion.procesoActual.tituloProceso,
+            procesoDestino: procesoAnterior.tituloProceso,
+            observacion,
+            requirente: licitacion.requirente,
+            createdAt: new Date()
+          }
+        })
+      ])
+
+      revalidatePath("/dashboard/licitaciones")
+      return { success: true }
+    }
+
+    if (esFormatoConvenioMarco(licitacion)) {
+      const prevStep = getPreviousStepConvenioMarco(currentStep, licitacion)
+
+      if (!prevStep) {
+        return { error: "No se puede devolver, esta en el primer proceso" }
+      }
+
+      const procesoAnterior = await prisma.procesoLicitacion.findFirst({
+        where: {
+          formatoLiquidacionId: licitacion.formatoLiquidacionId,
+          numeroPaso: prevStep
+        }
+      })
+
+      if (!procesoAnterior) {
+        return { error: "No se encontro el proceso anterior de Convenio Marco / Gran Compra" }
       }
 
       await prisma.$transaction([
@@ -2961,7 +3092,7 @@ export const getLicitacionSignatureStatus = async (data) => {
       return { error: "Licitación no encontrada" }
     }
 
-    if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo) && !esFormatoTratoDirecto(licitacion)) {
+    if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo) && !esFormatoTratoDirecto(licitacion) && !esFormatoConvenioMarco(licitacion)) {
       return { error: "Esta función solo es para licitaciones" }
     }
 
@@ -3032,7 +3163,7 @@ export const signLicitacionStep = async (data) => {
       return { error: "Licitación no encontrada" }
     }
 
-    if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo) && !esFormatoTratoDirecto(licitacion)) {
+    if (!esFormatoLicitacion(licitacion.formatoLiquidacion.titulo) && !esFormatoTratoDirecto(licitacion) && !esFormatoConvenioMarco(licitacion)) {
       return { error: "Esta función solo es para licitaciones" }
     }
 

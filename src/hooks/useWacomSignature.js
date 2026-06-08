@@ -20,7 +20,7 @@ const CERT_URL = `https://localhost:${WACOM_SIGCAPTX_PORT}`;
  *
  * Requiere:
  * - SigCaptX Service instalado y corriendo (WacomSigCaptX)
- * - /public/sdk/wgssSigCaptX.js copiado del SDK
+ * - El SDK se sirve desde /api/wacom-sdk para evitar problemas de caché o recortes desde /public
  * - En HTTPS: aceptar certificado auto-firmado en https://localhost:8000
  */
 export default function useWacomSignature() {
@@ -89,15 +89,39 @@ export default function useWacomSignature() {
     }
 
     const script = document.createElement("script");
-    script.src = "/sdk/wgssSigCaptX-ok.js?v=" + Date.now();
+    // Se carga desde /api/wacom-sdk para evitar caché o versiones recortadas servidas desde /public en desarrollo.
+    script.src = "/api/wacom-sdk?v=" + Date.now();
     script.async = true;
-    script.onload = () => {
-      scriptLoadedRef.current = true;
-      setTimeout(() => initSDK(), 0);
-    };
-    script.onerror = () => {
-      setError("No se pudo cargar el SDK de Wacom SigCaptX");
-    };
+    script.type = "text/javascript";
+    script.dataset.wacomSdk = "true";
+
+    new Promise((resolve, reject) => {
+      script.onload = () => {
+        console.log("[Wacom] SDK cargado desde /api/wacom-sdk");
+
+        if (!window.WacomGSS_SignatureSDK) {
+          reject(
+            new Error("SDK Wacom cargó, pero no expuso WacomGSS_SignatureSDK.")
+          );
+          return;
+        }
+
+        resolve(true);
+      };
+
+      script.onerror = () => {
+        reject(new Error("No se pudo cargar el SDK de Wacom SigCaptX"));
+      };
+    })
+      .then(() => {
+        scriptLoadedRef.current = true;
+        setTimeout(() => initSDK(), 0);
+      })
+      .catch((loadError) => {
+        console.error("[Wacom] Error cargando SDK:", loadError);
+        setError(loadError.message || "No se pudo cargar el SDK de Wacom SigCaptX");
+      });
+
     document.head.appendChild(script);
 
     return () => {
