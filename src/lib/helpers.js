@@ -501,6 +501,14 @@ export const getProcesoActualWorkflowLabel = (licitacion) => {
       : `${visualData.visual} ${titulo}`.trim()
   }
 
+  if (esFormatoTratoDirecto(licitacion)) {
+    const numeroPaso = Number(procesoActual.numeroPaso ?? procesoActual.numero_paso)
+    const visualData = getVisualStepTratoDirecto(numeroPaso)
+    const titulo = procesoActual.tituloProceso ?? procesoActual.titulo_proceso ?? ""
+
+    return `${visualData.visual} ${titulo}`.trim()
+  }
+
   if (esFormatoLicitacion(licitacion?.formatoLiquidacion?.titulo ?? licitacion?.formato_liquidacion?.titulo)) {
     return getProcesoActualLicitacionLabel(procesoActual)
   }
@@ -769,53 +777,89 @@ export const getPreviousStepConvenioMarco = (currentStep, licitacion = {}) => {
 }
 
 export const LIMITE_TRATO_DIRECTO_1000_UTM_CLP = Number(
-  process.env.LIMITE_TRATO_DIRECTO_1000_UTM_CLP ?? 70588000
+  process.env.LIMITE_1000_UTM_CLP ??
+  process.env.LIMITE_TRATO_DIRECTO_1000_UTM_CLP ??
+  70588000
 )
 
-export const requierePasosContratoTratoDirecto = (licitacionOrMonto = {}) => {
+export const esTratoDirectoMayorA1000UTM = (licitacionOrMonto = {}) => {
   const monto = getMontoLicitacion(licitacionOrMonto)
-  return monto >= LIMITE_TRATO_DIRECTO_1000_UTM_CLP
+  return monto > LIMITE_TRATO_DIRECTO_1000_UTM_CLP
 }
 
-export const requiereContratoTratoDirecto = requierePasosContratoTratoDirecto
+export const requierePasosContratoTratoDirecto = esTratoDirectoMayorA1000UTM
+export const requiereContratoTratoDirecto = esTratoDirectoMayorA1000UTM
+
+export const TRATO_DIRECTO_PROCESOS = [
+  { numeroPaso: 1, tituloProceso: "MEMO TRATO DIRECTO", diasSugeridos: 2 },
+  { numeroPaso: 2, tituloProceso: "Carga de certificados", diasSugeridos: 0 },
+  { numeroPaso: 3, tituloProceso: "Firmas Jefatura de Unidad y Jefatura de Dpto.", diasSugeridos: 0 },
+  { numeroPaso: 4, tituloProceso: "Unidad Administrativa Legal", diasSugeridos: 3 },
+  { numeroPaso: 5, tituloProceso: "Ingreso codigo OC", diasSugeridos: 1 },
+  { numeroPaso: 6, tituloProceso: "Unidad ADM. Legal Confeccion de contrato", diasSugeridos: 3 },
+  { numeroPaso: 7, tituloProceso: "Contrato al Proveedor", diasSugeridos: 2 },
+  { numeroPaso: 8, tituloProceso: "Firmas Jefatura de Unidad y Jefatura de Dpto.", diasSugeridos: 0 },
+  { numeroPaso: 9, tituloProceso: "Unidad Administrativa Legal", diasSugeridos: 3 },
+  { numeroPaso: 10, tituloProceso: "Firmas Subdirector Administrativo y Director", diasSugeridos: 0 },
+  { numeroPaso: 11, tituloProceso: "Envio de OC", diasSugeridos: 1 }
+]
+
+export const getVisualStepTratoDirecto = (numeroPasoInterno) => {
+  const step = Number(numeroPasoInterno)
+  const map = {
+    1: { visual: "1", isSubstep: false, parentVisual: null },
+    2: { visual: "1.1", isSubstep: true, parentVisual: "1" },
+    3: { visual: "1.2", isSubstep: true, parentVisual: "1" },
+    4: { visual: "2", isSubstep: false, parentVisual: null },
+    5: { visual: "3", isSubstep: false, parentVisual: null },
+    6: { visual: "4", isSubstep: false, parentVisual: null },
+    7: { visual: "5", isSubstep: false, parentVisual: null },
+    8: { visual: "5.1", isSubstep: true, parentVisual: "5" },
+    9: { visual: "6", isSubstep: false, parentVisual: null },
+    10: { visual: "6.1", isSubstep: true, parentVisual: "6" },
+    11: { visual: "7", isSubstep: false, parentVisual: null }
+  }
+
+  return map[step] ?? { visual: String(step), isSubstep: false, parentVisual: null }
+}
 
 export const getProcesosVisiblesTratoDirecto = (procesos, licitacionOrMonto = {}) => {
   const procesosBase = Array.isArray(procesos) ? procesos : []
-  const mostrarPasosContrato = requierePasosContratoTratoDirecto(licitacionOrMonto)
+  const mayorA1000UTM = esTratoDirectoMayorA1000UTM(licitacionOrMonto)
 
-  return procesosBase.filter((proceso) => {
-    const numeroPaso = Number(proceso.numeroPaso ?? proceso.numero_paso)
+  return procesosBase
+    .map((proceso) => {
+      const numeroPasoInterno = Number(proceso.numeroPaso ?? proceso.numero_paso)
+      const visualData = getVisualStepTratoDirecto(numeroPasoInterno)
+      const hidden = !mayorA1000UTM && numeroPasoInterno > 7
 
-    if (numeroPaso <= 6) return true
-
-    if (numeroPaso === 7 || numeroPaso === 8) {
-      return mostrarPasosContrato
-    }
-
-    return false
-  })
+      return {
+        ...proceso,
+        numeroPasoInterno,
+        numeroPasoVisual: visualData.visual,
+        isSubstep: Boolean(visualData.isSubstep),
+        parentVisual: visualData.parentVisual ?? null,
+        hidden
+      }
+    })
+    .filter((proceso) => !proceso.hidden)
 }
 
 export const getNextStepTratoDirecto = (currentStep, licitacion = {}) => {
-  const step = Number(currentStep)
+  const current = Number(currentStep)
+  const mayorA1000UTM = esTratoDirectoMayorA1000UTM(licitacion)
 
-  if (step < 6) return step + 1
+  if (!mayorA1000UTM && current >= 7) return null
+  if (mayorA1000UTM && current >= 11) return null
 
-  if (step === 6) {
-    return requierePasosContratoTratoDirecto(licitacion) ? 7 : null
-  }
-
-  if (step === 7) return 8
-  if (step === 8) return null
-
-  return null
+  return current + 1
 }
 
 export const getPreviousStepTratoDirecto = (currentStep) => {
   const step = Number(currentStep)
 
   if (step <= 1) return null
-  if (step <= 8) return step - 1
+  if (step <= 11) return step - 1
 
   return null
 }
@@ -916,7 +960,7 @@ export const getNumeroPasoVisual = (proceso, licitacion) => {
   }
 
   if (esFormatoTratoDirecto(licitacion)) {
-    return String(numeroPaso)
+    return proceso?.numeroPasoVisual ?? getVisualStepTratoDirecto(numeroPaso).visual
   }
 
   return getStepLabel(numeroPaso)
@@ -933,7 +977,10 @@ export const isSubpasoVisual = (proceso, licitacion) => {
   }
 
   if (esFormatoTratoDirecto(licitacion)) {
-    return false
+    return Boolean(
+      proceso?.isSubstep ??
+      getVisualStepTratoDirecto(numeroPaso).isSubstep
+    )
   }
 
   return isSubpasoVisualLicitacion(numeroPaso)

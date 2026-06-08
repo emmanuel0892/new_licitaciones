@@ -29,6 +29,7 @@ import { getUsers } from "@/actions/users"
 import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getInitialStepConvenioMarco, getProcesoActualWorkflowLabel, esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, getFormatoLabel, formatRoleLabel } from "@/lib/helpers"
 import {
   getAdvancePermissionCode,
+  getCertificateUploadPermissionCode,
   getDocumentUploadPermissionCode,
   getDocumentViewPermissionCode,
   getHistoryPermissionCode,
@@ -49,6 +50,7 @@ import * as XLSX from "xlsx"
 import styles from "./bandeja.module.css"
 
 const { Title, Text } = Typography
+const TIPO_DOCUMENTO_CERTIFICADO_TRATO_DIRECTO = "certificado_trato_directo"
 
 const BandejaPage = () => {
   const { message } = App.useApp()
@@ -387,6 +389,15 @@ const BandejaPage = () => {
     setCodigoMercadoPublicoModalData({ licitacion: record, open: true })
   }
 
+  const handleOpenCertificadosTratoDirecto = (record, allowUpload) => {
+    modalDocumentosRef.current?.open(record, allowUpload, {
+      title: "Certificados Trato Directo",
+      uploadButtonText: "Agregar certificados",
+      emptyDescription: "No hay certificados cargados",
+      tipoDocumento: TIPO_DOCUMENTO_CERTIFICADO_TRATO_DIRECTO
+    })
+  }
+
   const handleCodigoMercadoPublicoSaved = (record, updatedMercadoPublicoFields) => {
     const updatedRecord = { ...record, ...updatedMercadoPublicoFields }
 
@@ -631,6 +642,8 @@ const BandejaPage = () => {
         const canViewHistory = hasPermission(getHistoryPermissionCode(record))
         const canViewDocuments = hasPermission(getDocumentViewPermissionCode(record))
         const canUploadDocuments = hasPermission(getDocumentUploadPermissionCode(record))
+        const isTratoDirectoCertificateStep = esFormatoTratoDirecto(record) && currentStep === 2
+        const canUploadCertificates = hasPermission(getCertificateUploadPermissionCode(record))
         const canViewWorkflow = hasPermission(getWorkflowViewPermissionCode(record))
         const canEditMercadoPublicoCode = (
           hasPermission(getMercadoPublicoEditPermissionCode(record)) &&
@@ -643,6 +656,8 @@ const BandejaPage = () => {
         const missingSignatures = record.signatureValidation?.missing || []
         const hasMissingSignatures = missingSignatures.length > 0
         const missingSignaturesMessage = getMissingSignaturesMessage(missingSignatures)
+        const isMissingCertificates = record.certificateValidation?.canAdvance === false
+        const missingCertificatesMessage = record.certificateValidation?.message || "Debe cargar al menos un certificado para avanzar."
 
         return (
           <Space size={10} className={styles.actionsButtons}>
@@ -679,6 +694,30 @@ const BandejaPage = () => {
                   onClick={() => modalDocumentosRef.current?.open(record, false)}
                 />
               </Tooltip>
+            )}
+
+            {isTratoDirectoCertificateStep && (
+              canUploadCertificates ? (
+                <Tooltip title="Agregar certificados">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<FileTextOutlined style={{ color: "#d48806" }} />}
+                    onClick={() => handleOpenCertificadosTratoDirecto(record, true)}
+                  />
+                </Tooltip>
+              ) : (
+                <Tooltip title="No tienes permisos para agregar certificados de Trato Directo.">
+                  <span>
+                    <Button
+                      type="text"
+                      size="small"
+                      disabled
+                      icon={<FileTextOutlined />}
+                    />
+                  </span>
+                </Tooltip>
+              )
             )}
 
             {/* 3. Subir Documento - Solo si no es Publicada y tiene permisos */}
@@ -757,6 +796,17 @@ const BandejaPage = () => {
                 </Tooltip>
               ) : hasMissingSignatures ? (
                 <Tooltip title={missingSignaturesMessage}>
+                  <span>
+                    <Button
+                      type="text"
+                      size="small"
+                      disabled
+                      icon={<ArrowUpOutlined />}
+                    />
+                  </span>
+                </Tooltip>
+              ) : isMissingCertificates ? (
+                <Tooltip title={missingCertificatesMessage}>
                   <span>
                     <Button
                       type="text"

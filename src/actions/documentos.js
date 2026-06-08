@@ -15,9 +15,10 @@ import {
   sanitizeFolderName
 } from "@/lib/documentosLicitacion"
 import { userHasPermission } from "@/lib/permissions"
-import { getDocumentUploadPermissionCode, getDocumentViewPermissionCode } from "@/lib/permissionCodes"
+import { getCertificateUploadPermissionCode, getDocumentUploadPermissionCode, getDocumentViewPermissionCode } from "@/lib/permissionCodes"
 
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024
+const TIPO_DOCUMENTO_CERTIFICADO_TRATO_DIRECTO = "certificado_trato_directo"
 const ALLOWED_FILE_EXTENSIONS = new Set([".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png"])
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -31,6 +32,13 @@ const ALLOWED_MIME_TYPES = new Set([
 
 const licitacionIdSchema = z.coerce.number().int().positive()
 const documentoIdSchema = z.coerce.number().int().positive()
+const documentosOptionsSchema = z.object({
+  tipoDocumento: z.enum([TIPO_DOCUMENTO_CERTIFICADO_TRATO_DIRECTO]).optional().nullable()
+}).optional()
+const tipoDocumentoSchema = z
+  .enum([TIPO_DOCUMENTO_CERTIFICADO_TRATO_DIRECTO])
+  .optional()
+  .nullable()
 const uploadedFileSchema = z.custom(
   (value) => value && typeof value.arrayBuffer === "function" && typeof value.name === "string",
   "El archivo no es valido."
@@ -79,7 +87,9 @@ const serializeDocumento = (documento) => ({
   }
 })
 
-const findDocumentosByNumeroLicitacion = async (licitacionId, numeroLicitacion) => {
+const findDocumentosByNumeroLicitacion = async (licitacionId, numeroLicitacion, tipoDocumento = null) => {
+  const tipoDocumentoFilter = tipoDocumento ?? null
+
   return prisma.$queryRaw`
     SELECT
       documento.id,
@@ -93,6 +103,7 @@ const findDocumentosByNumeroLicitacion = async (licitacionId, numeroLicitacion) 
       documento.numero_licitacion AS numeroLicitacion,
       documento.numero_paso AS numeroPaso,
       documento.proceso_nombre AS procesoNombre,
+      documento.tipo_documento AS tipoDocumento,
       documento.created_at AS createdAt,
       documento.updated_at AS updatedAt,
       usuario.name AS usuarioName,
@@ -101,6 +112,7 @@ const findDocumentosByNumeroLicitacion = async (licitacionId, numeroLicitacion) 
     INNER JOIN users AS usuario ON usuario.id = documento.fk_usuario_id
     WHERE documento.fk_licitacion_id = ${licitacionId}
       AND documento.numero_licitacion = ${numeroLicitacion}
+      AND (${tipoDocumentoFilter} IS NULL OR documento.tipo_documento = ${tipoDocumentoFilter})
     ORDER BY documento.created_at DESC
   `
 }
@@ -118,6 +130,7 @@ const createDocumentoRecord = async (data) => {
       numero_licitacion,
       numero_paso,
       proceso_nombre,
+      tipo_documento,
       created_at,
       updated_at
     ) VALUES (
@@ -131,6 +144,7 @@ const createDocumentoRecord = async (data) => {
       ${data.numeroLicitacion},
       ${data.numeroPaso},
       ${data.procesoNombre},
+      ${data.tipoDocumento ?? null},
       NOW(3),
       NOW(3)
     )
@@ -143,6 +157,7 @@ const findDocumentoRecordById = async (documentoId) => {
       documentos_licitacion.id,
       documentos_licitacion.fk_usuario_id AS usuarioId,
       documentos_licitacion.ruta_archivo AS rutaArchivo,
+      documentos_licitacion.tipo_documento AS tipoDocumento,
       licitacion.fk_formato_liquidacion_id AS formatoLiquidacionId,
       formato.titulo AS formatoTitulo
     FROM documentos_licitacion
@@ -155,7 +170,58 @@ const findDocumentoRecordById = async (documentoId) => {
   return documentos[0] ?? null
 }
 
-export const getDocumentosLicitacion = async (licitacionId) => {
+export const getDocumentosLicitacion = async (licitacionId, options = {}) => {
+  const session = await auth()
+
+  if (!session) {
+    return { error: "No autorizado" }
+  }
+
+  const parsedLicitacionId = licitacionIdSchema.safeParse(licitacionId)
+  const parsedOptions = documentosOptionsSchema.safeParse(options)
+
+  if (!parsedLicitacionId.success || !parsedOptions.success) {
+    return { error: "Datos invalidos" }
+  }
+
+  try {
+    const licitacion = await findLicitacionDocumentContext(parsedLicitacionId.data)
+
+    if (!licitacion) {
+      return { error: "Licitacion no encontrada." }
+    }
+
+    const allowed = await userHasPermission(
+      session.user.id,
+      getDocumentViewPermissionCode(licitacion)
+    )
+
+    if (!allowed) {
+      return { error: "No tienes permisos para realizar esta accion." }
+    }
+
+    const numeroLicitacionActual = getNumeroLicitacionActual(licitacion)
+    const documentos = await findDocumentosByNumeroLicitacion(
+      licitacion.id,
+      numeroLicitacionActual,
+      parsedOptions.data?.tipoDocumento
+    )
+
+    return {
+      data: documentos.map(serializeDocumento),
+      context: {
+        numeroLicitacion: numeroLicitacionActual,
+        numeroPaso: licitacion.procesoActual?.numeroPaso ?? null,
+        procesoNombre: licitacion.procesoActual?.tituloProceso ?? "Sin proceso"
+      }
+    }
+  } catch (error) {
+    console.error(error)
+    return { error: "Error al obtener documentos" }
+  }
+}
+
+export const getCertificadosTratoDirecto = async (licitacionId) => {
   const session = await auth()
 
   if (!session) {
@@ -185,19 +251,18 @@ export const getDocumentosLicitacion = async (licitacionId) => {
     }
 
     const numeroLicitacionActual = getNumeroLicitacionActual(licitacion)
-    const documentos = await findDocumentosByNumeroLicitacion(licitacion.id, numeroLicitacionActual)
+    const documentos = await findDocumentosByNumeroLicitacion(
+      licitacion.id,
+      numeroLicitacionActual,
+      TIPO_DOCUMENTO_CERTIFICADO_TRATO_DIRECTO
+    )
 
     return {
-      data: documentos.map(serializeDocumento),
-      context: {
-        numeroLicitacion: numeroLicitacionActual,
-        numeroPaso: licitacion.procesoActual?.numeroPaso ?? null,
-        procesoNombre: licitacion.procesoActual?.tituloProceso ?? "Sin proceso"
-      }
+      data: documentos.map(serializeDocumento)
     }
   } catch (error) {
     console.error(error)
-    return { error: "Error al obtener documentos" }
+    return { error: "Error al obtener certificados" }
   }
 }
 
@@ -209,10 +274,11 @@ export const uploadDocumento = async (formData) => {
   }
 
   const parsedLicitacionId = licitacionIdSchema.safeParse(formData.get("licitacionId"))
+  const parsedTipoDocumento = tipoDocumentoSchema.safeParse(formData.get("tipoDocumento") || null)
   const files = formData.getAll("files").length > 0 ? formData.getAll("files") : [formData.get("file")]
   const validatedFiles = z.array(uploadedFileSchema).min(1, "Debes seleccionar al menos un archivo.").safeParse(files)
 
-  if (!parsedLicitacionId.success || !validatedFiles.success) {
+  if (!parsedLicitacionId.success || !parsedTipoDocumento.success || !validatedFiles.success) {
     return { error: validatedFiles.error?.issues?.[0]?.message || "Datos incompletos o invalidos." }
   }
 
@@ -225,7 +291,9 @@ export const uploadDocumento = async (formData) => {
 
     const allowed = await userHasPermission(
       session.user.id,
-      getDocumentUploadPermissionCode(licitacion)
+      parsedTipoDocumento.data === TIPO_DOCUMENTO_CERTIFICADO_TRATO_DIRECTO
+        ? getCertificateUploadPermissionCode(licitacion)
+        : getDocumentUploadPermissionCode(licitacion)
     )
 
     if (!allowed) {
@@ -257,7 +325,8 @@ export const uploadDocumento = async (formData) => {
           sizeBytes: BigInt(file.size),
           numeroLicitacion: numeroLicitacionActual,
           numeroPaso,
-          procesoNombre
+          procesoNombre,
+          tipoDocumento: parsedTipoDocumento.data
         })
 
         createdDocuments.push(location.rutaArchivo)
@@ -300,11 +369,17 @@ export const deleteDocumento = async (documentoId) => {
 
     const allowed = await userHasPermission(
       session.user.id,
-      getDocumentUploadPermissionCode({
-        formatoLiquidacion: {
-          titulo: documento.formatoTitulo
-        }
-      })
+      documento.tipoDocumento === TIPO_DOCUMENTO_CERTIFICADO_TRATO_DIRECTO
+        ? getCertificateUploadPermissionCode({
+          formatoLiquidacion: {
+            titulo: documento.formatoTitulo
+          }
+        })
+        : getDocumentUploadPermissionCode({
+          formatoLiquidacion: {
+            titulo: documento.formatoTitulo
+          }
+        })
     )
 
     if (!allowed) {

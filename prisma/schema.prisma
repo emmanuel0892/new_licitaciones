@@ -106,6 +106,7 @@ model DocumentoLicitacion {
   numeroLicitacion String     @map("numero_licitacion") @db.VarChar(100)
   numeroPaso       Int?       @map("numero_paso")
   procesoNombre    String?    @map("proceso_nombre") @db.VarChar(255)
+  tipoDocumento    String?    @map("tipo_documento") @db.VarChar(100)
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at")
   licitacion       Licitacion @relation(fields: [licitacionId], references: [id])
@@ -115,6 +116,7 @@ model DocumentoLicitacion {
   @@index([usuarioId], map: "documentos_licitacion_fk_usuario_id_fkey")
   @@index([numeroLicitacion], map: "documentos_licitacion_numero_licitacion_idx")
   @@index([numeroPaso], map: "documentos_licitacion_numero_paso_idx")
+  @@index([tipoDocumento], map: "documentos_licitacion_tipo_documento_idx")
   @@map("documentos_licitacion")
 }
 

@@ -17,10 +17,18 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
   const [licitacionId, setLicitacionId] = useState(null)
   const [canUpload, setCanUpload] = useState(false)
   const [documentContext, setDocumentContext] = useState(null)
+  const [modalOptions, setModalOptions] = useState({
+    title: "Documentos de la Licitacion",
+    uploadButtonText: "Subir Documento",
+    emptyDescription: "No hay documentos adjuntos",
+    tipoDocumento: null
+  })
 
-  const loadDocumentos = async (id) => {
+  const loadDocumentos = async (id, options = {}) => {
     setLoading(true)
-    const result = await getDocumentosLicitacion(id)
+    const result = await getDocumentosLicitacion(id, {
+      tipoDocumento: options.tipoDocumento ?? null
+    })
 
     if (result.data) {
       setDocumentos(result.data)
@@ -34,7 +42,7 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
   }
 
   useImperativeHandle(ref, () => ({
-    open: async (licitacion, allowUpload = false) => {
+    open: async (licitacion, allowUpload = false, options = {}) => {
       const id = typeof licitacion === "object" ? licitacion.id : licitacion
 
       setOpen(true)
@@ -42,7 +50,13 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
       setCanUpload(allowUpload)
       setDocumentos([])
       setDocumentContext(null)
-      await loadDocumentos(id)
+      setModalOptions({
+        title: options.title ?? "Documentos de la Licitacion",
+        uploadButtonText: options.uploadButtonText ?? "Subir Documento",
+        emptyDescription: options.emptyDescription ?? "No hay documentos adjuntos",
+        tipoDocumento: options.tipoDocumento ?? null
+      })
+      await loadDocumentos(id, options)
     }
   }))
 
@@ -58,11 +72,15 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
     formData.append("file", file.originFileObj || file)
     formData.append("licitacionId", licitacionId)
 
+    if (modalOptions.tipoDocumento) {
+      formData.append("tipoDocumento", modalOptions.tipoDocumento)
+    }
+
     const result = await uploadDocumento(formData)
 
     if (result.success) {
       message.success("Documento subido correctamente")
-      await loadDocumentos(licitacionId)
+      await loadDocumentos(licitacionId, modalOptions)
       onSuccess?.()
     } else {
       message.error(result.error || "Error al subir documento")
@@ -75,7 +93,7 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
     const result = await deleteDocumento(documentoId)
     if (result.success) {
       message.success("Documento eliminado")
-      await loadDocumentos(licitacionId)
+      await loadDocumentos(licitacionId, modalOptions)
       onSuccess?.()
     } else {
       message.error(result.error || "Error al eliminar")
@@ -90,7 +108,7 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
 
   return (
     <Modal
-      title="Documentos de la Licitación"
+      title={modalOptions.title}
       open={open}
       onCancel={() => setOpen(false)}
       footer={null}
@@ -120,7 +138,7 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
             loading={uploading}
             style={{ marginBottom: 16 }}
           >
-            Subir Documento
+            {modalOptions.uploadButtonText}
           </Button>
         </Upload>
       )}
@@ -130,7 +148,7 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
           <Spin size="large" />
         </div>
       ) : documentos.length === 0 ? (
-        <Empty description="No hay documentos adjuntos" />
+        <Empty description={modalOptions.emptyDescription} />
       ) : (
         <List
           dataSource={documentos}
@@ -173,6 +191,11 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
                       <Tag color="blue" style={{ marginInlineEnd: 0 }}>
                         Paso {doc.numeroPaso ?? "-"}
                       </Tag>
+                      {doc.tipoDocumento === "certificado_trato_directo" && (
+                        <Tag color="gold" style={{ marginInlineEnd: 0 }}>
+                          Certificado
+                        </Tag>
+                      )}
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         {doc.procesoNombre || "Sin proceso"}
                       </Text>

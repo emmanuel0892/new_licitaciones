@@ -50,6 +50,12 @@ export const getDocumentUploadPermissionCode = (licitacion) => {
     : "licitacion.subir_documento"
 }
 
+export const getCertificateUploadPermissionCode = (licitacion) => {
+  return isTratoDirectoPermissionTarget(licitacion)
+    ? "trato_directo.subir_certificados"
+    : getDocumentUploadPermissionCode(licitacion)
+}
+
 export const getWorkflowViewPermissionCode = (licitacion) => {
   if (isConvenioMarcoPermissionTarget(licitacion)) {
     return "convenio_marco.ver_flujo"
@@ -88,6 +94,7 @@ export const getTratoDirectoPermissionOrder = (permission) => {
   if (code === "trato_directo.subir_documento") return 3
   if (code === "trato_directo.ver_documentos") return 4
   if (code === "trato_directo.editar_codigo_mercado_publico") return 5
+  if (code === "trato_directo.subir_certificados") return 6
 
   const avanzarMatch = code.match(/^workflow\.trato_directo\.avanzar\.(\d+)$/)
   if (avanzarMatch) return 100 + Number(avanzarMatch[1])

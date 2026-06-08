@@ -285,7 +285,7 @@ export const REQUIRED_SIGNATURES_BY_FORMAT_AND_STEP = {
     ]
   },
   trato_directo: {
-    2: [
+    3: [
       {
         key: "jefatura_unidad",
         label: "Jefatura de Unidad",
@@ -302,20 +302,13 @@ export const REQUIRED_SIGNATURES_BY_FORMAT_AND_STEP = {
     ],
     4: [
       {
-        key: "subdirector_administrativo",
-        label: "Subdirector Administrativo",
-        permissionCode: PERMISSION_CODES.SIGN_ADMINISTRATIVE_SUBDIRECTOR,
+        key: "jefatura_unidad_legal",
+        label: "Jefatura Unidad Administrativo Legal",
+        permissionCode: PERMISSION_CODES.SIGN_LEGAL_UNIT_HEAD,
         order: 1
-      },
-      {
-        key: "director",
-        label: "Director",
-        permissionCode: PERMISSION_CODES.SIGN_DIRECTOR,
-        order: 2,
-        dependsOn: "subdirector_administrativo"
       }
     ],
-    7: [
+    8: [
       {
         key: "jefatura_unidad",
         label: "Jefatura de Unidad",
@@ -328,6 +321,29 @@ export const REQUIRED_SIGNATURES_BY_FORMAT_AND_STEP = {
         permissionCode: PERMISSION_CODES.SIGN_DEPARTMENT_HEAD,
         order: 2,
         dependsOn: "jefatura_unidad"
+      }
+    ],
+    9: [
+      {
+        key: "jefatura_unidad_legal",
+        label: "Jefatura Unidad Administrativo Legal",
+        permissionCode: PERMISSION_CODES.SIGN_LEGAL_UNIT_HEAD,
+        order: 1
+      }
+    ],
+    10: [
+      {
+        key: "subdirector_administrativo",
+        label: "Subdirector Administrativo",
+        permissionCode: PERMISSION_CODES.SIGN_ADMINISTRATIVE_SUBDIRECTOR,
+        order: 1
+      },
+      {
+        key: "director",
+        label: "Director",
+        permissionCode: PERMISSION_CODES.SIGN_DIRECTOR,
+        order: 2,
+        dependsOn: "subdirector_administrativo"
       }
     ]
   }

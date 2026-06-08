@@ -11,6 +11,7 @@ export const PERMISSION_CODES = {
   TRATO_DIRECTO_VIEW_HISTORY: "trato_directo.ver_historial",
   TRATO_DIRECTO_VIEW_DOCUMENTS: "trato_directo.ver_documentos",
   TRATO_DIRECTO_UPLOAD_DOCUMENT: "trato_directo.subir_documento",
+  TRATO_DIRECTO_UPLOAD_CERTIFICATES: "trato_directo.subir_certificados",
   TRATO_DIRECTO_EDIT_MERCADO_PUBLICO_CODE: "trato_directo.editar_codigo_mercado_publico",
   CONVENIO_MARCO_VIEW_WORKFLOW: "convenio_marco.ver_flujo",
   CONVENIO_MARCO_VIEW_HISTORY: "convenio_marco.ver_historial",

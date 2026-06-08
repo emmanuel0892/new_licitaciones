@@ -16,6 +16,8 @@ const signatureStatusSchema = z.object({
   licitacionId: z.coerce.number().int().positive()
 })
 
+const TIPO_DOCUMENTO_CERTIFICADO_TRATO_DIRECTO = "certificado_trato_directo"
+
 const signLicitacionStepSchema = z.object({
   licitacionId: z.coerce.number().int().positive(),
   numeroPaso: z.coerce.number().int().positive(),
@@ -73,6 +75,35 @@ const getFlujoPostPaso12Update = (targetStep) => {
 const getPasoAnteriorLicitacion = (currentStep) => {
   if (currentStep === 17 || currentStep === 25) return 16
   return currentStep - 1
+}
+
+const countCertificadosTratoDirecto = async (licitacionId) => {
+  return prisma.documentoLicitacion.count({
+    where: {
+      licitacionId,
+      tipoDocumento: TIPO_DOCUMENTO_CERTIFICADO_TRATO_DIRECTO
+    }
+  })
+}
+
+const getCertificateValidationForLicitacion = async (licitacion) => {
+  const currentStep = Number(licitacion.procesoActual?.numeroPaso)
+
+  if (!esFormatoTratoDirecto(licitacion) || currentStep !== 2) {
+    return {
+      canAdvance: true,
+      count: 0,
+      message: null
+    }
+  }
+
+  const count = await countCertificadosTratoDirecto(licitacion.id)
+
+  return {
+    canAdvance: count > 0,
+    count,
+    message: count > 0 ? null : "Debe cargar al menos un certificado para avanzar."
+  }
 }
 
 export const getLicitaciones = async (filters = {}) => {
@@ -178,6 +209,15 @@ export const getLicitaciones = async (filters = {}) => {
         })
     )
     const signatureValidationByLicitacionId = Object.fromEntries(signatureValidationByStepEntries)
+    const certificateValidationEntries = await Promise.all(
+      licitaciones.map(async (licitacion) => {
+        return [
+          licitacion.id,
+          await getCertificateValidationForLicitacion(licitacion)
+        ]
+      })
+    )
+    const certificateValidationByLicitacionId = Object.fromEntries(certificateValidationEntries)
     const licitacionesWithSignatureValidation = licitaciones.map((licitacion) => {
       return {
         ...licitacion,
@@ -185,6 +225,11 @@ export const getLicitaciones = async (filters = {}) => {
           canAdvance: true,
           missing: [],
           required: []
+        },
+        certificateValidation: certificateValidationByLicitacionId[licitacion.id] ?? {
+          canAdvance: true,
+          count: 0,
+          message: null
         }
       }
     })
@@ -665,6 +710,12 @@ export const avanzarLicitacion = async (id) => {
     }
 
     if (esFormatoTratoDirecto(formato)) {
+      const certificateValidation = await getCertificateValidationForLicitacion(licitacion)
+
+      if (!certificateValidation.canAdvance) {
+        return { error: certificateValidation.message }
+      }
+
       await assertCanAdvanceBySignature(licitacion.id, currentStep, licitacion)
 
       const nextStep = getNextStepTratoDirecto(currentStep, licitacion)

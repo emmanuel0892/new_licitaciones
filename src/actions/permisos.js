@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import prisma from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { CONVENIO_MARCO_PROCESOS, esFormatoLicitacion, getVisualStepConvenioMarco } from "@/lib/helpers"
+import { CONVENIO_MARCO_PROCESOS, TRATO_DIRECTO_PROCESOS, esFormatoLicitacion, getVisualStepConvenioMarco, getVisualStepTratoDirecto } from "@/lib/helpers"
 import { getUserPermissionContext, PERMISSION_CODES, userHasPermission } from "@/lib/permissions"
 
 const roleAssignmentSchema = z.object({
@@ -241,39 +241,36 @@ const TRATO_DIRECTO_PERMISSIONS = [
   },
   {
     codigo: "trato_directo.editar_codigo_mercado_publico",
-    nombre: "Editar código Mercado Público en Trato Directo",
-    descripcion: "Permite editar el N° Licitación/MEMO por código Mercado Público en el paso correspondiente de Trato Directo",
+    nombre: "Editar codigo Mercado Publico en Trato Directo",
+    descripcion: "Permite editar el codigo Mercado Publico en el paso correspondiente de Trato Directo",
     categoria: "Trato Directo"
   },
-  ...[
-    "Confección Bases Técnicas",
-    "Firmas Jefatura de Unidad y Jefatura de Dpto.",
-    "Unidad Administrativa Legal",
-    "Firmas Subdirector Administrativo y Director",
-    "Fecha y Enumeración de Oficina de Partes",
-    "Presupuesto",
-    "Firmas Jefatura de Unidad y Jefatura de Dpto.",
-    "Confección de Contrato"
-  ].flatMap((stepName, index) => {
-    const numeroPaso = index + 1
+  {
+    codigo: "trato_directo.subir_certificados",
+    nombre: "Subir certificados Trato Directo",
+    descripcion: "Permite cargar certificados obligatorios en el paso 1.1 de Trato Directo",
+    categoria: "Trato Directo"
+  },
+  ...TRATO_DIRECTO_PROCESOS.flatMap((step) => {
+    const numeroPaso = step.numeroPaso
+    const numeroVisual = getVisualStepTratoDirecto(numeroPaso).visual
 
     return [
       {
         codigo: `workflow.trato_directo.avanzar.${numeroPaso}`,
-        nombre: `Avanzar paso ${numeroPaso} - ${stepName}`,
-        descripcion: `Permite avanzar el paso ${numeroPaso} del flujo Trato Directo`,
+        nombre: `Avanzar paso ${numeroVisual} - ${step.tituloProceso}`,
+        descripcion: `Permite avanzar el paso interno ${numeroPaso} del flujo Trato Directo`,
         categoria: "Trato Directo"
       },
       {
         codigo: `workflow.trato_directo.devolver.${numeroPaso}`,
-        nombre: `Devolver paso ${numeroPaso} - ${stepName}`,
-        descripcion: `Permite devolver desde el paso ${numeroPaso} del flujo Trato Directo`,
+        nombre: `Devolver paso ${numeroVisual} - ${step.tituloProceso}`,
+        descripcion: `Permite devolver desde el paso interno ${numeroPaso} del flujo Trato Directo`,
         categoria: "Trato Directo"
       }
     ]
   })
 ]
-
 const CONVENIO_MARCO_PERMISSIONS = [
   {
     codigo: "convenio_marco.ver_flujo",
@@ -350,6 +347,19 @@ const revalidatePermissionConsumers = () => {
 }
 
 const formatWorkflowPermissionName = (permission, processByStep) => {
+  const tratoDirectoMatch = permission.codigo.match(/^workflow\.trato_directo\.(avanzar|devolver)\.(\d+)$/)
+
+  if (tratoDirectoMatch) {
+    const actionLabel = tratoDirectoMatch[1] === "avanzar" ? "Avanzar" : "Devolver"
+    const numeroPaso = Number(tratoDirectoMatch[2])
+    const processName = TRATO_DIRECTO_PROCESOS.find((process) => process.numeroPaso === numeroPaso)?.tituloProceso
+    const numeroVisual = getVisualStepTratoDirecto(numeroPaso).visual
+
+    return processName
+      ? `${actionLabel} paso ${numeroVisual} - ${processName}`
+      : `${actionLabel} paso ${numeroVisual}`
+  }
+
   const convenioMarcoMatch = permission.codigo.match(/^workflow\.convenio_marco\.(avanzar|devolver)\.(\d+)$/)
 
   if (convenioMarcoMatch) {
