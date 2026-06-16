@@ -107,10 +107,11 @@ async function main() {
 
   for (const [formatoId, procesos] of Object.entries(procesosMap)) {
     for (const proceso of procesos) {
+      const { turno, ...procesoData } = proceso
       await prisma.procesoLicitacion.create({
         data: {
           formatoLiquidacionId: parseInt(formatoId),
-          ...proceso
+          ...procesoData
         }
       })
     }
