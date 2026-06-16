@@ -26,7 +26,7 @@ import { useRouter } from "next/navigation"
 import { getLicitaciones, avanzarLicitacion, avanzarLicitacionConInicioAnticipado, avanzarLicitacionConContrato, avanzarLicitacionConAddendum, finalizarLicitacionSinAddendum, getRoles } from "@/actions/licitaciones"
 import { getLicitacionMercadoPublicoBandeja } from "@/actions/mercadoPublicoBandeja"
 import { getUsers } from "@/actions/users"
-import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getInitialStepConvenioMarco, getProcesoActualWorkflowLabel, esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, getFormatoLabel, formatRoleLabel } from "@/lib/helpers"
+import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getInitialStepConvenioMarco, getProcesoActualWorkflowLabel, esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, getFormatoLabel, formatRoleLabel, getSeveridadDiasSugeridos } from "@/lib/helpers"
 import {
   getAdvancePermissionCode,
   getCertificateUploadPermissionCode,
@@ -980,6 +980,16 @@ const BandejaPage = () => {
             dataSource={licitaciones}
             loading={loading}
             scroll={{ x: 1960 }}
+            onRow={(record) => {
+              const severidad = getSeveridadDiasSugeridos(record)
+              if (severidad === "vencido") {
+                return { style: { backgroundColor: "rgba(229, 57, 53, 0.12)" } }
+              }
+              if (severidad === "alerta") {
+                return { style: { backgroundColor: "rgba(250, 140, 22, 0.12)" } }
+              }
+              return {}
+            }}
             expandable={{
               expandedRowKeys: Object.entries(expandedRows)
                 .filter(([, expanded]) => expanded)

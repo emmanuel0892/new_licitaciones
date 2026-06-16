@@ -1044,6 +1044,30 @@ export const getDiasSugeridosProceso = (proceso, licitacion) => {
   return proceso?.diasSugeridos ?? proceso?.dias_sugeridos ?? null
 }
 
+// Severidad del paso actual segun dias sugeridos vs transcurridos.
+// "vencido" = pasado de dias | "alerta" = restan 0-3 dias | null = ok/no aplica/finalizada.
+export const getSeveridadDiasSugeridos = (licitacion) => {
+  const proceso = licitacion?.procesoActual ?? licitacion?.proceso_actual
+  if (!proceso) return null
+
+  const estado = (licitacion?.estado ?? "").toString().trim().toLowerCase()
+  if (["finalizada", "finalizado", "terminada", "terminado"].includes(estado)) return null
+
+  const diasSugeridos = getDiasSugeridosProceso(proceso, licitacion)
+  if (diasSugeridos === null || diasSugeridos === undefined) return null
+
+  const fechaInicio = licitacion?.fechaRecepcion ?? licitacion?.fecha_recepcion ?? licitacion?.createdAt
+  if (!fechaInicio) return null
+
+  const diff = Date.now() - new Date(fechaInicio).getTime()
+  const transcurridos = diff <= 0 ? 0 : Math.ceil(diff / (1000 * 60 * 60 * 24))
+  const restante = Number(diasSugeridos) - transcurridos
+
+  if (restante < 0) return "vencido"
+  if (restante <= 3) return "alerta"
+  return null
+}
+
 export const getNumeroPasoVisual = (proceso, licitacion) => {
   const numeroPaso = Number(proceso?.numeroPaso ?? proceso?.numero_paso)
 
