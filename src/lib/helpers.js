@@ -986,7 +986,7 @@ export const DIAS_SUGERIDOS_BIENES_LICITACION = {
   // Contrato (interno 25-35)
   25: 15,
   26: 7,
-  27: 2,
+  27: 20, // Envio a Proveedor: max 20 dias para retorno del contrato desde el proveedor
   28: 2,
   29: 4,
   30: null,
@@ -999,7 +999,7 @@ export const DIAS_SUGERIDOS_BIENES_LICITACION = {
   // Addendum (interno 36-46)
   36: 15,
   37: 7,
-  38: 2,
+  38: 20, // Envio a Proveedor: max 20 dias para retorno del contrato desde el proveedor
   39: 2,
   40: 4,
   41: null,
