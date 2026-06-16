@@ -1010,16 +1010,35 @@ export const DIAS_SUGERIDOS_BIENES_LICITACION = {
   46: 2
 }
 
+// Dias sugeridos para Licitacion cuando productoServicio = "Servicios".
+// Igual que Bienes (los 46 pasos) salvo:
+//   interno 1  (Confeccion Bases Tecnicas)  -> 30 (bienes 20)
+//   interno 8  (Periodo Apertura/Eval)      -> 15 (bienes 20)
+//   interno 25 (Confeccion de Contrato)     -> 20 (bienes 15)
+// Inicio anticipado y addendum identicos a bienes.
+export const DIAS_SUGERIDOS_SERVICIOS_LICITACION = {
+  ...DIAS_SUGERIDOS_BIENES_LICITACION,
+  1: 30,
+  8: 15,
+  25: 20
+}
+
+const DIAS_SUGERIDOS_LICITACION_POR_PRODUCTO = {
+  Bienes: DIAS_SUGERIDOS_BIENES_LICITACION,
+  Servicios: DIAS_SUGERIDOS_SERVICIOS_LICITACION
+}
+
 export const getDiasSugeridosProceso = (proceso, licitacion) => {
   const numeroPaso = Number(proceso?.numeroPaso ?? proceso?.numero_paso)
   const productoServicio = licitacion?.productoServicio ?? licitacion?.producto_servicio
+  const mapa = DIAS_SUGERIDOS_LICITACION_POR_PRODUCTO[productoServicio]
 
   if (
     esFormatoLicitacion(licitacion?.formatoLiquidacion?.titulo) &&
-    productoServicio === "Bienes" &&
-    Object.prototype.hasOwnProperty.call(DIAS_SUGERIDOS_BIENES_LICITACION, numeroPaso)
+    mapa &&
+    Object.prototype.hasOwnProperty.call(mapa, numeroPaso)
   ) {
-    return DIAS_SUGERIDOS_BIENES_LICITACION[numeroPaso]
+    return mapa[numeroPaso]
   }
 
   return proceso?.diasSugeridos ?? proceso?.dias_sugeridos ?? null
