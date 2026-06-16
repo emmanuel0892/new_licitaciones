@@ -7,7 +7,7 @@ import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { createLicitacionSchema, devolverLicitacionSchema } from "@/lib/validations/licitacion"
-import { esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getInitialStepConvenioMarco, getMainStepNumero, getNextStep, getNextStepConvenioMarco, getNextStepTratoDirecto, getPreviousStepConvenioMarco, getPreviousStepTratoDirecto, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
+import { esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getDiasSugeridosProceso, getInitialStepConvenioMarco, getMainStepNumero, getNextStep, getNextStepConvenioMarco, getNextStepTratoDirecto, getPreviousStepConvenioMarco, getPreviousStepTratoDirecto, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
 import { getUserPermissionContext, getWorkflowPermissionCode, PERMISSION_CODES, userHasPermission, userHasWorkflowPermission } from "@/lib/permissions"
 import { getHistoryPermissionCode, getWorkflowViewPermissionCode } from "@/lib/permissionCodes"
 import { assertCanAdvanceBySignature, canAdvanceBySignature, getRequiredSignaturesForStep, getSignatureStatusForStep, isSignatureBlocked } from "@/lib/signatures.js"
@@ -3321,5 +3321,101 @@ export const getRoles = async () => {
 
   }
 
+}
+
+// Alertas de dias sugeridos: licitaciones del usuario, no finalizadas,
+// cuyo paso actual esta por exceder (o ya excedio) los dias sugeridos.
+const UMBRAL_AVISO_DIAS = 3
+
+const calcularDiasTranscurridos = (fechaInicio) => {
+  if (!fechaInicio) return 0
+  const diff = Date.now() - new Date(fechaInicio).getTime()
+  if (diff <= 0) return 0
+  return Math.ceil(diff / (1000 * 60 * 60 * 24))
+}
+
+export const getAlertasDiasSugeridos = async () => {
+  try {
+    const session = await auth()
+
+    if (!session) {
+      return { error: "No autorizado", data: [] }
+    }
+
+    const estadosFinalizados = ["finalizada", "finalizado", "terminada", "terminado"]
+
+    const licitaciones = await prisma.licitacion.findMany({
+      where: {
+        usuarioId: session.user.id
+      },
+      include: {
+        formatoLiquidacion: { select: { titulo: true } },
+        procesoActual: true,
+        historial: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { createdAt: true }
+        }
+      }
+    })
+
+    const alertas = []
+
+    for (const lic of licitaciones) {
+      const estadoNorm = (lic.estado ?? "").toString().trim().toLowerCase()
+      if (estadosFinalizados.includes(estadoNorm)) continue
+      if (!lic.procesoActual) continue
+
+      const diasSugeridos = getDiasSugeridosProceso(lic.procesoActual, lic)
+      if (diasSugeridos === null || diasSugeridos === undefined) continue
+
+      const fechaInicio =
+        lic.historial?.[0]?.createdAt ?? lic.fechaRecepcion ?? lic.createdAt
+      const diasTranscurridos = calcularDiasTranscurridos(fechaInicio)
+      const restante = Number(diasSugeridos) - diasTranscurridos
+
+      if (restante > UMBRAL_AVISO_DIAS) continue
+
+      let severidad
+      let mensaje
+      if (restante < 0) {
+        severidad = "vencido"
+        mensaje = `Pasado por ${Math.abs(restante)} dia${Math.abs(restante) === 1 ? "" : "s"}`
+      } else if (restante === 0) {
+        severidad = "hoy"
+        mensaje = "Se cumple hoy"
+      } else {
+        severidad = "proximo"
+        mensaje = `Falta${restante === 1 ? "" : "n"} ${restante} dia${restante === 1 ? "" : "s"}`
+      }
+
+      alertas.push({
+        licitacionId: lic.id,
+        nombreLicitacion: lic.nombreLicitacion,
+        numeroLicitacion: lic.numeroLicitacion,
+        pasoActual: lic.procesoActual.tituloProceso,
+        numeroPaso: lic.procesoActual.numeroPaso,
+        diasSugeridos: Number(diasSugeridos),
+        diasTranscurridos,
+        restante,
+        severidad,
+        mensaje
+      })
+    }
+
+    // Orden: vencidos primero, luego por menor restante
+    const ordenSeveridad = { vencido: 0, hoy: 1, proximo: 2 }
+    alertas.sort((a, b) => {
+      if (ordenSeveridad[a.severidad] !== ordenSeveridad[b.severidad]) {
+        return ordenSeveridad[a.severidad] - ordenSeveridad[b.severidad]
+      }
+      return a.restante - b.restante
+    })
+
+    return { data: alertas }
+  } catch (error) {
+    console.error("Error en getAlertasDiasSugeridos:", error)
+    return { error: "Error al obtener alertas", data: [] }
+  }
 }
 

@@ -25,6 +25,7 @@ import {
 } from "@ant-design/icons"
 import { useSession } from "next-auth/react"
 import { logoutAction } from "@/actions/auth"
+import NotificacionesAlertas from "./NotificacionesAlertas"
 import styles from "./Sidebar.module.css"
 
 const { Sider, Header, Content } = Layout
@@ -221,6 +222,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
           />
 
           <div className={styles.headerRight}>
+            <NotificacionesAlertas />
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <Space className={styles.userInfo}>
                 <Avatar

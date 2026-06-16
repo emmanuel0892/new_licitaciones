@@ -158,6 +158,39 @@ const BandejaPage = () => {
     }
   }, [])
 
+  // Limpia el ?licitacion=ID de la URL para que una recarga no reabra el workflow
+  const consumirQueryLicitacion = () => {
+    window.history.replaceState(null, "", window.location.pathname)
+  }
+
+  // Apertura directa del workflow via query param (?licitacion=ID) al montar — navegacion entre paginas
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const id = params.get("licitacion")
+    if (!id) return
+
+    const timer = setTimeout(() => {
+      modalWorkflowRef.current?.open(Number(id))
+      consumirQueryLicitacion()
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Evento global desde la campanita — abre el workflow al instante si la bandeja ya esta montada
+  useEffect(() => {
+    const handler = (event) => {
+      const id = event?.detail?.id
+      if (id) {
+        modalWorkflowRef.current?.open(Number(id))
+        consumirQueryLicitacion()
+      }
+    }
+
+    window.addEventListener("abrir-workflow-licitacion", handler)
+    return () => window.removeEventListener("abrir-workflow-licitacion", handler)
+  }, [])
+
   const handleSearch = async () => {
     if (!filters.numeroLicitacion && !filters.usuarioId && !filters.estado && !filters.roleId) {
       message.warning("Debe ingresar al menos un filtro")
