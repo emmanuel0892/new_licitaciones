@@ -981,7 +981,33 @@ export const DIAS_SUGERIDOS_BIENES_LICITACION = {
   21: null,
   22: 10,
   23: 2,
-  24: 2
+  24: 2,
+
+  // Contrato (interno 25-35)
+  25: 15,
+  26: 7,
+  27: 2,
+  28: 2,
+  29: 4,
+  30: null,
+  31: 7,
+  32: null,
+  33: 10,
+  34: 2,
+  35: 2,
+
+  // Addendum (interno 36-46)
+  36: 15,
+  37: 7,
+  38: 2,
+  39: 2,
+  40: 4,
+  41: null,
+  42: 7,
+  43: null,
+  44: 10,
+  45: 2,
+  46: 2
 }
 
 export const getDiasSugeridosProceso = (proceso, licitacion) => {
