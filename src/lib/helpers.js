@@ -952,6 +952,53 @@ export const getStepLabel = (numeroPaso) => {
   return WORKFLOW_STEP_LABELS[Number(numeroPaso)] ?? String(numeroPaso)
 }
 
+// Dias sugeridos para Licitacion cuando productoServicio = "Bienes".
+// Indexado por numero_paso interno (1-16, flujo principal).
+// null = "no aplica" → se muestra como "-".
+export const DIAS_SUGERIDOS_BIENES_LICITACION = {
+  1: 20,
+  2: 4,
+  3: null,
+  4: 7,
+  5: 10,
+  6: 2,
+  7: 2,
+  8: 20,
+  9: 2,
+  10: 2,
+  11: 4,
+  12: null,
+  13: 7,
+  14: 10,
+  15: 2,
+  16: 2,
+
+  // Inicio anticipado (interno 17-24)
+  17: 7,
+  18: 4,
+  19: 2,
+  20: 2,
+  21: null,
+  22: 10,
+  23: 2,
+  24: 2
+}
+
+export const getDiasSugeridosProceso = (proceso, licitacion) => {
+  const numeroPaso = Number(proceso?.numeroPaso ?? proceso?.numero_paso)
+  const productoServicio = licitacion?.productoServicio ?? licitacion?.producto_servicio
+
+  if (
+    esFormatoLicitacion(licitacion?.formatoLiquidacion?.titulo) &&
+    productoServicio === "Bienes" &&
+    Object.prototype.hasOwnProperty.call(DIAS_SUGERIDOS_BIENES_LICITACION, numeroPaso)
+  ) {
+    return DIAS_SUGERIDOS_BIENES_LICITACION[numeroPaso]
+  }
+
+  return proceso?.diasSugeridos ?? proceso?.dias_sugeridos ?? null
+}
+
 export const getNumeroPasoVisual = (proceso, licitacion) => {
   const numeroPaso = Number(proceso?.numeroPaso ?? proceso?.numero_paso)
 

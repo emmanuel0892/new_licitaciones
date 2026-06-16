@@ -4,7 +4,7 @@ import { useState, useEffect, useImperativeHandle, forwardRef } from "react"
 import { Modal, Typography, Tag, Spin, Table, Button, Row, Col } from "antd"
 import { CheckCircleFilled, ClockCircleFilled, DownOutlined, RightOutlined } from "@ant-design/icons"
 import { getHistorialLicitacion, getLicitacionWorkflowById, getWorkflowProcessesByFormato } from "@/actions/licitaciones"
-import { formatDate, formatMoney, FLUJO_LICITACION, FLUJO_LICITACION_SECUENCIA, FLUJO_LICITACION_AVANCE, esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, getParentStep, getProcesoActualNumero, getMainStepState, getSubStepState, getFormatoLabel, getMainStepNumero, getNumeroPasoVisual, getProcesoActualLabelByNumeroPaso, MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO, getStepLabel, isSubpasoVisual, isSubpasoVisualLicitacion, getProcesosVisibles as getProcesosVisiblesHelper } from "@/lib/helpers"
+import { formatDate, formatMoney, FLUJO_LICITACION, FLUJO_LICITACION_SECUENCIA, FLUJO_LICITACION_AVANCE, esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, getParentStep, getProcesoActualNumero, getMainStepState, getSubStepState, getFormatoLabel, getMainStepNumero, getNumeroPasoVisual, getProcesoActualLabelByNumeroPaso, MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO, getStepLabel, isSubpasoVisual, isSubpasoVisualLicitacion, getDiasSugeridosProceso, getProcesosVisibles as getProcesosVisiblesHelper } from "@/lib/helpers"
 import "./ModalWorkflow.css"
 
 const { Text, Title } = Typography
@@ -267,7 +267,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
           numero: numeroVisual,
           nombre: proceso.tituloProceso,
           tituloProceso: `${numeroVisual} ${proceso.tituloProceso}`,
-          diasSugeridos: proceso.diasSugeridos,
+          diasSugeridos: getDiasSugeridosProceso(proceso, licitacion),
           numeroPaso,
           hasSubpasos: false,
           isSubstep: isSubpasoVisual(proceso, licitacion),

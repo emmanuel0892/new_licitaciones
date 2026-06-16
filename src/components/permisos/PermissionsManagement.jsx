@@ -420,6 +420,7 @@ const PermissionsManagement = () => {
             <Empty description="No hay permisos registrados" />
           ) : (
             <Spin spinning={loadingRolePermissions}>
+              <div style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: 8 }}>
               <Space direction="vertical" size={16} style={{ width: "100%" }}>
                 {groupedPermissions.map(([category, categoryPermissions]) => (
                   <Card
@@ -483,6 +484,7 @@ const PermissionsManagement = () => {
                   </Card>
                 ))}
               </Space>
+              </div>
             </Spin>
           )}
         </Card>
