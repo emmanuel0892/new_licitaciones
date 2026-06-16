@@ -831,7 +831,7 @@ export const getProcesosVisiblesTratoDirecto = (procesos, licitacionOrMonto = {}
     .map((proceso) => {
       const numeroPasoInterno = Number(proceso.numeroPaso ?? proceso.numero_paso)
       const visualData = getVisualStepTratoDirecto(numeroPasoInterno)
-      const hidden = !mayorA1000UTM && numeroPasoInterno > 7
+      const hidden = !mayorA1000UTM && numeroPasoInterno > 6
 
       return {
         ...proceso,
@@ -849,7 +849,7 @@ export const getNextStepTratoDirecto = (currentStep, licitacion = {}) => {
   const current = Number(currentStep)
   const mayorA1000UTM = esTratoDirectoMayorA1000UTM(licitacion)
 
-  if (!mayorA1000UTM && current >= 7) return null
+  if (!mayorA1000UTM && current >= 6) return null
   if (mayorA1000UTM && current >= 11) return null
 
   return current + 1
