@@ -19,7 +19,8 @@ import {
   Tag,
   Typography
 } from "antd"
-import { EditOutlined, ReloadOutlined, SafetyCertificateOutlined, TeamOutlined } from "@ant-design/icons"
+import { EditOutlined, ReloadOutlined, SafetyCertificateOutlined, TeamOutlined, KeyOutlined } from "@ant-design/icons"
+import styles from "./PermissionsManagement.module.css"
 import {
   getPermissionManagementData,
   getRolePermissions,
@@ -88,6 +89,13 @@ const formatRoleName = (roleName = "") => {
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/^\w/, (c) => c.toUpperCase())
+}
+
+const getRoleInitials = (roleName = "") => {
+  const words = String(roleName).replace(/_/g, " ").trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return "?"
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
+  return (words[0][0] + words[1][0]).toUpperCase()
 }
 
 const normalizePermissionIds = (permissionIds = []) => {
@@ -388,31 +396,47 @@ const PermissionsManagement = () => {
   )
 
   const rolesAndPermissionsTab = (
-    <Row gutter={16}>
+    <Row gutter={16} className={styles.layout}>
       <Col xs={24} lg={7}>
-        <Card title="Roles">
-          <List
-            dataSource={roles}
-            locale={{ emptyText: "No hay roles registrados" }}
-            renderItem={(role) => (
-              <List.Item
-                onClick={() => handleSelectRole(role)}
-                style={{
-                  cursor: "pointer",
-                  padding: "12px",
-                  borderRadius: 8,
-                  background: selectedRoleId === role.id ? "#e6f4ff" : "transparent"
-                }}
-              >
-                <Text strong={selectedRoleId === role.id}>{formatRoleName(role.name)}</Text>
-              </List.Item>
-            )}
-          />
+        <Card
+          className={styles.rolesCard}
+          title={
+            <span className={styles.panelHeader}>
+              <span className={styles.panelHeaderIcon}><TeamOutlined /></span>
+              Roles
+            </span>
+          }
+        >
+          {roles.length === 0 ? (
+            <Empty description="No hay roles registrados" />
+          ) : (
+            <div className={styles.rolesList}>
+              {roles.map((role) => {
+                const active = selectedRoleId === role.id
+                return (
+                  <div
+                    key={role.id}
+                    onClick={() => handleSelectRole(role)}
+                    className={`${styles.roleItem} ${active ? styles.roleItemActive : ""}`}
+                  >
+                    <span className={styles.roleAvatar}>{getRoleInitials(role.name)}</span>
+                    <span className={styles.roleName}>{formatRoleName(role.name)}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </Card>
       </Col>
       <Col xs={24} lg={17}>
         <Card
-          title={selectedRoleName ? `Permisos del rol: ${formatRoleName(selectedRoleName)}` : "Permisos del rol"}
+          className={styles.rolesCard}
+          title={
+            <span className={styles.panelHeader}>
+              <span className={styles.panelHeaderIcon}><KeyOutlined /></span>
+              {selectedRoleName ? `Permisos del rol: ${formatRoleName(selectedRoleName)}` : "Permisos del rol"}
+            </span>
+          }
           extra={
             <Button
               type="primary"
@@ -430,70 +454,70 @@ const PermissionsManagement = () => {
             <Empty description="No hay permisos registrados" />
           ) : (
             <Spin spinning={loadingRolePermissions}>
-              <div style={{ maxHeight: "60vh", overflowY: "auto", paddingRight: 8 }}>
-              <Space direction="vertical" size={16} style={{ width: "100%" }}>
-                {groupedPermissions.map(([category, categoryPermissions]) => (
-                  <Card
-                    key={category}
-                    size="small"
-                    title={category}
-                    extra={
-                      <Space>
-                        <Button
-                          size="small"
-                          disabled={loadingRolePermissions}
-                          onClick={() => handleSelectCategory(categoryPermissions)}
-                        >
-                          Seleccionar todos
-                        </Button>
-                        <Button
-                          size="small"
-                          disabled={loadingRolePermissions}
-                          onClick={() => handleClearCategory(categoryPermissions)}
-                        >
-                          Limpiar categoría
-                        </Button>
-                      </Space>
-                    }
-                  >
-                    <Space direction="vertical">
-                      {categoryPermissions.map((permission) => {
-                        const workflowPermission = WORKFLOW_CATEGORIES.has(category)
-                        const stepNumber = getStepNumberFromPermissionCode(permission.codigo)
-                        const workflowSection = getWorkflowSectionByStep(stepNumber)
+              <div className={styles.permWrapper}>
+                {groupedPermissions.map(([category, categoryPermissions]) => {
+                  const selectedCount = categoryPermissions.filter(
+                    (permission) => selectedPermissionIds.includes(Number(permission.id))
+                  ).length
 
-                        return (
-                          <Checkbox
-                            key={permission.id}
-                            checked={selectedPermissionIds.includes(Number(permission.id))}
+                  return (
+                    <div key={category} className={styles.catCard}>
+                      <div className={styles.catHeader}>
+                        <span className={styles.catTitle}>{category}</span>
+                        <span className={styles.catCount}>{selectedCount}/{categoryPermissions.length}</span>
+                        <div className={styles.catActions}>
+                          <button
+                            type="button"
+                            className={styles.miniBtn}
                             disabled={loadingRolePermissions}
-                            onChange={(event) => handleTogglePermission(permission.id, event.target.checked)}
+                            onClick={() => handleSelectCategory(categoryPermissions)}
                           >
-                            <Space size={8} wrap>
-                              <Text>{permission.nombre}</Text>
-                              {workflowPermission && (
-                                <Tag color={getWorkflowSectionColor(workflowSection)}>
-                                  {workflowSection}
-                                </Tag>
-                              )}
-                            </Space>
-                          </Checkbox>
-                        )
-                      })}
-                    </Space>
-                    <div style={categoryFooterStyle}>
-                      <Button
-                        type="primary"
-                        loading={saving}
-                        disabled={!selectedRoleId || loadingRolePermissions || saving}
-                        onClick={handleSavePermissions}
-                      >
-                        Guardar cambios
-                      </Button>
+                            Todos
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.miniBtn}
+                            disabled={loadingRolePermissions}
+                            onClick={() => handleClearCategory(categoryPermissions)}
+                          >
+                            Limpiar
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className={styles.permList}>
+                        {categoryPermissions.map((permission) => {
+                          const workflowPermission = WORKFLOW_CATEGORIES.has(category)
+                          const stepNumber = getStepNumberFromPermissionCode(permission.codigo)
+                          const workflowSection = getWorkflowSectionByStep(stepNumber)
+                          const checked = selectedPermissionIds.includes(Number(permission.id))
+
+                          return (
+                            <div
+                              key={permission.id}
+                              className={`${styles.permRow} ${checked ? styles.permRowChecked : ""}`}
+                            >
+                              <Checkbox
+                                checked={checked}
+                                disabled={loadingRolePermissions}
+                                onChange={(event) => handleTogglePermission(permission.id, event.target.checked)}
+                              >
+                                <Space size={8} wrap>
+                                  <Text>{permission.nombre}</Text>
+                                  {workflowPermission && (
+                                    <Tag color={getWorkflowSectionColor(workflowSection)}>
+                                      {workflowSection}
+                                    </Tag>
+                                  )}
+                                </Space>
+                              </Checkbox>
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </Card>
-                ))}
-              </Space>
+                  )
+                })}
               </div>
             </Spin>
           )}
