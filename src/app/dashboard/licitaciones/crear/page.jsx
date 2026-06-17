@@ -474,9 +474,9 @@ const CrearLicitacionPage = () => {
 
               <Form.Item
                 name="numeroLicitacion"
-                label="ID Licitación anterior/ MEMO"
+                label="ID contratación Anterior"
               >
-                <Input placeholder="Licitación Anterior/MEMO" />
+                <Input placeholder="ID contratación Anterior" />
               </Form.Item>
 
               <Row gutter={16}>

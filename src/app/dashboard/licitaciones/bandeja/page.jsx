@@ -459,7 +459,7 @@ const BandejaPage = () => {
 
   const columns = [
     {
-      title: "N° Licitación",
+      title: "ID contratación Anterior",
       dataIndex: "numeroLicitacion",
       key: "numeroLicitacion",
       width: 180,
@@ -925,7 +925,7 @@ const BandejaPage = () => {
 
         <div className={styles.filters}>
           <Input
-            placeholder="N° Licitación / MEMO"
+            placeholder="ID contratación Anterior"
             value={filters.numeroLicitacion}
             onChange={(e) => setFilters({ ...filters, numeroLicitacion: e.target.value })}
             style={{ width: 180 }}

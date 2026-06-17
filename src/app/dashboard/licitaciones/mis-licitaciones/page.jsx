@@ -67,7 +67,7 @@ const MisLicitacionesPage = () => {
 
   const columns = [
     {
-      title: "N° Licitación",
+      title: "ID contratación Anterior",
       dataIndex: "numeroLicitacion",
       key: "numeroLicitacion",
       width: 140,

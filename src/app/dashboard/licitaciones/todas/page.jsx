@@ -140,7 +140,7 @@ const TodasLicitacionesPage = () => {
 
   const columns = [
     {
-      title: "N° Licitación",
+      title: "ID contratación Anterior",
       dataIndex: "numeroLicitacion",
       key: "numeroLicitacion",
       width: 140,
@@ -286,9 +286,9 @@ const TodasLicitacionesPage = () => {
           </div>
 
           <div className={styles.filterGroup}>
-            <Text className={styles.filterLabel}>N° de Licitación | MEMO:</Text>
+            <Text className={styles.filterLabel}>ID contratación Anterior:</Text>
             <Input
-              placeholder="Buscar por Número de Licitación o MEMO"
+              placeholder="Buscar por ID contratación Anterior"
               value={filters.numeroLicitacion}
               onChange={(e) => setFilters({ ...filters, numeroLicitacion: e.target.value })}
               style={{ width: 250 }}
