@@ -113,6 +113,24 @@ export const getTratoDirectoPermissionOrder = (permission) => {
   return 999
 }
 
+export const getCompraAgilPermissionOrder = (permission) => {
+  const code = permission.codigo ?? permission.code ?? ""
+
+  if (code === "compra_agil.ver_flujo") return 1
+  if (code === "compra_agil.ver_historial") return 2
+  if (code === "compra_agil.subir_documento") return 3
+  if (code === "compra_agil.ver_documentos") return 4
+  if (code === "compra_agil.editar_codigo_mercado_publico") return 5
+
+  const avanzarMatch = code.match(/^workflow\.compra_agil\.avanzar\.(\d+)$/)
+  if (avanzarMatch) return 100 + Number(avanzarMatch[1])
+
+  const devolverMatch = code.match(/^workflow\.compra_agil\.devolver\.(\d+)$/)
+  if (devolverMatch) return 200 + Number(devolverMatch[1])
+
+  return 999
+}
+
 export const getConvenioMarcoPermissionOrder = (permission) => {
   const code = permission.codigo ?? permission.code ?? ""
 

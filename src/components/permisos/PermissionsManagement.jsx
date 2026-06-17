@@ -27,7 +27,7 @@ import {
   updateRolePermissions,
   updateUserRoles
 } from "@/actions/permisos"
-import { getTratoDirectoPermissionOrder } from "@/lib/permissionCodes"
+import { getTratoDirectoPermissionOrder, getConvenioMarcoPermissionOrder, getCompraAgilPermissionOrder } from "@/lib/permissionCodes"
 
 const { Text, Title } = Typography
 
@@ -46,6 +46,8 @@ const CATEGORY_ORDER = [
   "Workflow - Avanzar",
   "Workflow - Devolver",
   "Trato Directo",
+  "Convenio Marco / Gran Compra",
+  "Compra Agil",
   "Documentos",
   "Usuarios",
   "Gestión Novedades"
@@ -197,6 +199,14 @@ const PermissionsManagement = () => {
 
         if (category === "Trato Directo") {
           return getTratoDirectoPermissionOrder(a) - getTratoDirectoPermissionOrder(b)
+        }
+
+        if (category === "Compra Agil") {
+          return getCompraAgilPermissionOrder(a) - getCompraAgilPermissionOrder(b)
+        }
+
+        if (category === "Convenio Marco / Gran Compra") {
+          return getConvenioMarcoPermissionOrder(a) - getConvenioMarcoPermissionOrder(b)
         }
 
         return a.nombre.localeCompare(b.nombre, "es")
