@@ -8,6 +8,10 @@ export const isConvenioMarcoPermissionTarget = (licitacion) => {
   return getFormatoKey(licitacion) === "convenio_marco"
 }
 
+export const isCompraAgilPermissionTarget = (licitacion) => {
+  return getFormatoKey(licitacion) === "compra_agil"
+}
+
 export const getWorkflowActionPermissionCode = (licitacion, action, numeroPasoActual) => {
   const step = Number(numeroPasoActual)
 
@@ -17,6 +21,10 @@ export const getWorkflowActionPermissionCode = (licitacion, action, numeroPasoAc
 
   if (isConvenioMarcoPermissionTarget(licitacion)) {
     return `workflow.convenio_marco.${action}.${step}`
+  }
+
+  if (isCompraAgilPermissionTarget(licitacion)) {
+    return `workflow.compra_agil.${action}.${step}`
   }
 
   return `workflow.${action}.${step}`

@@ -509,6 +509,14 @@ export const getProcesoActualWorkflowLabel = (licitacion) => {
     return `${visualData.visual} ${titulo}`.trim()
   }
 
+  if (esFormatoCompraAgil(licitacion)) {
+    const numeroPaso = Number(procesoActual.numeroPaso ?? procesoActual.numero_paso)
+    const visualData = getVisualStepCompraAgil(numeroPaso)
+    const titulo = procesoActual.tituloProceso ?? procesoActual.titulo_proceso ?? ""
+
+    return `${visualData.visual} ${titulo}`.trim()
+  }
+
   if (esFormatoLicitacion(licitacion?.formatoLiquidacion?.titulo ?? licitacion?.formato_liquidacion?.titulo)) {
     return getProcesoActualLicitacionLabel(procesoActual)
   }
@@ -611,6 +619,10 @@ export const esFormatoTratoDirecto = (formato) => {
 
 export const esFormatoConvenioMarco = (formato) => {
   return getFormatoKey(formato) === "convenio_marco"
+}
+
+export const esFormatoCompraAgil = (formato) => {
+  return getFormatoKey(formato) === "compra_agil"
 }
 
 const toMontoNumber = (value) => {
@@ -862,6 +874,51 @@ export const getPreviousStepTratoDirecto = (currentStep) => {
   if (step <= 11) return step - 1
 
   return null
+}
+
+// ===== Compra Agil: flujo simple de 4 pasos, sin subpasos ni firmas =====
+export const COMPRA_AGIL_PROCESOS = [
+  { numeroPaso: 1, tituloProceso: "Registro", diasSugeridos: 0 },
+  { numeroPaso: 2, tituloProceso: "Publicacion, Evaluacion", diasSugeridos: 10 },
+  { numeroPaso: 3, tituloProceso: "Presupuesto", diasSugeridos: 2 },
+  { numeroPaso: 4, tituloProceso: "Envio a Proveedor", diasSugeridos: 2 }
+]
+
+export const COMPRA_AGIL_TOTAL_PASOS = 4
+
+// Visual = mismo numero interno (sin subpasos).
+export const getVisualStepCompraAgil = (numeroPasoInterno) => {
+  return { visual: String(Number(numeroPasoInterno)), isSubstep: false, parentVisual: null }
+}
+
+export const getProcesosVisiblesCompraAgil = (procesos) => {
+  const procesosBase = Array.isArray(procesos) ? procesos : []
+
+  return procesosBase.map((proceso) => {
+    const numeroPasoInterno = Number(proceso.numeroPaso ?? proceso.numero_paso)
+    const visualData = getVisualStepCompraAgil(numeroPasoInterno)
+
+    return {
+      ...proceso,
+      numeroPasoInterno,
+      numeroPasoVisual: visualData.visual,
+      isSubstep: false,
+      parentVisual: null,
+      hidden: false
+    }
+  })
+}
+
+export const getNextStepCompraAgil = (currentStep) => {
+  const current = Number(currentStep)
+  if (current >= COMPRA_AGIL_TOTAL_PASOS) return null
+  return current + 1
+}
+
+export const getPreviousStepCompraAgil = (currentStep) => {
+  const current = Number(currentStep)
+  if (current <= 1) return null
+  return current - 1
 }
 
 // Helper para obtener número visual de Licitación basado en numero_paso
@@ -1116,6 +1173,10 @@ export const getNumeroPasoVisual = (proceso, licitacion) => {
     return proceso?.numeroPasoVisual ?? getVisualStepTratoDirecto(numeroPaso).visual
   }
 
+  if (esFormatoCompraAgil(licitacion)) {
+    return proceso?.numeroPasoVisual ?? getVisualStepCompraAgil(numeroPaso).visual
+  }
+
   return getStepLabel(numeroPaso)
 }
 
@@ -1134,6 +1195,10 @@ export const isSubpasoVisual = (proceso, licitacion) => {
       proceso?.isSubstep ??
       getVisualStepTratoDirecto(numeroPaso).isSubstep
     )
+  }
+
+  if (esFormatoCompraAgil(licitacion)) {
+    return false
   }
 
   return isSubpasoVisualLicitacion(numeroPaso)
@@ -1157,6 +1222,10 @@ export const getProcesosVisibles = (procesos, licitacion) => {
 
   if (esFormatoConvenioMarco(licitacion)) {
     return getProcesosVisiblesConvenioMarco(procesosBase, getMontoLicitacion(licitacion))
+  }
+
+  if (esFormatoCompraAgil(licitacion)) {
+    return getProcesosVisiblesCompraAgil(procesosBase)
   }
 
   const flujoPostPaso12 =

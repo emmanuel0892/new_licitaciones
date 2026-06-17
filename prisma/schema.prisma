@@ -67,6 +67,7 @@ model Licitacion {
   requirente           String
   productoServicio     String?               @map("producto_servicio")
   numeroLicitacion     String?               @map("numero_licitacion")
+  nCompraAgil          String?               @map("n_compra_agil")
   vigencia             DateTime?
   nombreLicitacion     String                @map("nombre_licitacion")
   montoPresupuestado   String?               @map("monto_presupuestado")

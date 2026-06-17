@@ -7,7 +7,7 @@ import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { createLicitacionSchema, devolverLicitacionSchema } from "@/lib/validations/licitacion"
-import { esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getDiasSugeridosProceso, getInitialStepConvenioMarco, getMainStepNumero, getNextStep, getNextStepConvenioMarco, getNextStepTratoDirecto, getPreviousStepConvenioMarco, getPreviousStepTratoDirecto, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
+import { esFormatoCompraAgil, esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, FLUJO_LICITACION, FLUJO_LICITACION_AVANCE, getDiasSugeridosProceso, getInitialStepConvenioMarco, getMainStepNumero, getNextStep, getNextStepCompraAgil, getNextStepConvenioMarco, getNextStepTratoDirecto, getPreviousStepCompraAgil, getPreviousStepConvenioMarco, getPreviousStepTratoDirecto, getProcesoActualNumero, MAP_FLUJO_NUEVO_A_NUMERO_PASO_ANTIGUO, MAP_NUMERO_A_PROCESO_LICITACION } from "@/lib/helpers"
 import { getUserPermissionContext, getWorkflowPermissionCode, PERMISSION_CODES, userHasPermission, userHasWorkflowPermission } from "@/lib/permissions"
 import { getHistoryPermissionCode, getWorkflowViewPermissionCode } from "@/lib/permissionCodes"
 import { assertCanAdvanceBySignature, canAdvanceBySignature, getRequiredSignaturesForStep, getSignatureStatusForStep, isSignatureBlocked } from "@/lib/signatures.js"
@@ -521,7 +521,7 @@ export const createLicitacion = async (data) => {
 
 
 
-  const { formatoLiquidacionId, requirente, productoServicio, numeroLicitacion, vigencia, nombreLicitacion, montoPresupuestado } = validatedFields.data
+  const { formatoLiquidacionId, requirente, productoServicio, numeroLicitacion, nCompraAgil, vigencia, nombreLicitacion, montoPresupuestado } = validatedFields.data
 
 
 
@@ -625,6 +625,8 @@ export const createLicitacion = async (data) => {
         productoServicio,
 
         numeroLicitacion: numeroLicitacion === "null" ? null : numeroLicitacion,
+
+        nCompraAgil: nCompraAgil && nCompraAgil !== "null" ? nCompraAgil : null,
 
         vigencia: vigencia && vigencia !== "null" ? new Date(vigencia) : null,
 
@@ -846,6 +848,69 @@ export const avanzarLicitacion = async (id) => {
             procesoOrigen: licitacion.procesoActual.tituloProceso,
             procesoDestino: procesoSiguiente.tituloProceso,
             observacion: "Avance flujo Convenio Marco / Gran Compra",
+            requirente: licitacion.requirente
+          }
+        })
+      ])
+
+      revalidatePath("/dashboard/licitaciones")
+      return { success: true }
+    }
+
+    if (esFormatoCompraAgil(licitacion)) {
+      const nextStep = getNextStepCompraAgil(currentStep)
+
+      if (!nextStep) {
+        await prisma.$transaction([
+          prisma.licitacion.update({
+            where: { id: parseInt(id) },
+            data: { estado: "Finalizada" }
+          }),
+          prisma.historialLicitacion.create({
+            data: {
+              licitacionId: parseInt(id),
+              usuarioId: session.user.id,
+              tipoAccion: "finalizacion",
+              procesoOrigen: licitacion.procesoActual.tituloProceso,
+              procesoDestino: "Finalizada",
+              observacion: "Proceso Compra Agil finalizado",
+              requirente: licitacion.requirente
+            }
+          })
+        ])
+
+        revalidatePath("/dashboard/licitaciones")
+        return { success: true, message: "Proceso Compra Agil finalizado" }
+      }
+
+      const procesoSiguiente = await prisma.procesoLicitacion.findFirst({
+        where: {
+          formatoLiquidacionId: licitacion.formatoLiquidacionId,
+          numeroPaso: nextStep
+        }
+      })
+
+      if (!procesoSiguiente) {
+        return { error: "No se encontro el proceso siguiente de Compra Agil" }
+      }
+
+      await prisma.$transaction([
+        prisma.licitacion.update({
+          where: { id: parseInt(id) },
+          data: {
+            procesoActual: { connect: { id: procesoSiguiente.id } },
+            fechaRecepcion: new Date(),
+            estado: "Pendiente"
+          }
+        }),
+        prisma.historialLicitacion.create({
+          data: {
+            licitacionId: parseInt(id),
+            usuarioId: session.user.id,
+            tipoAccion: "avance",
+            procesoOrigen: licitacion.procesoActual.tituloProceso,
+            procesoDestino: procesoSiguiente.tituloProceso,
+            observacion: "Avance flujo Compra Agil",
             requirente: licitacion.requirente
           }
         })
@@ -1255,6 +1320,51 @@ export const devolverLicitacion = async (data) => {
                 id: procesoAnterior.id
               }
             },
+            fechaRecepcion: new Date(),
+            estado: "Pendiente"
+          }
+        }),
+        prisma.historialLicitacion.create({
+          data: {
+            licitacionId,
+            usuarioId: session.user.id,
+            tipoAccion: "devolucion",
+            procesoOrigen: licitacion.procesoActual.tituloProceso,
+            procesoDestino: procesoAnterior.tituloProceso,
+            observacion,
+            requirente: licitacion.requirente,
+            createdAt: new Date()
+          }
+        })
+      ])
+
+      revalidatePath("/dashboard/licitaciones")
+      return { success: true }
+    }
+
+    if (esFormatoCompraAgil(licitacion)) {
+      const prevStep = getPreviousStepCompraAgil(currentStep)
+
+      if (!prevStep) {
+        return { error: "No se puede devolver, esta en el primer proceso" }
+      }
+
+      const procesoAnterior = await prisma.procesoLicitacion.findFirst({
+        where: {
+          formatoLiquidacionId: licitacion.formatoLiquidacionId,
+          numeroPaso: prevStep
+        }
+      })
+
+      if (!procesoAnterior) {
+        return { error: "No se encontro el proceso anterior de Compra Agil" }
+      }
+
+      await prisma.$transaction([
+        prisma.licitacion.update({
+          where: { id: licitacionId },
+          data: {
+            procesoActual: { connect: { id: procesoAnterior.id } },
             fechaRecepcion: new Date(),
             estado: "Pendiente"
           }

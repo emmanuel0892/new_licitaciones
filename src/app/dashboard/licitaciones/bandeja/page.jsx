@@ -26,7 +26,7 @@ import { useRouter } from "next/navigation"
 import { getLicitaciones, avanzarLicitacion, avanzarLicitacionConInicioAnticipado, avanzarLicitacionConContrato, avanzarLicitacionConAddendum, finalizarLicitacionSinAddendum, getRoles } from "@/actions/licitaciones"
 import { getLicitacionMercadoPublicoBandeja } from "@/actions/mercadoPublicoBandeja"
 import { getUsers } from "@/actions/users"
-import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getInitialStepConvenioMarco, getProcesoActualWorkflowLabel, esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, getFormatoLabel, formatRoleLabel, getSeveridadDiasSugeridos } from "@/lib/helpers"
+import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getInitialStepConvenioMarco, getProcesoActualWorkflowLabel, esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, esFormatoCompraAgil, getFormatoLabel, formatRoleLabel, getSeveridadDiasSugeridos } from "@/lib/helpers"
 import {
   getAdvancePermissionCode,
   getCertificateUploadPermissionCode,
@@ -683,6 +683,7 @@ const BandejaPage = () => {
           (
             (isFirstStep && esFormatoLicitacion(record.formatoLiquidacion.titulo)) ||
             (esFormatoConvenioMarco(record) && currentStep === 7) ||
+            (esFormatoCompraAgil(record) && currentStep === 3) ||
             isTratoDirectoStepFive
           )
         )

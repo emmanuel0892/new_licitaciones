@@ -19,7 +19,7 @@ import {
   getProcesosByFormato
 } from "@/actions/licitaciones"
 import { getAllLicitacionesMPForTable } from "@/actions/mercadoPublico"
-import { formatMoney, getMainStepState, getSubStepState, getNumeroPasoVisual, isSubpasoVisual, getProcesosVisibles } from "@/lib/helpers"
+import { formatMoney, getMainStepState, getSubStepState, getNumeroPasoVisual, isSubpasoVisual, getProcesosVisibles, esFormatoCompraAgil } from "@/lib/helpers"
 import dayjs from "dayjs"
 import styles from "./crear.module.css"
 
@@ -242,6 +242,10 @@ const CrearLicitacionPage = () => {
     }, 500)
   }, [form])
 
+  const esCompraAgilSeleccionada = esFormatoCompraAgil(
+    formatos.find((f) => f.id === selectedFormato)?.titulo
+  )
+
   const handleSubmit = async (values) => {
     setLoading(true)
     setModalVisible(true)
@@ -254,8 +258,9 @@ const CrearLicitacionPage = () => {
       productoServicio: values.productoServicio,
       nombreLicitacion: values.nombreLicitacion,
       numeroLicitacion: values.numeroLicitacion || "null",
-      vigencia: values.vigencia 
-        ? values.vigencia.format("YYYY-MM-DD") 
+      nCompraAgil: values.nCompraAgil || "null",
+      vigencia: values.vigencia
+        ? values.vigencia.format("YYYY-MM-DD")
         : "null",
       montoPresupuestado: values.montoPresupuestado ? String(values.montoPresupuestado) : "null"
     }
@@ -478,6 +483,16 @@ const CrearLicitacionPage = () => {
               >
                 <Input placeholder="ID contratación Anterior" />
               </Form.Item>
+
+              {esCompraAgilSeleccionada && (
+                <Form.Item
+                  name="nCompraAgil"
+                  label="N° de Compra Ágil"
+                  rules={[{ required: true, message: "Ingrese el N° de Compra Ágil" }]}
+                >
+                  <Input placeholder="N° de Compra Ágil" />
+                </Form.Item>
+              )}
 
               <Row gutter={16}>
                 <Col xs={24} md={12}>

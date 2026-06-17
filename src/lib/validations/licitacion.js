@@ -13,6 +13,9 @@ export const createLicitacionSchema = z.object({
   numeroLicitacion: z
     .string()
     .optional(),
+  nCompraAgil: z
+    .string()
+    .optional(),
   vigencia: z
     .string()
     .optional(),

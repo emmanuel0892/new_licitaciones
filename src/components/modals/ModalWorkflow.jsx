@@ -4,7 +4,7 @@ import { useState, useEffect, useImperativeHandle, forwardRef } from "react"
 import { Modal, Typography, Tag, Spin, Table, Button, Row, Col } from "antd"
 import { CheckCircleFilled, ClockCircleFilled, DownOutlined, RightOutlined } from "@ant-design/icons"
 import { getHistorialLicitacion, getLicitacionWorkflowById, getWorkflowProcessesByFormato } from "@/actions/licitaciones"
-import { formatDate, formatMoney, FLUJO_LICITACION, FLUJO_LICITACION_SECUENCIA, FLUJO_LICITACION_AVANCE, esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, getParentStep, getProcesoActualNumero, getMainStepState, getSubStepState, getFormatoLabel, getMainStepNumero, getNumeroPasoVisual, getProcesoActualLabelByNumeroPaso, MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO, getStepLabel, isSubpasoVisual, isSubpasoVisualLicitacion, getDiasSugeridosProceso, getProcesosVisibles as getProcesosVisiblesHelper } from "@/lib/helpers"
+import { formatDate, formatMoney, FLUJO_LICITACION, FLUJO_LICITACION_SECUENCIA, FLUJO_LICITACION_AVANCE, esFormatoCompraAgil, esFormatoConvenioMarco, esFormatoLicitacion, esFormatoTratoDirecto, getParentStep, getProcesoActualNumero, getMainStepState, getSubStepState, getFormatoLabel, getMainStepNumero, getNumeroPasoVisual, getProcesoActualLabelByNumeroPaso, MAP_NUMERO_PASO_ANTIGUO_A_FLUJO_NUEVO, getStepLabel, isSubpasoVisual, isSubpasoVisualLicitacion, getDiasSugeridosProceso, getProcesosVisibles as getProcesosVisiblesHelper } from "@/lib/helpers"
 import "./ModalWorkflow.css"
 
 const { Text, Title } = Typography
@@ -42,7 +42,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
   }
 
   const getProcesosVisibles = () => {
-    if (esFormatoTratoDirecto(licitacion) || esFormatoConvenioMarco(licitacion)) {
+    if (esFormatoTratoDirecto(licitacion) || esFormatoConvenioMarco(licitacion) || esFormatoCompraAgil(licitacion)) {
       return getProcesosVisiblesHelper(procesosFormato, licitacion)
         .sort((a, b) => Number(a.numeroPaso ?? a.numero_paso) - Number(b.numeroPaso ?? b.numero_paso))
     }
@@ -598,7 +598,7 @@ const ModalWorkflow = forwardRef((props, ref) => {
         setLicitacion(licResult.data)
 
         // Si es formato Licitación, cargar procesos desde BD
-        if (esFormatoLicitacion(licResult.data.formatoLiquidacion.titulo) || esFormatoTratoDirecto(licResult.data) || esFormatoConvenioMarco(licResult.data)) {
+        if (esFormatoLicitacion(licResult.data.formatoLiquidacion.titulo) || esFormatoTratoDirecto(licResult.data) || esFormatoConvenioMarco(licResult.data) || esFormatoCompraAgil(licResult.data)) {
           const procesosResult = await getWorkflowProcessesByFormato(licResult.data.formatoLiquidacionId)
           if (procesosResult.data) {
             setProcesosFormato(procesosResult.data)
