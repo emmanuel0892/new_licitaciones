@@ -1034,7 +1034,15 @@ const PASO_PUBLICACION_BASES_LICITACION = 7
 // Dias extra a sumar en Publicacion de Bases segun tipo de licitacion del codigo Mercado Publico.
 const DIAS_EXTRA_PUBLICACION_BASES_POR_TIPO = {
   L1: 5,
-  LR: 30
+  E2: 5,
+  LE: 10,
+  CO: 10,
+  LP: 20,
+  LQ: 20,
+  B2: 20,
+  H2: 20,
+  LR: 30,
+  I2: 30
 }
 
 // Extrae el tipo de licitacion (L1, LE, LP, LQ, LR, ...) del codigo Mercado Publico.
