@@ -1028,20 +1028,49 @@ const DIAS_SUGERIDOS_LICITACION_POR_PRODUCTO = {
   Servicios: DIAS_SUGERIDOS_SERVICIOS_LICITACION
 }
 
+// Paso interno de "Publicacion de Bases" en Licitacion (visual 5).
+const PASO_PUBLICACION_BASES_LICITACION = 7
+
+// Dias extra a sumar en Publicacion de Bases segun tipo de licitacion del codigo Mercado Publico.
+const DIAS_EXTRA_PUBLICACION_BASES_POR_TIPO = {
+  L1: 5,
+  LR: 30
+}
+
+// Extrae el tipo de licitacion (L1, LE, LP, LQ, LR, ...) del codigo Mercado Publico.
+// Ej: "2080-48-LP26" -> "LP". Toma el ultimo segmento y sus 2 primeros caracteres.
+export const getTipoLicitacionMercadoPublico = (codigo) => {
+  if (!codigo) return null
+  const ultimoSegmento = codigo.toString().trim().split("-").pop()
+  if (!ultimoSegmento || ultimoSegmento.length < 2) return null
+  return ultimoSegmento.slice(0, 2).toUpperCase()
+}
+
+export const getDiasExtraPublicacionBases = (licitacion) => {
+  const codigo = licitacion?.codigoMercadoPublico ?? licitacion?.codigo_mercado_publico
+  const tipo = getTipoLicitacionMercadoPublico(codigo)
+  return DIAS_EXTRA_PUBLICACION_BASES_POR_TIPO[tipo] ?? 0
+}
+
 export const getDiasSugeridosProceso = (proceso, licitacion) => {
   const numeroPaso = Number(proceso?.numeroPaso ?? proceso?.numero_paso)
   const productoServicio = licitacion?.productoServicio ?? licitacion?.producto_servicio
   const mapa = DIAS_SUGERIDOS_LICITACION_POR_PRODUCTO[productoServicio]
+  const esLicitacion = esFormatoLicitacion(licitacion?.formatoLiquidacion?.titulo)
 
-  if (
-    esFormatoLicitacion(licitacion?.formatoLiquidacion?.titulo) &&
-    mapa &&
-    Object.prototype.hasOwnProperty.call(mapa, numeroPaso)
-  ) {
-    return mapa[numeroPaso]
+  let dias
+  if (esLicitacion && mapa && Object.prototype.hasOwnProperty.call(mapa, numeroPaso)) {
+    dias = mapa[numeroPaso]
+  } else {
+    dias = proceso?.diasSugeridos ?? proceso?.dias_sugeridos ?? null
   }
 
-  return proceso?.diasSugeridos ?? proceso?.dias_sugeridos ?? null
+  // Suma dias extra en Publicacion de Bases segun tipo MP (L1 +5, LR +30). Solo Licitacion.
+  if (esLicitacion && numeroPaso === PASO_PUBLICACION_BASES_LICITACION && dias !== null && dias !== undefined) {
+    dias = Number(dias) + getDiasExtraPublicacionBases(licitacion)
+  }
+
+  return dias
 }
 
 // Severidad del paso actual segun dias sugeridos vs transcurridos.
