@@ -84,6 +84,17 @@ const getWorkflowSectionColor = (section) => {
   return colors[section] ?? "default"
 }
 
+// Tag de formato (color distinto por categoria) para los workflows no-Licitacion.
+const getCategoryFormatTag = (category) => {
+  const tags = {
+    "Trato Directo": { label: "Trato Directo", color: "volcano" },
+    "Convenio Marco / Gran Compra": { label: "Convenio Marco", color: "magenta" },
+    "Compra Agil": { label: "Compra Ágil", color: "cyan" }
+  }
+
+  return tags[category] ?? null
+}
+
 const formatRoleName = (roleName = "") => {
   return String(roleName)
     .replace(/_/g, " ")
@@ -490,6 +501,7 @@ const PermissionsManagement = () => {
                           const workflowPermission = WORKFLOW_CATEGORIES.has(category)
                           const stepNumber = getStepNumberFromPermissionCode(permission.codigo)
                           const workflowSection = getWorkflowSectionByStep(stepNumber)
+                          const formatTag = getCategoryFormatTag(category)
                           const checked = selectedPermissionIds.includes(Number(permission.id))
 
                           return (
@@ -507,6 +519,11 @@ const PermissionsManagement = () => {
                                   {workflowPermission && (
                                     <Tag color={getWorkflowSectionColor(workflowSection)}>
                                       {workflowSection}
+                                    </Tag>
+                                  )}
+                                  {formatTag && (
+                                    <Tag color={formatTag.color}>
+                                      {formatTag.label}
                                     </Tag>
                                   )}
                                 </Space>
