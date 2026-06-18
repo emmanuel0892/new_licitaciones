@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Badge, Dropdown, Button, Typography, Empty, Tag, Spin } from "antd"
-import { BellOutlined } from "@ant-design/icons"
+import { Badge, Dropdown, Button, Typography, Empty, Tag, Spin, Modal } from "antd"
+import { BellOutlined, WarningOutlined } from "@ant-design/icons"
 import { getAlertasDiasSugeridos } from "@/actions/licitaciones"
 
 const { Text } = Typography
 
 const REFRESH_MS = 5 * 60 * 1000
+const POPUP_FLAG = "alertas-popup-shown"
 
 const severidadColor = {
   vencido: "#e53935",
@@ -20,12 +21,20 @@ const NotificacionesAlertas = () => {
   const router = useRouter()
   const [alertas, setAlertas] = useState([])
   const [loading, setLoading] = useState(false)
+  const [popupOpen, setPopupOpen] = useState(false)
 
-  const cargar = useCallback(async () => {
+  const cargar = useCallback(async (esInicio = false) => {
     setLoading(true)
     try {
       const res = await getAlertasDiasSugeridos()
-      setAlertas(res?.data ?? [])
+      const data = res?.data ?? []
+      setAlertas(data)
+
+      // Pop-up una vez por sesion de login si hay alertas
+      if (esInicio && data.length > 0 && sessionStorage.getItem(POPUP_FLAG) !== "1") {
+        setPopupOpen(true)
+        sessionStorage.setItem(POPUP_FLAG, "1")
+      }
     } catch {
       setAlertas([])
     } finally {
@@ -34,18 +43,21 @@ const NotificacionesAlertas = () => {
   }, [])
 
   useEffect(() => {
-    cargar()
+    cargar(true)
     const id = setInterval(cargar, REFRESH_MS)
     return () => clearInterval(id)
   }, [cargar])
 
   const irALicitacion = (alerta) => {
+    setPopupOpen(false)
     router.push(`/dashboard/licitaciones/bandeja?licitacion=${alerta.licitacionId}`)
     // Evento global: si la bandeja ya esta montada, abre el workflow de inmediato
     window.dispatchEvent(
       new CustomEvent("abrir-workflow-licitacion", { detail: { id: alerta.licitacionId } })
     )
   }
+
+  const vencidas = alertas.filter((a) => a.severidad === "vencido").length
 
   const contenido = (
     <div
@@ -111,16 +123,60 @@ const NotificacionesAlertas = () => {
   )
 
   return (
-    <Dropdown
-      popupRender={() => contenido}
-      trigger={["click"]}
-      placement="bottomRight"
-      onOpenChange={(open) => { if (open) cargar() }}
-    >
-      <Badge count={alertas.length} size="small" offset={[-2, 2]}>
-        <Button type="text" icon={<BellOutlined style={{ fontSize: 18 }} />} />
-      </Badge>
-    </Dropdown>
+    <>
+      <Dropdown
+        popupRender={() => contenido}
+        trigger={["click"]}
+        placement="bottomRight"
+        onOpenChange={(open) => { if (open) cargar() }}
+      >
+        <Badge count={alertas.length} size="small" offset={[-2, 2]}>
+          <Button type="text" icon={<BellOutlined style={{ fontSize: 18 }} />} />
+        </Badge>
+      </Dropdown>
+
+      <Modal
+        open={popupOpen}
+        onCancel={() => setPopupOpen(false)}
+        footer={[
+          <Button key="ok" type="primary" onClick={() => setPopupOpen(false)}>
+            Entendido
+          </Button>
+        ]}
+        title={
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <WarningOutlined style={{ color: "#fa8c16" }} />
+            Tienes {alertas.length} alerta{alertas.length === 1 ? "" : "s"} de plazos
+            {vencidas > 0 ? ` (${vencidas} vencida${vencidas === 1 ? "" : "s"})` : ""}
+          </span>
+        }
+        width={460}
+      >
+        <div style={{ maxHeight: "55vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+          {alertas.map((a) => (
+            <div
+              key={a.licitacionId}
+              onClick={() => irALicitacion(a)}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 8,
+                cursor: "pointer",
+                borderLeft: `4px solid ${severidadColor[a.severidad] ?? "#faad14"}`,
+                background: "#fafafa"
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                <Text strong ellipsis style={{ maxWidth: 280 }}>{a.nombreLicitacion}</Text>
+                <Tag color={severidadColor[a.severidad] ?? "#faad14"} style={{ margin: 0 }}>{a.mensaje}</Tag>
+              </div>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Paso {a.numeroPaso}: {a.pasoActual}
+              </Text>
+            </div>
+          ))}
+        </div>
+      </Modal>
+    </>
   )
 }
 

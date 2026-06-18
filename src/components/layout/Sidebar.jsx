@@ -44,6 +44,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
   }
 
   const handleLogout = async () => {
+    try { sessionStorage.removeItem("alertas-popup-shown") } catch {}
     await logoutAction()
     router.push("/login")
     router.refresh()
