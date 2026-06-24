@@ -416,11 +416,13 @@ const CrearLicitacionPage = () => {
                   showSearch
                   optionFilterProp="children"
                 >
-                  {formatos.map((formato) => (
-                    <Option key={formato.id} value={formato.id}>
-                      {formato.titulo}
-                    </Option>
-                  ))}
+                  {formatos
+                    .filter((formato) => formato.titulo?.trim().toLowerCase() !== "otros trámites")
+                    .map((formato) => (
+                      <Option key={formato.id} value={formato.id}>
+                        {formato.titulo}
+                      </Option>
+                    ))}
                 </Select>
               </Form.Item>
 
