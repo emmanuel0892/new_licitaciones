@@ -45,7 +45,7 @@ const CategoriaCard = ({ titulo, data, color, onEdit, onDelete, canEdit }) => {
                   key="download"
                   type="text"
                   size="small"
-                  icon={<DownloadOutlined style={{ color: "#23aeaa" }} />}
+                  icon={<DownloadOutlined style={{ color: "#93c01f" }} />}
                   onClick={() => handleDownload(item.rutaArchivo, item.nombreArchivo)}
                 />,
                 ...(canEdit ? [
@@ -53,7 +53,7 @@ const CategoriaCard = ({ titulo, data, color, onEdit, onDelete, canEdit }) => {
                     key="edit"
                     type="text"
                     size="small"
-                    icon={<EditOutlined style={{ color: "#23aeaa" }} />}
+                    icon={<EditOutlined style={{ color: "#93c01f" }} />}
                     onClick={() => onEdit(item.id)}
                   />,
                   <Popconfirm

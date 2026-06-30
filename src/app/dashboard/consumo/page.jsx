@@ -209,7 +209,7 @@ const ConsumoPage = () => {
             <Button
               type="text"
               size="small"
-              icon={<EyeOutlined style={{ color: "#23aeaa" }} />}
+              icon={<EyeOutlined style={{ color: "#93c01f" }} />}
               onClick={() => modalDetalleRef.current?.open(record.id)}
             />
           </Tooltip>

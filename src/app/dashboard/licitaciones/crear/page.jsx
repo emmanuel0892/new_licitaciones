@@ -395,7 +395,7 @@ const CrearLicitacionPage = () => {
         <Col xs={24} lg={10}>
           <Card className={styles.card}>
             <Title level={4} style={{ marginBottom: 20 }}>
-              <FileTextOutlined style={{ marginRight: 8, color: "#23aeaa" }} />
+              <FileTextOutlined style={{ marginRight: 8, color: "#93c01f" }} />
               Crear Nuevo Proceso
             </Title>
 
@@ -555,7 +555,7 @@ const CrearLicitacionPage = () => {
                   size="small" 
                   title={
                     <span>
-                      <RightOutlined style={{ color: "#23aeaa", marginRight: 8 }} />
+                      <RightOutlined style={{ color: "#93c01f", marginRight: 8 }} />
                       Flujo: {formatoSeleccionado.titulo}
                     </span>
                   }
@@ -783,9 +783,9 @@ const CrearLicitacionPage = () => {
         className={styles.tableCard}
         title={
           <Space>
-            <ShoppingCartOutlined style={{ color: "#23aeaa" }} />
+            <ShoppingCartOutlined style={{ color: "#93c01f" }} />
             <span>Licitaciones Mercado Público</span>
-            <Badge count={filteredLicitacionesMP.length} style={{ backgroundColor: "#23aeaa" }} />
+            <Badge count={filteredLicitacionesMP.length} style={{ backgroundColor: "#93c01f" }} />
             {searchText && (
               <Text type="secondary" style={{ fontSize: 12 }}>
                 (de {licitacionesMP.length} totales)

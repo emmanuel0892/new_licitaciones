@@ -290,7 +290,7 @@ const ModalNuevaLicitacionMP = forwardRef(({ onSuccess }, ref) => {
                     <strong>Total Adjudicado:</strong>
                   </Table.Summary.Cell>
                   <Table.Summary.Cell index={3} colSpan={3}>
-                    <strong style={{ color: "#23aeaa" }}>
+                    <strong style={{ color: "#93c01f" }}>
                       $ {calcularTotal().toLocaleString("es-CL")}
                     </strong>
                   </Table.Summary.Cell>

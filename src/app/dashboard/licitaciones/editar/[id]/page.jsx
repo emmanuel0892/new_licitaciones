@@ -287,7 +287,7 @@ const EditarLicitacionPage = () => {
             <Card className={styles.card} title={`Flujo: ${config.nombre}`}>
               <Timeline
                 items={config.pasos.map((paso, index) => ({
-                  color: "#23aeaa",
+                  color: "#93c01f",
                   content: (
                     <div className={styles.timelineItem}>
                       <span className={styles.stepNumber}>{index + 1}</span>

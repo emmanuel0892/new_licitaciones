@@ -61,7 +61,7 @@ const VerNovedadPage = () => {
 
       <Card className={styles.card}>
         <div className={styles.meta}>
-          <CalendarOutlined style={{ color: "#23aeaa" }} />
+          <CalendarOutlined style={{ color: "#93c01f" }} />
           <Text type="secondary">{formatDate(novedad.createdAt)}</Text>
         </div>
 

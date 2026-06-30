@@ -216,7 +216,7 @@ const ModalDetalleLicitacionMP = forwardRef(({ onSuccess }, ref) => {
                     <Text strong>Total Adjudicado</Text>
                   </Table.Summary.Cell>
                   <Table.Summary.Cell index={4} align="right">
-                    <Text strong style={{ color: "#23aeaa" }}>
+                    <Text strong style={{ color: "#93c01f" }}>
                       {formatMoney(total)}
                     </Text>
                   </Table.Summary.Cell>
@@ -250,7 +250,7 @@ const ModalDetalleLicitacionMP = forwardRef(({ onSuccess }, ref) => {
                   </Tag>
                 </Space>
               }
-              extra={<Text strong style={{ color: "#23aeaa" }}>{formatMoney(orden.total)}</Text>}
+              extra={<Text strong style={{ color: "#93c01f" }}>{formatMoney(orden.total)}</Text>}
             >
               <Descriptions size="small" column={3}>
                 <Descriptions.Item label="Proveedor">{orden.nombreProveedor}</Descriptions.Item>
@@ -289,7 +289,7 @@ const ModalDetalleLicitacionMP = forwardRef(({ onSuccess }, ref) => {
                           <Text strong>Total:</Text>
                         </Table.Summary.Cell>
                         <Table.Summary.Cell index={4} align="right">
-                          <Text strong style={{ color: "#23aeaa" }}>
+                          <Text strong style={{ color: "#93c01f" }}>
                             {formatMoney(orden.total)}
                           </Text>
                         </Table.Summary.Cell>

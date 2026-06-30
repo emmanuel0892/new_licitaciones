@@ -230,7 +230,7 @@ const TodasLicitacionesPage = () => {
             <Button
               type="text"
               size="small"
-              icon={<EyeOutlined style={{ color: "#23aeaa" }} />}
+              icon={<EyeOutlined style={{ color: "#93c01f" }} />}
               onClick={() => modalWorkflowRef.current?.open(record.id)}
             />
           </Tooltip>
@@ -240,7 +240,7 @@ const TodasLicitacionesPage = () => {
             <Button
               type="text"
               size="small"
-              icon={<EditOutlined style={{ color: "#23aeaa" }} />}
+              icon={<EditOutlined style={{ color: "#93c01f" }} />}
               onClick={() => modalEditarRef.current?.open(record.id)}
             />
           </Tooltip>

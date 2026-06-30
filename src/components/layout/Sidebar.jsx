@@ -199,7 +199,19 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
       >
         <div className={styles.logoContainer}>
           <div onClick={() => router.push("/dashboard")} style={{ cursor: "pointer" }}>
-            <img src="/logoHRR.png" alt="Logo HRR" style={{ width: 220, height: "auto", objectFit: "contain", padding: "20px 0" }} />
+            {collapsed ? (
+              <img
+                src="/logo.png"
+                alt="HRR"
+                className={styles.logoIcon}
+              />
+            ) : (
+              <img
+                src="/logohrr.png"
+                alt="Hospital Dr. Franco Ravera Zunino"
+                className={styles.logoFull}
+              />
+            )}
           </div>
         </div>
 
@@ -227,7 +239,7 @@ const Sidebar = ({ children, permissions = [], isSuperAdmin = false }) => {
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <Space className={styles.userInfo}>
                 <Avatar
-                  style={{ backgroundColor: "#23aeaa" }}
+                  style={{ backgroundColor: "#93c01f" }}
                   icon={<UserOutlined />}
                 />
                 {user && (

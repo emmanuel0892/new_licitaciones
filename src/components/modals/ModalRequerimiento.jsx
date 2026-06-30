@@ -195,7 +195,7 @@ const ModalRequerimiento = forwardRef(({ onSuccess }, ref) => {
                   <Divider>Historial</Divider>
                   <Timeline
                     items={requerimiento.historial.map((h) => ({
-                      color: "#23aeaa",
+                      color: "#93c01f",
                       children: (
                         <div>
                           <Text strong>{h.accion}</Text>

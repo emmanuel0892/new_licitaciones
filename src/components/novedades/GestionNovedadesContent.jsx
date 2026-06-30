@@ -100,7 +100,7 @@ const GestionNovedadesContent = ({
             <Button
               type="text"
               aria-label="Editar novedad"
-              icon={<EditOutlined style={{ color: "#23aeaa" }} />}
+              icon={<EditOutlined style={{ color: "#93c01f" }} />}
               onClick={() => modalRef.current?.open(record.id, "edit")}
             />
           )}

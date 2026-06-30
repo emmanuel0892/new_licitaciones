@@ -1,11 +1,15 @@
 :root {
-  --primary-color: #23aeaa;
-  --primary-hover: #1a8a87;
+  --primary-color: #93c01f;
+  --primary-hover: #7da91a;
+  --primary-active: #6f9417;
+  --primary-soft: rgba(147, 192, 31, 0.1);
+  --primary-soft-hover: rgba(147, 192, 31, 0.16);
+  --accent-teal: #23aeaa;
   --background: #ffffff;
   --foreground: #1f2937;
   --text-secondary: #6B7280;
   --border-color: #e5e7eb;
-  --bg-secondary: #f8fafa;
+  --bg-secondary: #f6f8f1;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -67,20 +71,20 @@ a {
 }
 
 .ant-table-wrapper .ant-table-thead > tr > th {
-  background: #f8fafa !important;
+  background: #f6f8f1 !important;
   font-weight: 600;
 }
 
 .ant-card {
-  border-radius: 12px !important;
+  border-radius: 14px !important;
 }
 
 .ant-btn-primary {
-  box-shadow: 0 2px 4px rgba(35, 174, 170, 0.3);
+  box-shadow: 0 2px 6px rgba(147, 192, 31, 0.3);
 }
 
 .ant-menu-item-selected {
-  background-color: rgba(35, 174, 170, 0.1) !important;
+  background-color: rgba(147, 192, 31, 0.1) !important;
 }
 
 @media (prefers-color-scheme: dark) {

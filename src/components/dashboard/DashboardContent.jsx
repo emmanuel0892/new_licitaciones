@@ -32,7 +32,7 @@ const DashboardContent = ({ user, stats, canCreateLicitacion }) => {
             <Statistic
               title="Total Licitaciones"
               value={stats.totalLicitaciones}
-              prefix={<FileTextOutlined style={{ color: "#23aeaa" }} />}
+              prefix={<FileTextOutlined style={{ color: "#93c01f" }} />}
               styles={{ content: { color: "#1f2937" } }}
             />
           </Card>

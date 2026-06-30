@@ -1,7 +1,7 @@
 /* ===== Permisos & Roles — visual layer ===== */
 
 .layout {
-  --accent: #23aeaa;
+  --accent: #93c01f;
   --accent-soft: #e7f7f6;
   --accent-deep: #178b87;
   --ink: #1f2933;
@@ -87,7 +87,7 @@
 
 .roleItemActive {
   background: var(--accent-soft);
-  border-color: rgba(35, 174, 170, 0.35);
+  border-color: rgba(147, 192, 31, 0.35);
 }
 
 .roleItemActive::before {
@@ -233,7 +233,7 @@
 
 .miniBtn:hover {
   color: var(--accent-deep);
-  border-color: rgba(35, 174, 170, 0.4);
+  border-color: rgba(147, 192, 31, 0.4);
   background: var(--accent-soft);
 }
 

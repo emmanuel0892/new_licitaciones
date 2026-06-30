@@ -105,7 +105,7 @@ const UsuariosPage = () => {
       dataIndex: "typeAccount",
       key: "typeAccount",
       render: (text) => (
-        <Tag color="#23aeaa">{text}</Tag>
+        <Tag color="#93c01f">{text}</Tag>
       )
     },
     {
@@ -134,7 +134,7 @@ const UsuariosPage = () => {
         <Space size="small">
           <Button
             type="text"
-            icon={<EditOutlined style={{ color: "#23aeaa" }} />}
+            icon={<EditOutlined style={{ color: "#93c01f" }} />}
             onClick={() => handleOpenModal(record.id, "edit")}
           />
           <Tooltip title="Subir firma">

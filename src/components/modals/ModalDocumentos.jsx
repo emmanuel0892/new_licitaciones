@@ -180,7 +180,7 @@ const ModalDocumentos = forwardRef(({ onSuccess }, ref) => {
               ].filter(Boolean)}
             >
               <List.Item.Meta
-                avatar={<FileTextOutlined style={{ fontSize: 24, color: "#23aeaa" }} />}
+                avatar={<FileTextOutlined style={{ fontSize: 24, color: "#93c01f" }} />}
                 title={doc.nombreOriginal || doc.nombreArchivo}
                 description={
                   <Space direction="vertical" size={2}>

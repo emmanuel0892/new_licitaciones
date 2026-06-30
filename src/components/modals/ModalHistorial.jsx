@@ -34,7 +34,7 @@ const ModalHistorial = forwardRef((props, ref) => {
       case "devolucion":
         return <ArrowDownOutlined style={{ color: "#e53935" }} />
       case "edicion":
-        return <EditOutlined style={{ color: "#23aeaa" }} />
+        return <EditOutlined style={{ color: "#93c01f" }} />
       default:
         return null
     }
@@ -47,7 +47,7 @@ const ModalHistorial = forwardRef((props, ref) => {
       case "devolucion":
         return "#e53935"
       case "edicion":
-        return "#23aeaa"
+        return "#93c01f"
       default:
         return "#6B7280"
     }
