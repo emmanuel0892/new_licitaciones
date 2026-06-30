@@ -1,36 +1,8 @@
 import { auth } from "@/lib/auth"
-import prisma from "@/lib/prisma"
-import DashboardContent from "@/components/dashboard/DashboardContent"
-import { UnauthorizedAccess } from "@/components/auth/RequirePermissions"
 import { PERMISSION_CODES, userHasPermission } from "@/lib/permissions"
-
-const getStats = async (userId, userType) => {
-  const isSuperAdmin = userType === "Super Admin"
-
-  const [totalLicitaciones, pendientes, finalizadas, enProceso] = await Promise.all([
-    prisma.licitacion.count(isSuperAdmin ? {} : { where: { usuarioId: userId } }),
-    prisma.licitacion.count({
-      where: {
-        estado: "Pendiente",
-        ...(isSuperAdmin ? {} : { usuarioId: userId })
-      }
-    }),
-    prisma.licitacion.count({
-      where: {
-        estado: "Finalizada",
-        ...(isSuperAdmin ? {} : { usuarioId: userId })
-      }
-    }),
-    prisma.licitacion.count({
-      where: {
-        estado: "Devuelto",
-        ...(isSuperAdmin ? {} : { usuarioId: userId })
-      }
-    })
-  ])
-
-  return { totalLicitaciones, pendientes, finalizadas, enProceso }
-}
+import { UnauthorizedAccess } from "@/components/auth/RequirePermissions"
+import { getIndicadoresGestion } from "@/actions/analytics"
+import IndicadoresContent from "@/components/dashboard/IndicadoresContent"
 
 const DashboardPage = async () => {
   const session = await auth()
@@ -42,17 +14,13 @@ const DashboardPage = async () => {
     return <UnauthorizedAccess />
   }
 
-  let stats = { totalLicitaciones: 0, pendientes: 0, finalizadas: 0, enProceso: 0 }
+  const result = await getIndicadoresGestion()
 
-  try {
-    stats = await getStats(user?.id, user?.typeAccount)
-  } catch (error) {
-    console.log("Error al obtener estadísticas:", error)
+  if (result.error) {
+    return <IndicadoresContent data={null} error={result.error} />
   }
 
-  const canCreateLicitacion = await userHasPermission(user?.id, PERMISSION_CODES.LICITACION_CREATE)
-
-  return <DashboardContent user={user} stats={stats} canCreateLicitacion={canCreateLicitacion} />
+  return <IndicadoresContent data={result.data} />
 }
 
 export default DashboardPage

@@ -516,3 +516,29 @@ model roles_permisos {
   @@index([permiso_id], map: "idx_roles_permisos_permiso_id")
   @@index([role_id], map: "idx_roles_permisos_role_id")
 }
+
+// ─── Valor agregado · Fase 1: Notificaciones por correo (aditivo) ───────────
+// Tablas independientes (sin FK hacia modelos existentes) para no alterar nada.
+
+model NotificacionEnviada {
+  id         Int      @id @default(autoincrement())
+  usuarioId  String   @map("usuario_id") @db.VarChar(36)
+  tipo       String   @db.VarChar(30)
+  referencia String   @db.VarChar(150)
+  canal      String   @default("email") @db.VarChar(20)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([usuarioId, tipo, referencia, canal], map: "uq_notificacion_idempotente")
+  @@index([usuarioId], map: "idx_notificacion_usuario")
+  @@map("notificacion_enviada")
+}
+
+model PreferenciaNotificacion {
+  usuarioId       String   @id @map("usuario_id") @db.VarChar(36)
+  emailPlazos     Boolean  @default(true) @map("email_plazos")
+  emailConsumo    Boolean  @default(true) @map("email_consumo")
+  emailAsignacion Boolean  @default(true) @map("email_asignacion")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("preferencia_notificacion")
+}

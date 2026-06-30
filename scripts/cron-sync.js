@@ -13,6 +13,11 @@ const path = require("path")
 // Configuración del intervalo (cada 15 minutos)
 const CRON_SCHEDULE = "*/15 * * * *"
 
+// Valor agregado · Fase 1: notificaciones de plazos por correo (una vez al día, 08:00)
+const NOTIF_SCHEDULE = process.env.NOTIF_CRON_SCHEDULE || "0 8 * * *"
+const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:3000"
+const CRON_SECRET = process.env.CRON_SECRET || ""
+
 console.log("═══════════════════════════════════════════")
 console.log("  CRON Sync Mercado Público - Iniciado")
 console.log("═══════════════════════════════════════════")
@@ -52,8 +57,28 @@ const executeSyncJob = () => {
   })
 }
 
+// Job de notificaciones de plazos: llama al endpoint protegido de la app.
+const executeNotificacionesJob = async () => {
+  try {
+    const res = await fetch(`${APP_BASE_URL}/api/cron/notificaciones-plazos`, {
+      method: "POST",
+      headers: { "x-cron-secret": CRON_SECRET }
+    })
+    const data = await res.json()
+    console.log(`[${new Date().toLocaleString("es-CL")}] Notificaciones:`, JSON.stringify(data))
+  } catch (error) {
+    console.error(`[${new Date().toLocaleString("es-CL")}] Error en notificaciones: ${error.message}`)
+  }
+}
+
 // Programar tarea
 cron.schedule(CRON_SCHEDULE, executeSyncJob, {
+  scheduled: true,
+  timezone: "America/Santiago"
+})
+
+// Programar notificaciones de plazos
+cron.schedule(NOTIF_SCHEDULE, executeNotificacionesJob, {
   scheduled: true,
   timezone: "America/Santiago"
 })
