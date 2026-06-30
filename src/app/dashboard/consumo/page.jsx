@@ -11,6 +11,8 @@ import {
   FileTextOutlined
 } from "@ant-design/icons"
 import { getLicitacionesMP, getRequirentesMPUnicos, syncOrdenesCompraMP } from "@/actions/mercadoPublico"
+import { getProyeccionesConsumo } from "@/actions/proyeccionConsumo"
+import { RIESGO_META } from "@/lib/proyeccionConsumo"
 import { formatMoney, formatDate } from "@/lib/helpers"
 import ModalDetalleLicitacionMP from "@/components/modals/ModalDetalleLicitacionMP"
 import ModalNuevaLicitacionMP from "@/components/modals/ModalNuevaLicitacionMP"
@@ -29,15 +31,18 @@ const ConsumoPage = () => {
     codigo: "",
     alertaActiva: false
   })
+  const [proyecciones, setProyecciones] = useState({})
+  const [proyeccionEnabled, setProyeccionEnabled] = useState(false)
 
   const modalDetalleRef = useRef(null)
   const modalNuevaRef = useRef(null)
 
   const loadData = async () => {
     setLoading(true)
-    const [licResult, reqResult] = await Promise.all([
+    const [licResult, reqResult, proyResult] = await Promise.all([
       getLicitacionesMP(filters),
-      getRequirentesMPUnicos()
+      getRequirentesMPUnicos(),
+      getProyeccionesConsumo()
     ])
 
     if (licResult.data) {
@@ -46,6 +51,11 @@ const ConsumoPage = () => {
 
     if (reqResult.data) {
       setRequirentes(reqResult.data)
+    }
+
+    if (proyResult) {
+      setProyecciones(proyResult.data || {})
+      setProyeccionEnabled(Boolean(proyResult.enabled))
     }
 
     setLoading(false)
@@ -61,9 +71,10 @@ const ConsumoPage = () => {
         alertaActiva: false
       }
 
-      const [licResult, reqResult] = await Promise.all([
+      const [licResult, reqResult, proyResult] = await Promise.all([
         getLicitacionesMP(initialFilters),
-        getRequirentesMPUnicos()
+        getRequirentesMPUnicos(),
+        getProyeccionesConsumo()
       ])
 
       if (ignore) {
@@ -76,6 +87,11 @@ const ConsumoPage = () => {
 
       if (reqResult.data) {
         setRequirentes(reqResult.data)
+      }
+
+      if (proyResult) {
+        setProyecciones(proyResult.data || {})
+        setProyeccionEnabled(Boolean(proyResult.enabled))
       }
 
       setLoading(false)
@@ -198,6 +214,34 @@ const ConsumoPage = () => {
         <Badge count={record._count.ordenesCompra} showZero color="#1890ff" />
       )
     },
+    proyeccionEnabled && {
+      title: "Agotamiento estimado",
+      key: "agotamiento",
+      width: 190,
+      render: (_, record) => {
+        const p = proyecciones[record.id]
+        if (!p || !p.suficiente) {
+          return <Text type="secondary" style={{ fontSize: 12 }}>Datos insuficientes</Text>
+        }
+        const meta = RIESGO_META[p.riesgo] ?? RIESGO_META.ok
+        return (
+          <div>
+            <Tag color={meta.color} style={{ marginBottom: 4 }}>{meta.label}</Tag>
+            {p.riesgo !== "agotado" && (
+              <div>
+                <Text style={{ fontSize: 12 }}>
+                  ~{p.mesesRestantes < 1 ? "<1" : Math.round(p.mesesRestantes)} mes(es) restantes
+                </Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {formatDate(p.fechaAgotamiento)}
+                </Text>
+              </div>
+            )}
+          </div>
+        )
+      }
+    },
     {
       title: "Acciones",
       key: "actions",
@@ -225,7 +269,7 @@ const ConsumoPage = () => {
         </Space>
       )
     }
-  ]
+  ].filter(Boolean)
 
   return (
     <div className={styles.container}>

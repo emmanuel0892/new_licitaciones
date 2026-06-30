@@ -87,7 +87,14 @@ Todas las fases respetan estas reglas para garantizar que **nada de lo actual se
 
 ---
 
-## Fase 3 — Proyección de agotamiento de convenios · ⏳ Pendiente
+## Fase 3 — Proyección de agotamiento de convenios · ✅ Realizado (tras feature flag)
+
+- [x] `src/lib/proyeccionConsumo.js` (cálculo puro: ritmo de consumo → meses restantes, fecha estimada, semáforo de riesgo; "datos insuficientes" cuando no hay historia suficiente)
+- [x] `src/actions/proyeccionConsumo.js` → `getProyeccionesConsumo()` (solo lectura, trae historial de OC sin tocar `getLicitacionesMP`)
+- [x] `consumo/page.jsx`: columna **"Agotamiento estimado"** aditiva (semáforo + meses restantes + fecha), visible solo si el flag está activo
+- [x] Feature flag `FEATURE_PROYECCION_CONSUMO` (apagado por defecto → la vista actual no cambia)
+- [ ] **Opcional:** conectar con Fase 1 para avisar por correo cuando un convenio entra en riesgo
+- [ ] **Para activar:** `FEATURE_PROYECCION_CONSUMO=true` en `.env`
 
 **Objetivo:** anticipar el agotamiento de convenios marco para re-licitar a tiempo y evitar quiebre de stock clínico. Usa `montoConsumido`, `OrdenCompraMP` históricas.
 
@@ -147,7 +154,7 @@ Todas las fases respetan estas reglas para garantizar que **nada de lo actual se
 ```
 Fase 0 (base) ✅
    └─► Fase 1 (correos) ✅ ──┐
-   └─► Fase 2 (KPIs) ✅       ├─►  Fase 3 (proyección) ⏳
+   └─► Fase 2 (KPIs) ✅       ├─►  Fase 3 (proyección) ✅
                              │
                              └─►  Fase 4 (expediente) ⏳ ──► Fase 6 (FirmaGob, viabilidad) ⏳
 
@@ -156,7 +163,7 @@ Fase 5 (ciclo PAC) ❌ fuera de alcance — se gestiona en otra plataforma
 
 **Quick wins (primeras 2 semanas):** Fase 0 → Fase 1 → Fase 2 → ✅ **completadas**. Máximo impacto percibido, riesgo bajo, reutilizan datos y mecanismos ya existentes.
 
-**Siguiente sugerido:** Fase 3 (proyección de agotamiento) o Fase 4 (expediente auditable).
+**Siguiente sugerido:** Fase 4 (expediente auditable exportable).
 
 ## Garantías de no-regresión (todas las fases)
 
