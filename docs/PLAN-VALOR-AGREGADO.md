@@ -111,7 +111,14 @@ Todas las fases respetan estas reglas para garantizar que **nada de lo actual se
 
 ---
 
-## Fase 4 — Expediente auditable exportable (Contraloría) · ⏳ Pendiente
+## Fase 4 — Expediente auditable exportable (Contraloría) · ✅ Realizado
+
+- [x] `src/lib/expedientePdf.js` (generador PDF con `pdf-lib`: encabezado institucional, datos generales, historial, documentos, firmas, pie con fecha y numeración de páginas; paginación automática)
+- [x] `src/actions/exportaciones.js` → `getExpedienteLicitacion(id)` (solo lectura, reúne historial + documentos + firmas + tiempos, devuelve PDF en base64)
+- [x] Botón **"Exportar expediente (PDF)"** por fila en la vista *Todas las Licitaciones* (aditivo, con descarga en cliente)
+- [x] Export **Excel** de listados: ya existía en la vista *Todas* (`handleExportExcel`)
+- [ ] **Opcional:** replicar el botón de expediente en *Mis Licitaciones* y/o el modal de workflow
+- [ ] **Opcional:** embeber las imágenes de firma en el PDF (hoy se listan firmante + fecha)
 
 **Objetivo:** exportar el expediente completo de una licitación (historial + documentos + firmas + tiempos) a un PDF único y listados a Excel. Usa `pdf-lib` y `xlsx` ya instalados.
 
@@ -156,14 +163,14 @@ Fase 0 (base) ✅
    └─► Fase 1 (correos) ✅ ──┐
    └─► Fase 2 (KPIs) ✅       ├─►  Fase 3 (proyección) ✅
                              │
-                             └─►  Fase 4 (expediente) ⏳ ──► Fase 6 (FirmaGob, viabilidad) ⏳
+                             └─►  Fase 4 (expediente) ✅ ──► Fase 6 (FirmaGob, viabilidad) ⏳
 
 Fase 5 (ciclo PAC) ❌ fuera de alcance — se gestiona en otra plataforma
 ```
 
 **Quick wins (primeras 2 semanas):** Fase 0 → Fase 1 → Fase 2 → ✅ **completadas**. Máximo impacto percibido, riesgo bajo, reutilizan datos y mecanismos ya existentes.
 
-**Siguiente sugerido:** Fase 4 (expediente auditable exportable).
+**Siguiente sugerido:** Fase 6 (firma electrónica avanzada — requiere primero validar viabilidad con FirmaGob).
 
 ## Garantías de no-regresión (todas las fases)
 

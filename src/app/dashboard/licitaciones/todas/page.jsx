@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Table, Button, Space, Tag, Typography, Card, App, Input, Select, Tooltip, Popconfirm } from "antd"
-import { SearchOutlined, ReloadOutlined, EyeOutlined, HistoryOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons"
+import { SearchOutlined, ReloadOutlined, EyeOutlined, HistoryOutlined, FileTextOutlined, DownloadOutlined, EditOutlined, DeleteOutlined, FilePdfOutlined } from "@ant-design/icons"
 import { getLicitaciones, deleteLicitacion } from "@/actions/licitaciones"
+import { getExpedienteLicitacion } from "@/actions/exportaciones"
 import { getCurrentAuthorization } from "@/actions/permisos"
 import { getUsers } from "@/actions/users"
 import { formatDate, formatMoney, getEstadoColor, ESTADOS_LICITACION, getProcesoActualWorkflowLabel, getFormatoLabel } from "@/lib/helpers"
@@ -28,6 +29,7 @@ const TodasLicitacionesPage = () => {
     estado: undefined
   })
   const [generatingExcel, setGeneratingExcel] = useState(false)
+  const [exportingId, setExportingId] = useState(null)
 
   const modalHistorialRef = useRef(null)
   const modalWorkflowRef = useRef(null)
@@ -121,6 +123,37 @@ const TodasLicitacionesPage = () => {
 
     setGeneratingExcel(false)
     message.success("Informe generado correctamente")
+  }
+
+  const handleExportExpediente = async (record) => {
+    setExportingId(record.id)
+    try {
+      const res = await getExpedienteLicitacion(record.id)
+      if (res?.error) {
+        message.error(res.error)
+        return
+      }
+
+      const { base64, filename } = res.data
+      const binary = atob(base64)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i)
+      }
+
+      const blob = new Blob([bytes], { type: "application/pdf" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = filename
+      link.click()
+      URL.revokeObjectURL(url)
+      message.success("Expediente generado correctamente")
+    } catch {
+      message.error("No se pudo generar el expediente")
+    } finally {
+      setExportingId(null)
+    }
   }
 
   const handleDelete = async (id) => {
@@ -242,6 +275,16 @@ const TodasLicitacionesPage = () => {
               size="small"
               icon={<EditOutlined style={{ color: "#93c01f" }} />}
               onClick={() => modalEditarRef.current?.open(record.id)}
+            />
+          </Tooltip>
+
+          <Tooltip title="Exportar expediente (PDF)">
+            <Button
+              type="text"
+              size="small"
+              loading={exportingId === record.id}
+              icon={<FilePdfOutlined style={{ color: "#e53935" }} />}
+              onClick={() => handleExportExpediente(record)}
             />
           </Tooltip>
 
