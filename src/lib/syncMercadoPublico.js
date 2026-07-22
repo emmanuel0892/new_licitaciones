@@ -4,6 +4,37 @@ const API_BASE_URL = process.env.MERCADO_PUBLICO_API_URL || "https://api.mercado
 const API_TICKET = process.env.MERCADO_PUBLICO_TICKET
 const CODIGO_ORGANISMO = process.env.MERCADO_PUBLICO_CODIGO_ORGANISMO || "7374"
 
+// Pausa entre consultas de detalle para no gatillar el rate limit de Mercado Público
+const OC_DETALLE_DELAY = 250
+const OC_MAX_REINTENTOS = 3
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Obtiene el detalle de una OC con reintentos ante rate limit / fallos transitorios
+const fetchOCDetalle = async (codigo) => {
+  for (let intento = 1; intento <= OC_MAX_REINTENTOS; intento++) {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/ordenesdecompra.json?codigo=${codigo}&ticket=${API_TICKET}`,
+        { next: { revalidate: 0 } }
+      )
+
+      if (res.status === 429) {
+        await sleep(OC_DETALLE_DELAY * intento * 4)
+        continue
+      }
+
+      if (!res.ok) return null
+
+      const data = await res.json()
+      return data.Listado?.[0] ?? null
+    } catch {
+      await sleep(OC_DETALLE_DELAY * intento)
+    }
+  }
+  return null
+}
+
 // Sincronizar todas las licitaciones adjudicadas del organismo
 export const syncAllLicitacionesMP = async () => {
   if (!API_TICKET) {
@@ -210,7 +241,7 @@ export const syncAllLicitacionesMP = async () => {
 }
 
 // Sincronizar órdenes de compra de una licitación
-const syncOrdenesCompraForLicitacion = async (licitacion) => {
+export const syncOrdenesCompraForLicitacion = async (licitacion) => {
   if (!API_TICKET) return
 
   try {
@@ -227,16 +258,8 @@ const syncOrdenesCompraForLicitacion = async (licitacion) => {
     if (data.Listado) {
       for (const ocResumen of data.Listado) {
         try {
-          // Obtener detalle de la orden
-          const detalleRes = await fetch(
-            `${API_BASE_URL}/ordenesdecompra.json?codigo=${ocResumen.Codigo}&ticket=${API_TICKET}`,
-            { next: { revalidate: 0 } }
-          )
-
-          if (!detalleRes.ok) continue
-
-          const detalleData = await detalleRes.json()
-          const ocData = detalleData.Listado?.[0]
+          // Obtener detalle de la orden (con reintentos ante rate limit)
+          const ocData = await fetchOCDetalle(ocResumen.Codigo)
 
           if (!ocData) continue
 
@@ -343,6 +366,9 @@ const syncOrdenesCompraForLicitacion = async (licitacion) => {
         } catch (err) {
           console.error(`[SYNC] Error en OC ${ocResumen.Codigo}:`, err.message)
         }
+
+        // Pausa entre OC para respetar el rate limit de la API
+        await sleep(OC_DETALLE_DELAY)
       }
     }
 

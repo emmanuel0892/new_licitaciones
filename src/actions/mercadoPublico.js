@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
+import { syncOrdenesCompraForLicitacion } from "@/lib/syncMercadoPublico"
 
 const API_BASE_URL = process.env.MERCADO_PUBLICO_API_URL || "https://api.mercadopublico.cl/servicios/v1/publico"
 const API_TICKET = process.env.MERCADO_PUBLICO_TICKET
@@ -277,176 +278,14 @@ export const syncOrdenesCompraMP = async (licitacionMPId) => {
       return { error: "Licitación no encontrada" }
     }
 
-    // Obtener órdenes de compra desde la API
-    const response = await fetch(
-      `${API_BASE_URL}/ordenesdecompra.json?CodigoLicitacion=${licitacion.codigoExterno}&ticket=${API_TICKET}`
-    )
-
-    if (!response.ok) {
-      return { error: "Error al consultar API de Mercado Público" }
-    }
-
-    const data = await response.json()
-    let totalConsumido = 0
-
-    if (data.Listado) {
-      for (const oc of data.Listado) {
-        // Obtener detalle de la orden
-        const detalleResponse = await fetch(
-          `${API_BASE_URL}/ordenesdecompra.json?codigo=${oc.Codigo}&ticket=${API_TICKET}`
-        )
-        
-        if (!detalleResponse.ok) continue
-
-        const detalleData = await detalleResponse.json()
-        const ocDetalle = detalleData.Listado?.[0]
-
-        if (!ocDetalle) continue
-
-        // Crear o actualizar orden de compra
-        const orden = await prisma.ordenCompraMP.upsert({
-          where: { codigo: oc.Codigo },
-          update: {
-            codigoEstado: ocDetalle.CodigoEstado,
-            estado: ocDetalle.Estado,
-            totalNeto: ocDetalle.TotalNeto || 0,
-            impuestos: ocDetalle.Impuestos || 0,
-            total: ocDetalle.Total || 0,
-            fechaAceptacion: ocDetalle.Fechas?.FechaAceptacion ? new Date(ocDetalle.Fechas.FechaAceptacion) : null
-          },
-          create: {
-            licitacionMPId: licitacion.id,
-            codigo: oc.Codigo,
-            nombre: ocDetalle.Nombre,
-            codigoEstado: ocDetalle.CodigoEstado,
-            estado: ocDetalle.Estado,
-            tipo: ocDetalle.Tipo,
-            totalNeto: ocDetalle.TotalNeto || 0,
-            impuestos: ocDetalle.Impuestos || 0,
-            total: ocDetalle.Total || 0,
-            fechaCreacion: new Date(ocDetalle.Fechas?.FechaCreacion),
-            fechaEnvio: ocDetalle.Fechas?.FechaEnvio ? new Date(ocDetalle.Fechas.FechaEnvio) : null,
-            fechaAceptacion: ocDetalle.Fechas?.FechaAceptacion ? new Date(ocDetalle.Fechas.FechaAceptacion) : null,
-            rutProveedor: ocDetalle.Proveedor?.RutSucursal,
-            nombreProveedor: ocDetalle.Proveedor?.Nombre
-          }
-        })
-
-        // Solo sumar al consumo si está Aceptada (6) o Recepción Conforme (12)
-        if (ocDetalle.CodigoEstado === 6 || ocDetalle.CodigoEstado === 12) {
-          totalConsumido += ocDetalle.Total || 0
-        }
-
-        // Sincronizar items de la orden
-        if (ocDetalle.Items?.Listado) {
-          // Eliminar items anteriores
-          await prisma.itemOrdenCompraMP.deleteMany({
-            where: { ordenCompraId: orden.id }
-          })
-
-          for (const item of ocDetalle.Items.Listado) {
-            await prisma.itemOrdenCompraMP.create({
-              data: {
-                ordenCompraId: orden.id,
-                correlativo: item.Correlativo,
-                codigoCategoria: item.CodigoCategoria,
-                categoria: item.Categoria,
-                codigoProducto: item.CodigoProducto,
-                producto: item.Producto,
-                especificacionComprador: item.EspecificacionComprador,
-                especificacionProveedor: item.EspecificacionProveedor,
-                cantidad: item.Cantidad,
-                unidad: item.Unidad,
-                moneda: item.Moneda || "CLP",
-                precioNeto: item.PrecioNeto,
-                totalDescuentos: item.TotalDescuentos || 0,
-                totalCargos: item.TotalCargos || 0,
-                totalImpuestos: item.TotalImpuestos || 0,
-                total: item.Total
-              }
-            })
-          }
-        }
-      }
-    }
-
-    // Actualizar consumo de la licitación
-    const porcentajeConsumo = licitacion.montoAdjudicado > 0 
-      ? (totalConsumido / licitacion.montoAdjudicado) * 100 
-      : 0
-
-    await prisma.licitacionMP.update({
-      where: { id: licitacion.id },
-      data: {
-        montoConsumido: totalConsumido,
-        porcentajeConsumo
-      }
-    })
-
-    // Verificar y crear alertas
-    await checkAndCreateAlertas(licitacion.id, porcentajeConsumo)
+    // Reutiliza la sincronización unificada (estado=todos + reintentos + consumo/alertas)
+    await syncOrdenesCompraForLicitacion(licitacion)
 
     revalidatePath("/dashboard/consumo")
     return { success: true }
   } catch (error) {
     console.error(error)
     return { error: "Error al sincronizar órdenes de compra" }
-  }
-}
-
-// Verificar y crear alertas de consumo
-const checkAndCreateAlertas = async (licitacionMPId, porcentaje) => {
-  const licitacion = await prisma.licitacionMP.findUnique({
-    where: { id: licitacionMPId }
-  })
-
-  if (!licitacion) return
-
-  const alertas = []
-
-  if (porcentaje >= 50 && !licitacion.alertaEnviada50) {
-    alertas.push({
-      tipo: "warning",
-      porcentaje: 50,
-      mensaje: `La licitación ${licitacion.codigoExterno} ha alcanzado el 50% de consumo. Se recomienda iniciar proceso de relicitación.`
-    })
-    await prisma.licitacionMP.update({
-      where: { id: licitacionMPId },
-      data: { alertaEnviada50: true }
-    })
-  }
-
-  if (porcentaje >= 75 && !licitacion.alertaEnviada75) {
-    alertas.push({
-      tipo: "urgent",
-      porcentaje: 75,
-      mensaje: `La licitación ${licitacion.codigoExterno} ha alcanzado el 75% de consumo. Es urgente iniciar proceso de relicitación.`
-    })
-    await prisma.licitacionMP.update({
-      where: { id: licitacionMPId },
-      data: { alertaEnviada75: true }
-    })
-  }
-
-  if (porcentaje >= 90 && !licitacion.alertaEnviada90) {
-    alertas.push({
-      tipo: "critical",
-      porcentaje: 90,
-      mensaje: `La licitación ${licitacion.codigoExterno} ha alcanzado el 90% de consumo. ¡Acción inmediata requerida!`
-    })
-    await prisma.licitacionMP.update({
-      where: { id: licitacionMPId },
-      data: { alertaEnviada90: true }
-    })
-  }
-
-  for (const alerta of alertas) {
-    await prisma.alertaConsumo.create({
-      data: {
-        licitacionMPId,
-        ...alerta
-      }
-    })
   }
 }
 
